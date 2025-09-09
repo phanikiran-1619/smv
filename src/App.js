@@ -10,6 +10,10 @@ import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import SchoolAdminDashboard from "./pages/SchoolAdminDashboard";
 import StudentMap from "./pages/StudentMap";
 import DummyPage from "./pages/DummyPage";
+import SwipedListPage from "./pages/SwipedListPage";
+import RegistrationPage from "./pages/RegistrationPage";
+import AdminResetPage from "./pages/AdminResetPage";
+import PhotoUploadPage from "./pages/PhotoUploadPage";
 import { Toaster } from "./components/ui/toaster";
 
 function App() {
@@ -31,10 +35,10 @@ function App() {
           <Route path="/student-map" element={<StudentMap />} />
           
           {/* Dummy Pages for Dashboard Items */}
-          <Route path="/swiped-list" element={<DummyPage />} />
-          <Route path="/registration" element={<DummyPage />} />
-          <Route path="/admin-reset" element={<DummyPage />} />
-          <Route path="/photo-upload" element={<DummyPage />} />
+          <Route path="/swiped-list" element={<SwipedListPage />} />
+          <Route path="/registration" element={<RegistrationPage />} />
+          <Route path="/admin-reset" element={<AdminResetPage />} />
+          <Route path="/photo-upload" element={<PhotoUploadPage />} />
           <Route path="/by-route" element={<DummyPage />} />
           <Route path="/all-users" element={<DummyPage />} />
           <Route path="/driver-tracker" element={<DummyPage />} />
