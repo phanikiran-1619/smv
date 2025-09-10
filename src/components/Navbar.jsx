@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Bus, LogOut, Bell } from 'lucide-react';
+import { ArrowLeft, Bus, LogOut, } from 'lucide-react';
 import { Button } from './ui/button';
 import LogoutConfirmDialog from './LogoutConfirmDialog';
 
@@ -10,6 +10,9 @@ const Navbar = ({ showBackButton = false }) => {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   
   const isDashboard = location.pathname.includes('/dashboard');
+  const isHomePage = location.pathname === '/';
+  const isLoginPage = location.pathname === '/login' || location.pathname.includes('/parent') || location.pathname.includes('/admin') || location.pathname.includes('/superadmin');
+  const showLogoutButton = !isHomePage && !isLoginPage;
 
   const handleLogoutClick = () => {
     setShowLogoutDialog(true);
@@ -21,7 +24,7 @@ const Navbar = ({ showBackButton = false }) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-4">
-              {showBackButton && !isDashboard && (
+              {showBackButton && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -43,26 +46,18 @@ const Navbar = ({ showBackButton = false }) => {
               </div>
             </div>
             
-            {/* Right side content */}
-            <div className="flex items-center gap-3">
-              {isDashboard && (
-                <>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-gray-300 hover:text-white p-2"
-                  >
-                    <Bell size={18} />
-                  </Button>
-                  <Button
-                    onClick={handleLogoutClick}
-                    className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
-                  >
-                    Logout
-                  </Button>
-                </>
-              )}
-            </div>
+            {/* Right side content - Only show logout if not on home/login pages */}
+            {showLogoutButton && (
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={handleLogoutClick}
+                  className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
+                >
+                  <LogOut size={16} />
+                  <span>Logout</span>
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </nav>

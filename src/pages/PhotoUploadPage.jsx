@@ -1,14 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+//import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Navbar from '../components/Navbar';
 import { Card } from '../components/ui/card';
-import { Upload, X, ChevronDown, Search, ImageIcon } from 'lucide-react';
+import { Upload, X, ChevronDown, Search } from 'lucide-react';
 
 const PhotoUploadPage = () => {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { username } = location.state || { username: 'Super Admin' };
+  // const location = useLocation();
   const fileInputRef = useRef(null);
   
   const [formData, setFormData] = useState({
@@ -77,35 +75,13 @@ const PhotoUploadPage = () => {
     fetchSchools();
   }, []);
 
-  // Fetch students and routes when schoolId changes
+  // Fetch routes when schoolId changes
   useEffect(() => {
     if (!formData.schoolId) {
-      setStudents([]);
       setRoutes([]);
-      setFormData(prev => ({ ...prev, studentId: '', routeId: '' }));
+      setFormData(prev => ({ ...prev, routeId: '', studentId: '' }));
       return;
     }
-
-    const fetchStudents = async () => {
-      const token = localStorage.getItem('superadmintoken');
-      if (!token) return;
-
-      try {
-        const response = await axios.get(
-          `${process.env.REACT_APP_API_BASE_URL}/student/school?schoolId=${encodeURIComponent(formData.schoolId)}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        setStudents(response.data);
-      } catch (error) {
-        console.error('Error fetching students:', error);
-        setUploadMessage('Failed to load students. Please try again.');
-      }
-    };
 
     const fetchRoutes = async () => {
       const token = localStorage.getItem('superadmintoken');
@@ -133,9 +109,40 @@ const PhotoUploadPage = () => {
       }
     };
 
-    fetchStudents();
     fetchRoutes();
   }, [formData.schoolId]);
+
+  // Fetch students when routeId changes
+  useEffect(() => {
+    if (!formData.routeId) {
+      setStudents([]);
+      setFormData(prev => ({ ...prev, studentId: '' }));
+      return;
+    }
+
+    const fetchStudents = async () => {
+      const token = localStorage.getItem('superadmintoken');
+      if (!token) return;
+
+      try {
+        const response = await axios.get(
+          `${process.env.REACT_APP_API_BASE_URL}/student/route/smid/${encodeURIComponent(formData.routeId)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        setStudents(response.data);
+      } catch (error) {
+        console.error('Error fetching students:', error);
+        setUploadMessage('Failed to load students. Please try again.');
+      }
+    };
+
+    fetchStudents();
+  }, [formData.routeId]);
 
   const validateFileType = (file) => {
     return allowedTypes.includes(file.type);
@@ -258,7 +265,7 @@ const PhotoUploadPage = () => {
     });
 
     try {
-      const response = await axios.post(
+      await axios.post(
         `${process.env.REACT_APP_API_BASE_URL}/images/upload`,
         formDataToSend,
         {
@@ -315,7 +322,8 @@ const PhotoUploadPage = () => {
 
   const filteredStudents = students.filter(student =>
     student.smStudentId.toLowerCase().includes(studentSearch.toLowerCase()) ||
-    student.firstName.toLowerCase().includes(studentSearch.toLowerCase())
+    student.firstName.toLowerCase().includes(studentSearch.toLowerCase()) ||
+    student.lastName.toLowerCase().includes(studentSearch.toLowerCase())
   );
 
   const filteredRoutes = routes.filter(route =>
@@ -412,55 +420,6 @@ const PhotoUploadPage = () => {
                   </div>
                 </div>
 
-                {/* Student Dropdown */}
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">Student</label>
-                  <div className="relative">
-                    <div
-                      className={`w-full bg-slate-700 border ${formErrors.studentId ? 'border-red-500' : 'border-slate-600'} rounded-lg px-4 py-3 text-white cursor-pointer focus:outline-none focus:border-yellow-400 transition-colors ${isStudentOpen ? 'rounded-b-none' : ''}`}
-                      onClick={() => formData.schoolId && setIsStudentOpen(!isStudentOpen)}
-                      style={{ opacity: formData.schoolId ? 1 : 0.6 }}
-                    >
-                      {formData.studentId ? students.find(s => s.smStudentId === formData.studentId)?.firstName || formData.studentId : 'Select a Student'}
-                      <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
-                    </div>
-                    
-                    {isStudentOpen && (
-                      <div className="absolute z-10 w-full bg-slate-700 border border-slate-600 rounded-b-lg shadow-lg mt-1">
-                        <div className="p-2 border-b border-slate-600">
-                          <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                            <input
-                              type="text"
-                              value={studentSearch}
-                              onChange={(e) => setStudentSearch(e.target.value)}
-                              placeholder="Search student..."
-                              className="w-full bg-slate-600 text-white px-8 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                              autoFocus
-                            />
-                          </div>
-                        </div>
-                        <div className="max-h-48 overflow-y-auto">
-                          {filteredStudents.map((student) => (
-                            <div
-                              key={student.smStudentId}
-                              className="px-4 py-2 text-white hover:bg-slate-600 cursor-pointer transition-colors"
-                              onClick={() => {
-                                handleInputChange('studentId', student.smStudentId);
-                                setIsStudentOpen(false);
-                                setStudentSearch('');
-                              }}
-                            >
-                              {student.smStudentId} - {student.firstName}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {formErrors.studentId && <p className="text-red-400 text-sm mt-1">{formErrors.studentId}</p>}
-                  </div>
-                </div>
-
                 {/* Route Dropdown */}
                 <div>
                   <label className="block text-white text-sm font-medium mb-2">Route</label>
@@ -507,6 +466,56 @@ const PhotoUploadPage = () => {
                       </div>
                     )}
                     {formErrors.routeId && <p className="text-red-400 text-sm mt-1">{formErrors.routeId}</p>}
+                  </div>
+                </div>
+
+                {/* Student Dropdown */}
+                <div>
+                  <label className="block text-white text-sm font-medium mb-2">Student</label>
+                  <div className="relative">
+                    <div
+                      className={`w-full bg-slate-700 border ${formErrors.studentId ? 'border-red-500' : 'border-slate-600'} rounded-lg px-4 py-3 text-white cursor-pointer focus:outline-none focus:border-yellow-400 transition-colors ${isStudentOpen ? 'rounded-b-none' : ''}`}
+                      onClick={() => formData.routeId && setIsStudentOpen(!isStudentOpen)}
+                      style={{ opacity: formData.routeId ? 1 : 0.6 }}
+                    >
+                      {formData.studentId ? students.find(s => s.smStudentId === formData.studentId)?.firstName + ' ' + 
+                        (students.find(s => s.smStudentId === formData.studentId)?.lastName || '') || formData.studentId : 'Select a Student'}
+                      <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
+                    </div>
+                    
+                    {isStudentOpen && (
+                      <div className="absolute z-10 w-full bg-slate-700 border border-slate-600 rounded-b-lg shadow-lg mt-1">
+                        <div className="p-2 border-b border-slate-600">
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                            <input
+                              type="text"
+                              value={studentSearch}
+                              onChange={(e) => setStudentSearch(e.target.value)}
+                              placeholder="Search student..."
+                              className="w-full bg-slate-600 text-white px-8 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                              autoFocus
+                            />
+                          </div>
+                        </div>
+                        <div className="max-h-48 overflow-y-auto">
+                          {filteredStudents.map((student) => (
+                            <div
+                              key={student.smStudentId}
+                              className="px-4 py-2 text-white hover:bg-slate-600 cursor-pointer transition-colors"
+                              onClick={() => {
+                                handleInputChange('studentId', student.smStudentId);
+                                setIsStudentOpen(false);
+                                setStudentSearch('');
+                              }}
+                            >
+                              {student.smStudentId} - {student.firstName} {student.lastName}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {formErrors.studentId && <p className="text-red-400 text-sm mt-1">{formErrors.studentId}</p>}
                   </div>
                 </div>
 

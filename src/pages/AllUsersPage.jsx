@@ -134,7 +134,7 @@ const AllUsersPage = () => {
           return (
             item.firstName?.toLowerCase().includes(query) ||
             item.lastName?.toLowerCase().includes(query) ||
-            item.username?.toLowerCase().includes(query) ||
+            item.parentUsername?.toLowerCase().includes(query) ||
             item.smParentId?.toLowerCase().includes(query) ||
             (item.parentFirstName?.toLowerCase().includes(query) || false) ||
             (item.parentLastName?.toLowerCase().includes(query) || false) ||
@@ -231,7 +231,7 @@ const AllUsersPage = () => {
             "Student ID": student.smStudentId,
             "First Name": student.firstName,
             "Last Name": student.lastName,
-            "Username": student.username,
+            "parentUsername": student.parentUsername,
             "SM Parent ID": student.smParentId,
             "Parent First Name": student.parentFirstName || "N/A",
             "Parent Last Name": student.parentLastName || "N/A",
@@ -450,8 +450,8 @@ const AllUsersPage = () => {
                         <TableHead onClick={() => handleSort("lastName")} className="cursor-pointer py-3">
                           Last Name {sortColumn === "lastName" && (sortDirection === "asc" ? "↑" : "↓")}
                         </TableHead>
-                        <TableHead onClick={() => handleSort("username")} className="cursor-pointer py-3">
-                          Username {sortColumn === "username" && (sortDirection === "asc" ? "↑" : "↓")}
+                        <TableHead onClick={() => handleSort("parentUsername")} className="cursor-pointer py-3">
+                          parentUsername {sortColumn === "parentUsername" && (sortDirection === "asc" ? "↑" : "↓")}
                         </TableHead>
                         <TableHead onClick={() => handleSort("smParentId")} className="cursor-pointer py-3">
                           Parent ID {sortColumn === "smParentId" && (sortDirection === "asc" ? "↑" : "↓")}

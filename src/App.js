@@ -15,6 +15,8 @@ import RegistrationPage from "./pages/RegistrationPage";
 import AdminResetPage from "./pages/AdminResetPage";
 import PhotoUploadPage from "./pages/PhotoUploadPage";
 import AllUsersPage from "./pages/AllUsersPage";
+import RouteAssignPage from "./pages/RouteAssignPage";
+import AllRoutesPage from "./pages/AllRoutesPage";
 import StudentRegistrationPage from "./pages/registration/StudentRegistrationPage";
 import DriverRegistrationPage from "./pages/registration/DriverRegistrationPage";
 import ParentRegistrationPage from "./pages/registration/ParentRegistrationPage";
@@ -49,9 +51,10 @@ function App() {
           <Route path="/registration" element={<RegistrationPage />} />
           <Route path="/admin-reset" element={<AdminResetPage />} />
           <Route path="/photo-upload" element={<PhotoUploadPage />} />
-          <Route path="/by-route" element={<DummyPage />} />
+          <Route path="/by-route" element={<AllRoutesPage />} />
           <Route path="/all-users" element={<AllUsersPage />} />
           <Route path="/driver-tracker" element={<DummyPage />} />
+          <Route path="/route-assign" element={<RouteAssignPage />} />
           
           {/* Registration Routes */}
           <Route path="/registration/student" element={<StudentRegistrationPage />} />

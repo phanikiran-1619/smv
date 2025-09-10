@@ -3,7 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { Card } from '../components/ui/card';
 import { 
-  MapPin, Users, Eye, Bell, ChevronRight
+  MapPin, Users, Eye, Bell, 
+  Sparkles
 } from 'lucide-react';
 
 const SchoolAdminDashboard = () => {
@@ -15,33 +16,41 @@ const SchoolAdminDashboard = () => {
   useEffect(() => {
     setTimeout(() => {
       setIsLoading(false);
-    }, 500);
+    }, 300);
   }, []);
 
-  const adminItems = [
+  const primaryActions = [
     {
       title: 'By Route',
-      icon: <MapPin className="w-12 h-12" />,
+      icon: <MapPin className="w-8 h-8" />,
       path: '/by-route',
-      description: 'Manage routes and schedules'
+      description: 'View and manage route assignments',
+      color: 'from-blue-500 to-blue-600',
+      stats: 'Route Management'
     },
     {
       title: 'All Users Data',
-      icon: <Users className="w-12 h-12" />,
+      icon: <Users className="w-8 h-8" />,
       path: '/all-users',
-      description: 'View all user information'
+      description: 'Manage user information and records',
+      color: 'from-green-500 to-green-600',
+      stats: 'User Records'
     },
     {
-      title: 'Driver Tracker',
-      icon: <Eye className="w-12 h-12" />,
-      path: '/driver-tracker',
-      description: 'Track driver locations'
+      title: 'Route Assign',
+      icon: <Eye className="w-8 h-8" />,
+      path: '/route-assign',
+      description: 'Assign routes to drivers and students',
+      color: 'from-orange-500 to-orange-600',
+      stats: 'Route Assignment'
     },
     {
-      title: 'End to End Swipe',
-      icon: <Bell className="w-12 h-12" />,
-      path: '/end-to-end-swipe',
-      description: 'Complete journey tracking'
+      title: 'Swipe List',
+      icon: <Bell className="w-8 h-8" />,
+      path: '/swiped-list',
+      description: 'Complete journey tracking records',
+      color: 'from-purple-500 to-purple-600',
+      stats: 'Swipe Records'
     }
   ];
 
@@ -55,44 +64,73 @@ const SchoolAdminDashboard = () => {
     });
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-yellow-400 mx-auto mb-4"></div>
+          <p className="text-yellow-400 text-lg">Loading Admin Panel...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 text-white">
       <Navbar />
       
       <div className="pt-24 px-4 pb-8">
-        <div className="max-w-6xl mx-auto">
-          {/* Header */}
-          <div className="text-center mb-12">
-            <h1 className="text-4xl sm:text-5xl font-bold text-yellow-400 mb-4">Admin Control Panel</h1>
-            <p className="text-gray-300">Welcome, {username}</p>
+        <div className="max-w-7xl mx-auto">
+          {/* Header Section */}
+          <div className="mb-12">
+            <div className="text-center">
+              <h1 className="text-5xl sm:text-6xl font-bold bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 bg-clip-text text-transparent mb-4 flex items-center justify-center">
+                <Sparkles className="w-12 h-12 text-yellow-400 mr-4 animate-pulse" />
+                Admin Control Panel
+              </h1>
+              <p className="text-gray-300 text-xl">Welcome back, <span className="text-yellow-400 font-semibold">{username}</span></p>
+            </div>
           </div>
 
-          {/* Admin Control Grid */}
-          {isLoading ? (
-            <div className="flex justify-center">
-              <div className="text-yellow-400">Loading admin panel...</div>
+          {/* Primary Actions Grid */}
+          <div className="mb-8">
+            <div className="text-center mb-8">
             </div>
-          ) : (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 max-w-5xl mx-auto">
-              {adminItems.map((item, index) => (
+            
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
+              {primaryActions.map((item, index) => (
                 <Card 
                   key={index}
                   onClick={() => handleCardClick(item.path, item.title)}
-                  className="bg-slate-700/30 border-slate-600 p-8 text-center hover:bg-slate-700/50 transition-all duration-200 cursor-pointer group transform hover:scale-105"
+                  className="bg-slate-800/60 border-slate-700 hover:bg-slate-800/80 hover:border-slate-600 p-8 text-center transition-all duration-300 cursor-pointer group transform hover:scale-105 hover:-translate-y-2 relative overflow-hidden shadow-2xl hover:shadow-3xl"
                 >
-                  <div className="mb-6">
-                    <div className="text-yellow-400 mx-auto group-hover:scale-110 transition-transform duration-200">
-                      {item.icon}
+                  {/* Background Gradient Effect */}
+                  <div className={`absolute inset-0 bg-gradient-to-br ${item.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}></div>
+                  
+                  <div className="relative">
+                    {/* Icon */}
+                    <div className={`inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br ${item.color} mb-6 group-hover:scale-110 transition-transform duration-200 shadow-lg`}>
+                      <div className="text-white">
+                        {item.icon}
+                      </div>
                     </div>
-                  </div>
-                  <h3 className="text-lg font-bold text-white mb-2">{item.title}</h3>
-                  <div className="mt-4">
-                    <ChevronRight className="w-6 h-6 mx-auto text-gray-400 group-hover:text-white transition-colors duration-200" />
+                    
+                    {/* Content */}
+                    <h3 className="text-2xl font-bold text-white mb-3 group-hover:text-yellow-400 transition-colors duration-200">
+                      {item.title}
+                    </h3>
+                    <p className="text-gray-400 text-sm mb-4 leading-relaxed">
+                      {item.description}
+                    </p>
+                    <div className="bg-slate-700/50 rounded-full px-4 py-2 text-sm text-yellow-400 font-medium">
+                      {item.stats}
+                    </div>
                   </div>
                 </Card>
               ))}
             </div>
-          )}
+          </div>
+
         </div>
       </div>
     </div>

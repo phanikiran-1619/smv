@@ -28,7 +28,7 @@ const LoginPage = () => {
       expectedRole: 'PARENT'
     },
     admin: {
-      title: 'School Admin Login',
+      title: 'Transport Admin Login',
       icon: <Shield className="w-5 h-5" />,
       description: 'Manage school bus operations and routes',
       expectedRole: 'ADMIN'
@@ -213,7 +213,7 @@ const LoginPage = () => {
             {/* Children Illustration */}
             <div className="flex justify-center lg:justify-start">
               <img
-                src="https://web-resources.preview.emergentagent.com/children-cartoon.png"
+                src="/students.png"
                 alt="Happy school children"
                 className="max-w-full w-full sm:max-w-md lg:max-w-lg h-auto transform hover:scale-105 transition-transform duration-300"
               />

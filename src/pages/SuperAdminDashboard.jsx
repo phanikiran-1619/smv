@@ -50,8 +50,7 @@ const SuperAdminDashboard = () => {
       path: '/photo-upload',
       description: 'Student media and document management',
       color: 'from-purple-500 to-purple-600',
-      stats: 'Photo Upload',
-      highlighted: true
+      stats: 'Photo Upload'
     }
   ];
 
@@ -103,11 +102,7 @@ const SuperAdminDashboard = () => {
                 <Card 
                   key={index}
                   onClick={() => handleCardClick(item.path, item.title)}
-                  className={`p-8 text-center transition-all duration-300 cursor-pointer group transform hover:scale-105 hover:-translate-y-2 relative overflow-hidden ${
-                    item.highlighted 
-                      ? 'bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border-yellow-500/50 hover:from-yellow-500/30 hover:to-orange-500/30 shadow-yellow-500/20' 
-                      : 'bg-slate-800/60 border-slate-700 hover:bg-slate-800/80 hover:border-slate-600'
-                  } shadow-2xl hover:shadow-3xl`}
+                  className="bg-slate-800/60 border-slate-700 hover:bg-slate-800/80 hover:border-slate-600 p-8 text-center transition-all duration-300 cursor-pointer group transform hover:scale-105 hover:-translate-y-2 relative overflow-hidden shadow-2xl hover:shadow-3xl"
                 >
                   {/* Background Gradient Effect */}
                   <div className={`absolute inset-0 bg-gradient-to-br ${item.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}></div>
@@ -130,18 +125,11 @@ const SuperAdminDashboard = () => {
                     <div className="bg-slate-700/50 rounded-full px-4 py-2 text-sm text-yellow-400 font-medium">
                       {item.stats}
                     </div>
-                    
-                    {item.highlighted && (
-                      <div className="absolute -top-3 -right-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-black text-xs font-bold px-3 py-1 rounded-full shadow-lg animate-pulse">
-                        NEW
-                      </div>
-                    )}
                   </div>
                 </Card>
               ))}
             </div>
           </div>
-
 
         </div>
       </div>

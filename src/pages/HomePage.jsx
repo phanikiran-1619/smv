@@ -20,24 +20,23 @@ const HomePage = () => {
               <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-yellow-500 leading-tight">
                 MANAGEMENT
               </h2>
-              {/* <p className="text-base sm:text-lg text-gray-600 max-w-md mx-auto lg:mx-0">
-                Safe, reliable, and efficient school bus tracking system for modern education
-              </p> */}
             </div>
 
             {/* Children Illustration */}
             <div className="flex justify-center lg:justify-start">
               <img
-                src="https://web-resources.preview.emergentagent.com/children-cartoon.png"
-                alt="Happy school children"
-                className="max-w-full w-full sm:max-w-md lg:max-w-lg h-auto transform hover:scale-105 transition-transform duration-300"
+                src="/students.png"
+                alt="Happy school children cartoon"
+                className="max-w-full w-full sm:max-w-sm lg:max-w-md h-64 object-cover transform hover:scale-105 transition-transform duration-300 rounded-lg shadow-lg"
               />
             </div>
           </div>
 
           {/* Right Side - Login Type Selector */}
           <div className="flex justify-center lg:justify-end">
-            <LoginTypeSelector />
+            <div className="w-full max-w-sm lg:max-w-md">
+              <LoginTypeSelector />
+            </div>
           </div>
         </div>
       </main>
