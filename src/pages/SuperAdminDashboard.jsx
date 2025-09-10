@@ -4,7 +4,7 @@ import Navbar from '../components/Navbar';
 import { Card } from '../components/ui/card';
 import { 
   List, UserCheck, RotateCcw, Upload, 
-  Clock, Sparkles
+  Sparkles
 } from 'lucide-react';
 
 const SuperAdminDashboard = () => {
@@ -12,18 +12,11 @@ const SuperAdminDashboard = () => {
   const navigate = useNavigate();
   const { username } = location.state || { username: 'Super Admin' };
   const [isLoading, setIsLoading] = useState(true);
-  const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-
     setTimeout(() => {
       setIsLoading(false);
-    }, 800);
-
-    return () => clearInterval(timer);
+    }, 300);
   }, []);
 
   const primaryActions = [
@@ -57,7 +50,7 @@ const SuperAdminDashboard = () => {
       path: '/photo-upload',
       description: 'Student media and document management',
       color: 'from-purple-500 to-purple-600',
-      stats: 'Bulk Upload',
+      stats: 'Photo Upload',
       highlighted: true
     }
   ];
@@ -91,38 +84,18 @@ const SuperAdminDashboard = () => {
         <div className="max-w-7xl mx-auto">
           {/* Header Section */}
           <div className="mb-12">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-              <div className="text-center md:text-left">
-                <h1 className="text-5xl sm:text-6xl font-bold bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 bg-clip-text text-transparent mb-4 flex items-center justify-center md:justify-start">
-                  <Sparkles className="w-12 h-12 text-yellow-400 mr-4 animate-pulse" />
-                  Control Hub
-                </h1>
-                <p className="text-gray-300 text-xl">Welcome back, <span className="text-yellow-400 font-semibold">{username}</span></p>
-                <p className="text-gray-400 mt-2">Manage your school bus tracking system efficiently</p>
-              </div>
-              <div className="mt-6 md:mt-0 flex justify-center">
-                <div className="bg-gradient-to-r from-slate-700/60 to-slate-800/60 backdrop-blur-sm rounded-2xl px-6 py-4 border border-slate-600/50 shadow-2xl">
-                  <div className="flex items-center space-x-3">
-                    <Clock className="w-6 h-6 text-yellow-400" />
-                    <div className="text-center">
-                      <div className="text-white font-mono text-lg font-bold">
-                        {currentTime.toLocaleTimeString()}
-                      </div>
-                      <div className="text-gray-400 text-sm">
-                        {currentTime.toLocaleDateString()}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            <div className="text-center">
+              <h1 className="text-5xl sm:text-6xl font-bold bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 bg-clip-text text-transparent mb-4 flex items-center justify-center">
+                <Sparkles className="w-12 h-12 text-yellow-400 mr-4 animate-pulse" />
+                Control Hub
+              </h1>
+              <p className="text-gray-300 text-xl">Welcome back, <span className="text-yellow-400 font-semibold">{username}</span></p>
             </div>
           </div>
 
           {/* Primary Actions Grid */}
           <div className="mb-8">
             <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-white mb-4">Primary Controls</h2>
-              <p className="text-gray-400">Select an option to manage your school bus tracking system</p>
             </div>
             
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
@@ -169,20 +142,7 @@ const SuperAdminDashboard = () => {
             </div>
           </div>
 
-          {/* Welcome Message */}
-          <div className="text-center mt-12">
-            <Card className="bg-gradient-to-r from-slate-800/60 to-slate-700/60 border-slate-600/50 p-8 max-w-4xl mx-auto backdrop-blur-sm">
-              <h3 className="text-2xl font-bold text-yellow-400 mb-4">🚌 School Bus Tracker System</h3>
-              <p className="text-gray-300 text-lg leading-relaxed">
-                Your comprehensive solution for managing student transportation. 
-                Track routes, manage registrations, handle security, and upload student media all from one centralized dashboard.
-              </p>
-              <div className="mt-6 inline-flex items-center space-x-2 bg-yellow-500/10 text-yellow-400 px-4 py-2 rounded-full">
-                <Sparkles className="w-4 h-4" />
-                <span className="text-sm font-medium">System Ready & Optimized</span>
-              </div>
-            </Card>
-          </div>
+
         </div>
       </div>
     </div>

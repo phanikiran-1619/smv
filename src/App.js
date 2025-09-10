@@ -14,6 +14,15 @@ import SwipedListPage from "./pages/SwipedListPage";
 import RegistrationPage from "./pages/RegistrationPage";
 import AdminResetPage from "./pages/AdminResetPage";
 import PhotoUploadPage from "./pages/PhotoUploadPage";
+import AllUsersPage from "./pages/AllUsersPage";
+import StudentRegistrationPage from "./pages/registration/StudentRegistrationPage";
+import DriverRegistrationPage from "./pages/registration/DriverRegistrationPage";
+import ParentRegistrationPage from "./pages/registration/ParentRegistrationPage";
+import AttenderRegistrationPage from "./pages/registration/AttenderRegistrationPage";
+import RouteRegistrationPage from "./pages/registration/RouteRegistrationPage";
+import RoutePointRegistrationPage from "./pages/registration/RoutePointRegistrationPage";
+import SchoolRegistrationPage from "./pages/registration/SchoolRegistrationPage";
+import AdminRegistrationPage from "./pages/registration/AdminRegistrationPage";
 import { Toaster } from "./components/ui/toaster";
 
 function App() {
@@ -36,13 +45,23 @@ function App() {
           
           {/* Dummy Pages for Dashboard Items */}
           <Route path="/swiped-list" element={<SwipedListPage />} />
+          <Route path="/end-to-end-swipe" element={<SwipedListPage />} />
           <Route path="/registration" element={<RegistrationPage />} />
           <Route path="/admin-reset" element={<AdminResetPage />} />
           <Route path="/photo-upload" element={<PhotoUploadPage />} />
           <Route path="/by-route" element={<DummyPage />} />
-          <Route path="/all-users" element={<DummyPage />} />
+          <Route path="/all-users" element={<AllUsersPage />} />
           <Route path="/driver-tracker" element={<DummyPage />} />
-          <Route path="/end-to-end-swipe" element={<DummyPage />} />
+          
+          {/* Registration Routes */}
+          <Route path="/registration/student" element={<StudentRegistrationPage />} />
+          <Route path="/registration/driver" element={<DriverRegistrationPage />} />
+          <Route path="/registration/parent" element={<ParentRegistrationPage />} />
+          <Route path="/registration/attender" element={<AttenderRegistrationPage />} />
+          <Route path="/registration/route" element={<RouteRegistrationPage />} />
+          <Route path="/registration/routepoint" element={<RoutePointRegistrationPage />} />
+          <Route path="/registration/school" element={<SchoolRegistrationPage />} />
+          <Route path="/registration/admin" element={<AdminRegistrationPage />} />
         </Routes>
         <Toaster />
       </BrowserRouter>

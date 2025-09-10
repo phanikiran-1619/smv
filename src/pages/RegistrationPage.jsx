@@ -1,5 +1,5 @@
 import React from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { Card } from '../components/ui/card';
 import { 
@@ -14,16 +14,14 @@ import {
 } from 'react-icons/fa';
 
 const RegistrationPage = () => {
-  const location = useLocation();
   const navigate = useNavigate();
-  const { username } = location.state || { username: 'Super Admin' };
 
   const registrationCategories = [
     {
-      title: 'Students',
+      title: 'Student',
       icon: <FaUserGraduate className="w-12 h-12" />,
       color: 'from-blue-500 to-blue-600',
-      path: '/registration/students'
+      path: '/registration/student'
     },
     {
       title: 'School',
@@ -44,22 +42,22 @@ const RegistrationPage = () => {
       path: '/registration/attender'
     },
     {
-      title: 'Admins',
+      title: 'Admin',
       icon: <FaUserShield className="w-12 h-12" />,
       color: 'from-red-500 to-red-600',
-      path: '/registration/admins'
+      path: '/registration/admin'
     },
     {
-      title: 'Routes',
+      title: 'Route',
       icon: <FaRoute className="w-12 h-12" />,
       color: 'from-indigo-500 to-indigo-600',
-      path: '/registration/routes'
+      path: '/registration/route'
     },
     {
-      title: 'Route-Point',
+      title: 'Route Point',
       icon: <FaMapMarkerAlt className="w-12 h-12" />,
       color: 'from-pink-500 to-pink-600',
-      path: '/registration/route-point'
+      path: '/registration/routepoint'
     },
     {
       title: 'Parent',
@@ -70,9 +68,7 @@ const RegistrationPage = () => {
   ];
 
   const handleCategoryClick = (category) => {
-    // Future navigation to specific registration forms
-    console.log(`Navigating to ${category.title} registration`);
-    // navigate(category.path, { state: { username, category: category.title } });
+    navigate(category.path);
   };
 
   return (
@@ -96,7 +92,6 @@ const RegistrationPage = () => {
                 className="bg-slate-700/40 border-slate-600 hover:border-slate-500 p-8 text-center transition-all duration-300 cursor-pointer group transform hover:scale-105 hover:bg-slate-700/60"
               >
                 <div className="mb-6">
-                  {/* Icon Circle */}
                   <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-slate-600/50 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
                     <div className={`text-white bg-gradient-to-br ${category.color} p-3 rounded-full`}>
                       {category.icon}
@@ -109,30 +104,6 @@ const RegistrationPage = () => {
                 </h3>
               </Card>
             ))}
-          </div>
-
-          {/* Future Data Management Section */}
-          <div className="mt-12 text-center">
-            <Card className="bg-slate-700/30 border-slate-600 p-8">
-              <h2 className="text-2xl font-bold text-yellow-400 mb-4">Data Management Ready</h2>
-              <p className="text-gray-300 mb-4">
-                Each registration category is designed to handle large datasets with advanced features:
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                <div className="bg-slate-600/30 rounded-lg p-4">
-                  <h4 className="font-semibold text-white mb-2">Bulk Operations</h4>
-                  <p className="text-sm text-gray-300">Import/export thousands of records</p>
-                </div>
-                <div className="bg-slate-600/30 rounded-lg p-4">
-                  <h4 className="font-semibold text-white mb-2">Advanced Search</h4>
-                  <p className="text-sm text-gray-300">Filter and sort through large datasets</p>
-                </div>
-                <div className="bg-slate-600/30 rounded-lg p-4">
-                  <h4 className="font-semibold text-white mb-2">Real-time Updates</h4>
-                  <p className="text-sm text-gray-300">Live data synchronization</p>
-                </div>
-              </div>
-            </Card>
           </div>
         </div>
       </div>
