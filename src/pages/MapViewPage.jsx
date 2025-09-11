@@ -1,13 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { GoogleMap, Marker, DirectionsRenderer, useJsApiLoader } from '@react-google-maps/api';
-import { Search, MapPin, Calendar, ChevronDown, Bus, Users, School, Navigation, Clock, Play, Pause, RotateCcw } from 'lucide-react';
+import { Search, MapPin, Calendar, ChevronDown, Bus, Users, School, Navigation, Clock, Play, Pause, RotateCcw, Route } from 'lucide-react';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Calendar as CalendarComponent } from '../components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 import { format } from 'date-fns';
 import Navbar from '../components/Navbar';
 
@@ -22,41 +20,6 @@ const DEFAULT_CENTER = { lat: 18.5204, lng: 73.8567 };
 
 // Libraries for Google Maps
 const libraries = ['places', 'geometry'];
-
-// Mock route data for demonstration when no auth token
-const mockRouteData = [
-  {
-    id: '1',
-    smRouteId: 'RT2F0001',
-    routeName: 'Hoodi → Whitefield',
-    routePoints: [
-      { id: 1, smRoutePointId: '1', routePointName: 'Hoodi Bus Stop', latitude: 12.9716, longitude: 77.5946, seqOrder: 1 },
-      { id: 2, smRoutePointId: '2', routePointName: 'Marathahalli Bridge', latitude: 12.9591, longitude: 77.7017, seqOrder: 2 },
-      { id: 3, smRoutePointId: '3', routePointName: 'Kundalahalli Gate', latitude: 12.9611, longitude: 77.7172, seqOrder: 3 },
-      { id: 4, smRoutePointId: '4', routePointName: 'Whitefield School', latitude: 12.9698, longitude: 77.7499, seqOrder: 4 },
-    ]
-  },
-  {
-    id: '2', 
-    smRouteId: 'RT2F0002',
-    routeName: 'Koramangala → Brigade',
-    routePoints: [
-      { id: 5, smRoutePointId: '5', routePointName: 'Koramangala 5th Block', latitude: 12.9352, longitude: 77.6245, seqOrder: 1 },
-      { id: 6, smRoutePointId: '6', routePointName: 'Sony World Signal', latitude: 12.9298, longitude: 77.6226, seqOrder: 2 },
-      { id: 7, smRoutePointId: '7', routePointName: 'Brigade Road School', latitude: 12.9716, longitude: 77.6197, seqOrder: 3 },
-    ]
-  },
-  {
-    id: '3',
-    smRouteId: 'RT2F0003', 
-    routeName: 'Electronic City → Forum',
-    routePoints: [
-      { id: 8, smRoutePointId: '8', routePointName: 'Electronic City Phase 1', latitude: 12.8456, longitude: 77.6603, seqOrder: 1 },
-      { id: 9, smRoutePointId: '9', routePointName: 'Silk Board Junction', latitude: 12.9165, longitude: 77.6229, seqOrder: 2 },
-      { id: 10, smRoutePointId: '10', routePointName: 'Forum Mall School', latitude: 12.9279, longitude: 77.6271, seqOrder: 3 },
-    ]
-  }
-];
 
 // Route colors for different routes
 const ROUTE_COLORS = [
@@ -82,7 +45,7 @@ const SkeletonPreviewCard = () => (
     <div className="flex justify-between items-center mb-3">
       {[1, 2, 3, 4].map(i => (
         <div key={i} className="flex flex-col items-center">
-          <div className="w-6 h-6 rounded-full bg-slate-700 mb-1"></div>
+          <div className="w-8 h-8 rounded-full bg-slate-700 mb-1"></div>
           <div className="bg-slate-600 rounded h-2 w-12"></div>
         </div>
       ))}
@@ -105,6 +68,7 @@ const MapViewPage = () => {
   const [selectedRoute, setSelectedRoute] = useState(null);
   const [selectedRouteId, setSelectedRouteId] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [filteredRoutes, setFilteredRoutes] = useState([]);
   const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
   const [isLiveMode, setIsLiveMode] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -118,17 +82,19 @@ const MapViewPage = () => {
   const [isHistoricalPlaying, setIsHistoricalPlaying] = useState(false);
   const [showAllRoutes, setShowAllRoutes] = useState(true);
   const [hoveredPoint, setHoveredPoint] = useState(null);
-  const [routePath, setRoutePath] = useState([]);
   const [busMapPosition, setBusMapPosition] = useState(null);
   const [routeDistances, setRouteDistances] = useState([]);
   const [routeTimings, setRouteTimings] = useState([]);
-  const [currentTime, setCurrentTime] = useState('08:30 AM');
+  const [currentTime, setCurrentTime] = useState(new Date());
   const [totalJourneyTime, setTotalJourneyTime] = useState(0);
   const [currentGPSData, setCurrentGPSData] = useState(null);
+  const [routeCompleted, setRouteCompleted] = useState(false);
   
   // Refs
   const mapRef = useRef(null);
   const intervalRef = useRef(null);
+  const timeUpdateRef = useRef(null);
+  const dateInputRef = useRef(null);
 
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
@@ -141,6 +107,20 @@ const MapViewPage = () => {
     const hour = new Date().getHours();
     return hour < 12 ? 'morning' : 'evening';
   }
+
+  // Real-time clock update
+  useEffect(() => {
+    const updateTime = () => {
+      setCurrentTime(new Date());
+    };
+
+    timeUpdateRef.current = setInterval(updateTime, 1000);
+    return () => {
+      if (timeUpdateRef.current) {
+        clearInterval(timeUpdateRef.current);
+      }
+    };
+  }, []);
 
   // Helper functions
   const getAuthToken = () => {
@@ -220,9 +200,14 @@ const MapViewPage = () => {
     return `${displayHours}:${mins.toString().padStart(2, '0')} ${period}`;
   };
 
+  // Format time to display format
+  const formatDisplayTime = (date) => {
+    return format(date, 'HH:mm:ss');
+  };
+
   // Get current time based on bus position
   const getCurrentTimeFromPosition = (position) => {
-    if (!routeTimings.length) return currentTime;
+    if (!routeTimings.length) return formatDisplayTime(currentTime);
     
     const progress = position / 100;
     const totalSegments = routeTimings.length;
@@ -290,18 +275,10 @@ const MapViewPage = () => {
     return historicalData[dataIndex] || null;
   };
 
-  // Fetch routes from API
+  // Fetch routes from API and auto-select all routes
   const fetchRoutes = useCallback(async () => {
     setLoading(true);
     const token = getAuthToken();
-
-    if (!token) {
-      console.log('No auth token found, using mock data');
-      setRoutes(mockRouteData);
-      setError(null);
-      setLoading(false);
-      return;
-    }
 
     try {
       const schoolId = localStorage.getItem('adminSchoolId') || 'SC2F0001';
@@ -312,21 +289,13 @@ const MapViewPage = () => {
 
       const response = await fetch(`${API_BASE_URL}/route/school/${schoolId}`, {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: token ? `Bearer ${token}` : '',
           'Content-Type': 'application/json',
         },
       });
 
       if (!response.ok) {
-        if (response.status === 401) {
-          console.log('Authentication failed, using mock data');
-          setRoutes(mockRouteData);
-          setError(null);
-          setLoading(false);
-          return;
-        }
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Failed to fetch routes: ${response.statusText}`);
+        throw new Error(`Failed to fetch routes: ${response.statusText}`);
       }
 
       const data = await response.json();
@@ -337,14 +306,44 @@ const MapViewPage = () => {
       );
 
       setRoutes(validRoutes);
+      setFilteredRoutes(validRoutes);
+      
+      // Auto-calculate directions for all routes on load and set map center
+      if (validRoutes.length > 0 && isLoaded) {
+        calculateAllDirections(validRoutes);
+        // Set map center to first route's first point
+        const firstRoute = validRoutes[0];
+        if (firstRoute && firstRoute.routePoints && firstRoute.routePoints.length > 0) {
+          const firstPoint = firstRoute.routePoints[0];
+          setMapCenter({
+            lat: parseCoordinate(firstPoint.latitude),
+            lng: parseCoordinate(firstPoint.longitude)
+          });
+        }
+        setShowAllRoutes(true);
+        setSelectedRouteId('all');
+      }
     } catch (error) {
-      console.error('Route fetch error, using mock data:', error);
-      setRoutes(mockRouteData);
-      setError(null);
+      console.error('Route fetch error:', error);
+      setError(error.message);
+      setRoutes([]);
+      setFilteredRoutes([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isLoaded]);
+
+  // Filter routes based on search term
+  useEffect(() => {
+    if (searchTerm.trim() === '') {
+      setFilteredRoutes(routes);
+    } else {
+      const filtered = routes.filter(route =>
+        route.routeName.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredRoutes(filtered);
+    }
+  }, [searchTerm, routes]);
 
   // Fetch historical data
   const fetchHistoricalData = async () => {
@@ -356,20 +355,6 @@ const MapViewPage = () => {
     setHistoricalLoading(true);
     const token = getAuthToken();
     
-    if (!token) {
-      // Mock historical data for demonstration
-      const mockHistoricalData = [
-        { id: 1, latitude: 12.9716, longitude: 77.5946, eventTime: "2025-06-25T08:30:00" },
-        { id: 2, latitude: 12.9591, longitude: 77.7017, eventTime: "2025-06-25T08:45:00" },
-        { id: 3, latitude: 12.9611, longitude: 77.7172, eventTime: "2025-06-25T09:00:00" },
-        { id: 4, latitude: 12.9698, longitude: 77.7499, eventTime: "2025-06-25T09:15:00" },
-      ];
-      setHistoricalData(mockHistoricalData);
-      setBusPosition(0);
-      setHistoricalLoading(false);
-      return;
-    }
-
     try {
       const schoolId = localStorage.getItem('adminSchoolId') || 'SC2F0001';
       const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
@@ -379,7 +364,7 @@ const MapViewPage = () => {
         `${API_BASE_URL}/device-locations?schoolId=${schoolId}&routeId=${selectedRouteId}&date=${formattedDate}&period=${selectedShift}`,
         {
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: token ? `Bearer ${token}` : '',
             'Content-Type': 'application/json',
           },
         }
@@ -392,16 +377,19 @@ const MapViewPage = () => {
       const data = await response.json();
       setHistoricalData(data);
       setBusPosition(0);
+      setRouteCompleted(false);
     } catch (error) {
       console.error('Historical data fetch error:', error);
+      // Mock historical data for demonstration
       const mockHistoricalData = [
-        { id: 1, latitude: 12.9716, longitude: 77.5946, eventTime: "2025-06-25T08:30:00" },
-        { id: 2, latitude: 12.9591, longitude: 77.7017, eventTime: "2025-06-25T08:45:00" },
-        { id: 3, latitude: 12.9611, longitude: 77.7172, eventTime: "2025-06-25T09:00:00" },
-        { id: 4, latitude: 12.9698, longitude: 77.7499, eventTime: "2025-06-25T09:15:00" },
+        { id: 1, latitude: 12.9716, longitude: 77.5946, eventTime: "2025-08-22T08:30:00" },
+        { id: 2, latitude: 12.9591, longitude: 77.7017, eventTime: "2025-08-22T08:45:00" },
+        { id: 3, latitude: 12.9611, longitude: 77.7172, eventTime: "2025-08-22T09:00:00" },
+        { id: 4, latitude: 12.9698, longitude: 77.7499, eventTime: "2025-08-22T09:15:00" },
       ];
       setHistoricalData(mockHistoricalData);
       setBusPosition(0);
+      setRouteCompleted(false);
     } finally {
       setHistoricalLoading(false);
     }
@@ -417,7 +405,8 @@ const MapViewPage = () => {
       setBusMapPosition(null);
       setRouteDistances([]);
       setRouteTimings([]);
-      calculateAllDirections();
+      setRouteCompleted(false);
+      calculateAllDirections(routes);
     } else {
       const route = routes.find(r => (r.smRouteId || r.id) === routeId);
       if (route) {
@@ -425,6 +414,7 @@ const MapViewPage = () => {
         setSelectedRouteId(routeId);
         setShowAllRoutes(false);
         setBusPosition(0);
+        setRouteCompleted(false);
         calculateDirections(route);
         updateMapCenter(route);
         
@@ -434,13 +424,27 @@ const MapViewPage = () => {
         setRouteTimings(metrics.timings);
         setTotalJourneyTime(metrics.timings.length > 0 ? metrics.timings[metrics.timings.length - 1].arrivalTime - (8.5 * 60) : 0);
         
-        // Set initial bus position for live mode
-        if (isLiveMode && route.routePoints && route.routePoints.length > 0) {
-          const firstPoint = route.routePoints[0];
-          setBusMapPosition({
-            lat: parseCoordinate(firstPoint.latitude),
-            lng: parseCoordinate(firstPoint.longitude)
-          });
+        // Set initial bus position based on shift and mode
+        if (route.routePoints && route.routePoints.length > 0) {
+          if (isLiveMode) {
+            if (selectedShift === 'morning') {
+              // Morning: start at first boarding point
+              const firstPoint = route.routePoints.find(p => p.seqOrder === 1) || route.routePoints[0];
+              setBusMapPosition({
+                lat: parseCoordinate(firstPoint.latitude),
+                lng: parseCoordinate(firstPoint.longitude)
+              });
+            } else {
+              // Evening: start at school
+              const schoolPoint = route.routePoints.find(p => p.routePointName.toLowerCase().includes('school'));
+              if (schoolPoint) {
+                setBusMapPosition({
+                  lat: parseCoordinate(schoolPoint.latitude),
+                  lng: parseCoordinate(schoolPoint.longitude)
+                });
+              }
+            }
+          }
         }
       }
     }
@@ -515,10 +519,10 @@ const MapViewPage = () => {
   };
 
   // Calculate directions for all routes
-  const calculateAllDirections = async () => {
-    if (!isLoaded || routes.length === 0) return;
+  const calculateAllDirections = async (routesToProcess = routes) => {
+    if (!isLoaded || routesToProcess.length === 0) return;
 
-    const directionsPromises = routes.map(async (route, index) => {
+    const directionsPromises = routesToProcess.map(async (route, index) => {
       const validPoints = route.routePoints
         .filter((point) => isValidCoordinate(point.latitude) && isValidCoordinate(point.longitude))
         .sort((a, b) => a.seqOrder - b.seqOrder);
@@ -581,9 +585,12 @@ const MapViewPage = () => {
   const handleBusPositionChange = (newPosition) => {
     setBusPosition(newPosition);
     
-    // Update current time based on position
-    const timeFromPosition = getCurrentTimeFromPosition(newPosition);
-    setCurrentTime(timeFromPosition);
+    // Check if route is completed
+    if (newPosition >= 100) {
+      setRouteCompleted(true);
+    } else {
+      setRouteCompleted(false);
+    }
     
     // Find GPS data for current position
     const gpsData = findGPSDataFromPosition(newPosition);
@@ -605,6 +612,15 @@ const MapViewPage = () => {
         if (mapPosition) {
           setBusMapPosition(mapPosition);
         }
+        
+        // For completed route, set bus at destination
+        if (newPosition >= 100 && routePoints.length > 0) {
+          const lastPoint = routePoints[routePoints.length - 1];
+          setBusMapPosition({
+            lat: parseCoordinate(lastPoint.latitude),
+            lng: parseCoordinate(lastPoint.longitude)
+          });
+        }
       }
     }
   };
@@ -615,7 +631,7 @@ const MapViewPage = () => {
       setBusPosition(prev => {
         const newPosition = prev + 0.5;
         if (newPosition > 100) {
-          return 0;
+          return 100;
         }
         handleBusPositionChange(newPosition);
         return newPosition;
@@ -624,10 +640,18 @@ const MapViewPage = () => {
   };
 
   // Handle date change (switch to historical mode)
-  const handleDateChange = (date) => {
-    setSelectedDate(date);
-    if (isLiveMode) {
-      setIsLiveMode(false);
+  const handleDateChange = (event) => {
+    const selectedDateValue = new Date(event.target.value);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    selectedDateValue.setHours(0, 0, 0, 0);
+
+    // Only allow past dates and today
+    if (selectedDateValue <= today) {
+      setSelectedDate(selectedDateValue);
+      if (isLiveMode && selectedDateValue.getTime() !== today.getTime()) {
+        setIsLiveMode(false);
+      }
     }
   };
 
@@ -675,11 +699,6 @@ const MapViewPage = () => {
       .filter(point => isValidCoordinate(point.latitude) && isValidCoordinate(point.longitude));
   };
 
-  // Filter routes based on search term
-  const filteredRoutes = routes.filter(route =>
-    route.routeName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
   // Get distance-based position for route points
   const getDistanceBasedPosition = (index, totalPoints) => {
     if (!routeDistances.length || totalPoints <= 1) {
@@ -696,13 +715,18 @@ const MapViewPage = () => {
     return (cumulativeDistance / totalDistance) * 100;
   };
 
+  // Get today's date for calendar max attribute
+  const getTodayDateString = () => {
+    return format(new Date(), 'yyyy-MM-dd');
+  };
+
   // Effects
   useEffect(() => {
     fetchRoutes();
   }, [fetchRoutes]);
 
   useEffect(() => {
-    if (routes.length > 0) {
+    if (routes.length > 0 && isLoaded) {
       if (showAllRoutes) {
         calculateAllDirections();
       } else if (selectedRoute) {
@@ -740,7 +764,7 @@ const MapViewPage = () => {
   return (
     <div className="h-screen w-screen flex bg-slate-900 text-white overflow-hidden">
       {/* Left Sidebar */}
-      <div className="w-80 bg-slate-800 flex flex-col border-r border-slate-700">
+      <div className="w-80 bg-slate-800 flex flex-col border-r border-slate-700 min-w-80 max-w-80 lg:w-80 md:w-72 sm:w-64">
         <div className="p-4 border-b border-slate-700">
           <Button
             onClick={() => navigate(-1)}
@@ -749,23 +773,24 @@ const MapViewPage = () => {
             ← Back to Dashboard
           </Button>
           
-          {/* Search */}
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input
-              placeholder="Search routes..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 bg-slate-700 border-slate-600 text-white placeholder-gray-400"
-            />
-          </div>
-
-          {/* Routes Dropdown */}
+          {/* Routes Dropdown with integrated search */}
           <Select value={selectedRouteId} onValueChange={handleRouteSelect}>
             <SelectTrigger className="w-full bg-slate-700 border-slate-600 text-white mb-4">
               <SelectValue placeholder="Select Route" />
             </SelectTrigger>
             <SelectContent className="bg-slate-700 border-slate-600">
+              <div className="p-2">
+                <div className="relative mb-2">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    placeholder="Search routes..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 bg-slate-600 border-slate-500 text-white placeholder-gray-400"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+              </div>
               <SelectItem value="all">All Routes</SelectItem>
               {filteredRoutes.map((route) => (
                 <SelectItem key={route.smRouteId || route.id} value={route.smRouteId || route.id}>
@@ -778,25 +803,20 @@ const MapViewPage = () => {
 
         {/* Controls Section */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* Date Selection */}
+          {/* Date Selection with Basic Calendar */}
           <div>
             <label className="text-sm font-medium text-gray-300 block mb-2">Select Date</label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full justify-start bg-slate-700 border-slate-600 text-white hover:bg-slate-600">
-                  <Calendar className="mr-2 h-4 w-4" />
-                  {format(selectedDate, 'dd/MM/yyyy')}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 bg-slate-700 border-slate-600">
-                <CalendarComponent
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={handleDateChange}
-                  className="rounded-md border-0"
-                />
-              </PopoverContent>
-            </Popover>
+            <div className="relative">
+              <input
+                ref={dateInputRef}
+                type="date"
+                value={format(selectedDate, 'yyyy-MM-dd')}
+                max={getTodayDateString()}
+                onChange={handleDateChange}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent pl-10"
+              />
+              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            </div>
           </div>
 
           {/* Historical Controls */}
@@ -829,13 +849,14 @@ const MapViewPage = () => {
                 </div>
               </div>
 
-              {/* Submit Button */}
+              {/* Get Directions Button */}
               <Button
                 onClick={fetchHistoricalData}
                 disabled={historicalLoading || selectedRouteId === 'all'}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center space-x-2"
               >
-                {historicalLoading ? 'Loading...' : 'Get Historical Data'}
+                <Route className="w-4 h-4" />
+                <span>{historicalLoading ? 'Loading...' : 'Get Directions'}</span>
               </Button>
             </>
           )}
@@ -868,16 +889,32 @@ const MapViewPage = () => {
               </div>
             </Card>
           )}
+
+          {/* Current Time Display */}
+          <Card className="p-4 bg-slate-700 border-slate-600">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-300 text-sm">Current Time:</span>
+              <span className="text-yellow-400 font-mono">
+                {formatDisplayTime(currentTime)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between mt-2">
+              <span className="text-gray-300 text-sm">Date:</span>
+              <span className="text-white text-sm">
+                {format(currentTime, 'dd MMM yyyy')}
+              </span>
+            </div>
+          </Card>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Top Controls */}
-        <div className="bg-slate-800 p-4 flex items-center justify-between border-b border-slate-700">
-          <div className="flex items-center space-x-4">
-            <div className="text-2xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
-              {showAllRoutes ? 'ALL ROUTES' : selectedRoute?.routeName || 'PUNE'}
+        <div className="bg-slate-800 p-4 flex items-center justify-between border-b border-slate-700 flex-wrap gap-4">
+          <div className="flex items-center space-x-4 min-w-0">
+            <div className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent truncate">
+              {showAllRoutes ? 'ALL ROUTES' : selectedRoute?.routeName || 'Route View'}
             </div>
             {loading && (
               <div className="text-sm text-gray-400 flex items-center">
@@ -972,11 +1009,11 @@ const MapViewPage = () => {
                       url: isSchool 
                         ? "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24' fill='%23EF4444'%3E%3Cpath d='M12 2L13.09 8.26L22 9L14.5 13.03L17.18 21.02L12 17L6.82 21.02L9.5 13.03L2 9L10.91 8.26L12 2Z'/%3E%3C/svg%3E"
                         : isFirst 
-                        ? "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='%2322C55E'%3E%3Cpath d='M12,11.5A2.5,2.5 0 0,1 9.5,9A2.5,2.5 0 0,1 12,6.5A2.5,2.5 0 0,1 14.5,9A2.5,2.5 0 0,1 12,11.5M12,2A7,7 0 0,0 5,9C5,14.25 12,22 12,22C12,22 19,14.25 19,9A7,7 0 0,0 12,2Z'/%3E%3C/svg%3E"
-                        : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='%23F59E0B'%3E%3Cpath d='M12,11.5A2.5,2.5 0 0,1 9.5,9A2.5,2.5 0 0,1 12,6.5A2.5,2.5 0 0,1 14.5,9A2.5,2.5 0 0,1 12,11.5M12,2A7,7 0 0,0 5,9C5,14.25 12,22 12,22C12,22 19,14.25 19,9A7,7 0 0,0 12,2Z'/%3E%3C/svg%3E",
+                        ? "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24' fill='%2322C55E'%3E%3Ccircle cx='12' cy='12' r='10' stroke='%23ffffff' stroke-width='2'/%3E%3C/svg%3E"
+                        : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='%23F59E0B'%3E%3Ccircle cx='12' cy='12' r='8' stroke='%23ffffff' stroke-width='2'/%3E%3Ctext x='12' y='16' text-anchor='middle' fill='%23ffffff' font-size='8' font-weight='bold'%3E" + (index + 1) + "%3C/text%3E%3C/svg%3E",
                       scaledSize: new window.google.maps.Size(
-                        isSchool ? 32 : isFirst ? 28 : 24, 
-                        isSchool ? 32 : isFirst ? 28 : 24
+                        isSchool ? 32 : isFirst ? 32 : 28, 
+                        isSchool ? 32 : isFirst ? 32 : 28
                       ),
                     }}
                     title={point.routePointName}
@@ -989,7 +1026,9 @@ const MapViewPage = () => {
                 <Marker
                   position={busMapPosition}
                   icon={{
-                    url: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24' fill='%23FACC15'%3E%3Cpath d='M4,16C4,16.88 4.39,17.67 5,18.22V20A1,1 0 0,0 6,21H7A1,1 0 0,0 8,20V19H16V20A1,1 0 0,0 17,21H18A1,1 0 0,0 19,20V18.22C19.61,17.67 20,16.88 20,16V6C20,2.5 16.42,2 12,2C7.58,2 4,2.5 4,6V16M6.5,17A1.5,1.5 0 0,1 5,15.5A1.5,1.5 0 0,1 6.5,14A1.5,1.5 0 0,1 8,15.5A1.5,1.5 0 0,1 6.5,17M17.5,17A1.5,1.5 0 0,1 16,15.5A1.5,1.5 0 0,1 17.5,14A1.5,1.5 0 0,1 19,15.5A1.5,1.5 0 0,1 17.5,17M6,13V6H18V13H6Z'/%3E%3C/svg%3E",
+                    url: routeCompleted 
+                      ? "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24' fill='%2322C55E'%3E%3Cpath d='M4,16C4,16.88 4.39,17.67 5,18.22V20A1,1 0 0,0 6,21H7A1,1 0 0,0 8,20V19H16V20A1,1 0 0,0 17,21H18A1,1 0 0,0 19,20V18.22C19.61,17.67 20,16.88 20,16V6C20,2.5 16.42,2 12,2C7.58,2 4,2.5 4,6V16M6.5,17A1.5,1.5 0 0,1 5,15.5A1.5,1.5 0 0,1 6.5,14A1.5,1.5 0 0,1 8,15.5A1.5,1.5 0 0,1 6.5,17M17.5,17A1.5,1.5 0 0,1 16,15.5A1.5,1.5 0 0,1 17.5,14A1.5,1.5 0 0,1 19,15.5A1.5,1.5 0 0,1 17.5,17M6,13V6H18V13H6Z'/%3E%3C/svg%3E"
+                      : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24' fill='%23FACC15'%3E%3Cpath d='M4,16C4,16.88 4.39,17.67 5,18.22V20A1,1 0 0,0 6,21H7A1,1 0 0,0 8,20V19H16V20A1,1 0 0,0 17,21H18A1,1 0 0,0 19,20V18.22C19.61,17.67 20,16.88 20,16V6C20,2.5 16.42,2 12,2C7.58,2 4,2.5 4,6V16M6.5,17A1.5,1.5 0 0,1 5,15.5A1.5,1.5 0 0,1 6.5,14A1.5,1.5 0 0,1 8,15.5A1.5,1.5 0 0,1 6.5,17M17.5,17A1.5,1.5 0 0,1 16,15.5A1.5,1.5 0 0,1 17.5,14A1.5,1.5 0 0,1 19,15.5A1.5,1.5 0 0,1 17.5,17M6,13V6H18V13H6Z'/%3E%3C/svg%3E",
                     scaledSize: new window.google.maps.Size(40, 40),
                   }}
                   animation={isLiveMode ? window.google.maps.Animation.BOUNCE : null}
@@ -1004,41 +1043,53 @@ const MapViewPage = () => {
               {loading ? (
                 <SkeletonPreviewCard />
               ) : (
-                <Card className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-slate-600 shadow-2xl backdrop-blur-sm">
-                  <div className="p-5">
-                    {/* Enhanced Header */}
-                    <div className="flex items-center justify-between mb-4">
+                <Card className="bg-white shadow-2xl rounded-lg border">
+                  <div className="p-6">
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-6">
                       <div className="flex items-center space-x-3">
-                        <Clock className="w-5 h-5 text-yellow-400" />
-                        <div className="text-sm text-gray-300">
-                          {format(selectedDate, 'EEE, MMM d')} • <span className="text-yellow-400 font-medium">{currentTime}</span>
+                        <Clock className="w-5 h-5 text-blue-600" />
+                        <div className="text-sm text-gray-600">
+                          {format(isLiveMode ? currentTime : selectedDate, 'EEE, MMM d')} • 
+                          <span className="text-blue-600 font-medium ml-1">
+                            {isLiveMode ? formatDisplayTime(currentTime) : getCurrentTimeFromPosition(busPosition)}
+                          </span>
                         </div>
-                        {!isLiveMode && totalJourneyTime > 0 && (
-                          <div className="text-sm text-blue-400">
-                            • Total: {Math.round(totalJourneyTime)} mins
-                          </div>
-                        )}
                       </div>
                       <div className={`px-3 py-1 rounded-full text-sm font-semibold ${
                         selectedShift === 'morning' 
-                          ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' 
-                          : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                          ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' 
+                          : 'bg-purple-100 text-purple-800 border border-purple-200'
                       }`}>
                         {selectedShift === 'morning' ? 'Morning Shift' : 'Evening Shift'}
+                        {routeCompleted && !isLiveMode && (
+                          <span className="ml-2 text-green-600">✓ Completed</span>
+                        )}
                       </div>
                     </div>
 
                     {/* Route Title */}
-                    <div className="text-center mb-5">
-                      <div className="text-xl font-bold text-white flex items-center justify-center">
-                        <MapPin className="w-6 h-6 mr-2 text-yellow-400" />
+                    <div className="text-center mb-6">
+                      <div className="text-xl font-bold text-gray-800 flex items-center justify-center">
+                        <MapPin className="w-6 h-6 mr-2 text-blue-600" />
                         {routeDisplayInfo.start} → {routeDisplayInfo.end}
                       </div>
                     </div>
 
-                    {/* Enhanced Route Progress */}
-                    <div className="relative mb-5">
-                      <div className="flex justify-between items-center relative" style={{ minHeight: '80px' }}>
+                    {/* Route Progress */}
+                    <div className="relative mb-6">
+                      {/* Progress Line */}
+                      <div className="absolute top-6 left-0 right-0 h-1 bg-gray-200 rounded-full mx-8">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-300 ${
+                            routeCompleted ? 'bg-green-500' : 'bg-blue-500'
+                          }`}
+                          style={{ width: `${isLiveMode ? 0 : busPosition}%` }}
+                        ></div>
+                      </div>
+
+                      {/* Route Points */}
+                      <div className="flex justify-between items-center relative" style={{ minHeight: '100px' }}>
                         {displayPoints.map((point, index) => {
                           const progress = isLiveMode ? 0 : (busPosition / 100) * (displayPoints.length - 1);
                           const isActive = !isLiveMode && index <= progress;
@@ -1046,13 +1097,7 @@ const MapViewPage = () => {
                           const isFirst = index === 0;
                           const isLast = index === displayPoints.length - 1;
                           
-                          // Calculate position based on distance
                           const positionPercent = getDistanceBasedPosition(index, displayPoints.length);
-                          
-                          // Get timing info for hover
-                          const timingInfo = routeTimings[index - 1];
-                          const arrivalTime = timingInfo ? formatTime(timingInfo.arrivalTime) : null;
-                          const travelTime = timingInfo ? timingInfo.segmentTime : null;
 
                           return (
                             <div
@@ -1062,49 +1107,53 @@ const MapViewPage = () => {
                               onMouseEnter={() => setHoveredPoint(point)}
                               onMouseLeave={() => setHoveredPoint(null)}
                             >
-                              {/* Route Point Number (Above Line) */}
-                              <div className={`relative w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 mb-2 transition-all duration-200 ${
+                              {/* Circle Point */}
+                              <div className={`relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold border-2 mb-3 transition-all duration-200 shadow-lg ${
                                 isCurrent 
-                                  ? 'bg-yellow-500 text-black border-yellow-400 scale-110 shadow-lg shadow-yellow-500/50' 
+                                  ? 'bg-blue-500 text-white border-blue-400 scale-110 animate-pulse' 
+                                  : routeCompleted
+                                  ? 'bg-green-500 text-white border-green-400'
                                   : isActive 
                                   ? 'bg-blue-500 text-white border-blue-400' 
                                   : isFirst
                                   ? 'bg-green-500 text-white border-green-400'
-                                  : isLast
+                                  : isLast && selectedShift === 'morning'
                                   ? 'bg-red-500 text-white border-red-400'
-                                  : 'bg-gray-600 text-gray-300 border-gray-500'
+                                  : 'bg-gray-300 text-gray-600 border-gray-400'
                               }`}>
                                 {isFirst && selectedShift === 'morning' ? (
-                                  <div className="w-4 h-4 rounded-full bg-green-200"></div>
-                                ) : isLast && selectedShift === 'morning' ? (
-                                  <School className="w-4 h-4" />
-                                ) : isFirst && selectedShift === 'evening' ? (
-                                  <School className="w-4 h-4" />
+                                  <div className="w-4 h-4 rounded-full bg-white"></div>
+                                ) : (isLast && selectedShift === 'morning') || (isFirst && selectedShift === 'evening') ? (
+                                  <School className="w-5 h-5" />
                                 ) : (
                                   point.displayOrder
                                 )}
                               </div>
 
-                              {/* Route Point Name (Below Line) */}
-                              <div className="text-xs text-gray-400 text-center mt-3 max-w-24 leading-tight font-medium">
+                              {/* Point Name */}
+                              <div className="text-xs text-gray-600 text-center max-w-20 leading-tight font-medium">
                                 {point.routePointName}
                               </div>
 
-                              {/* Enhanced Hover Tooltip */}
+                              {/* Hover Tooltip */}
                               {hoveredPoint && hoveredPoint.id === point.id && (
-                                <div className="absolute bottom-full mb-3 px-3 py-2 bg-black bg-opacity-95 text-white text-xs rounded-lg shadow-xl whitespace-nowrap z-20 border border-gray-600">
-                                  <div className="font-bold text-yellow-400">{point.routePointName}</div>
-                                  {arrivalTime && (
-                                    <div className="text-green-400 mt-1">
-                                      {index === 0 ? `Started at ${arrivalTime}` : `Reached at ${arrivalTime}`}
+                                <div className="absolute bottom-full mb-3 px-4 py-3 bg-gray-800 text-white text-xs rounded-lg shadow-xl whitespace-nowrap z-20 min-w-48">
+                                  <div className="font-bold text-blue-400 mb-1">{point.routePointName}</div>
+                                  
+                                  {/* Show times from API if available */}
+                                  {!isLiveMode && routeTimings[index - 1] && (
+                                    <div className="text-green-400 mb-1">
+                                      {index === 0 ? `Started at ${formatTime(8.5 * 60)}` : `Reached: ${formatTime(routeTimings[index - 1].arrivalTime)}`}
                                     </div>
                                   )}
-                                  {travelTime && index > 0 && (
-                                    <div className="text-blue-400">
-                                      Travel time: {travelTime} mins
+                                  
+                                  {routeCompleted && (
+                                    <div className="text-green-400">
+                                      Journey Completed ✓
                                     </div>
                                   )}
-                                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-black border-opacity-95"></div>
+                                  
+                                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
                                 </div>
                               )}
                             </div>
@@ -1112,31 +1161,25 @@ const MapViewPage = () => {
                         })}
                       </div>
 
-                      {/* Enhanced Progress Line */}
-                      <div className="absolute top-4 left-0 right-0 h-1 bg-gray-600 rounded-full mx-4">
-                        <div 
-                          className="h-full bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500 rounded-full transition-all duration-300 shadow-lg"
-                          style={{ width: `${isLiveMode ? 0 : busPosition}%` }}
-                        ></div>
-                      </div>
-
-                      {/* Enhanced Bus Icon */}
+                      {/* Bus Icon */}
                       {!isLiveMode && (
                         <div 
                           className="absolute top-2 transition-all duration-300 z-10"
                           style={{ 
-                            left: `calc(${busPosition}% - 12px)`,
+                            left: `calc(${busPosition}% - 20px)`,
                             transform: 'translateY(-50%)'
                           }}
                         >
-                          <div className="bg-gradient-to-r from-yellow-400 to-orange-500 p-2 rounded-full shadow-xl hover:shadow-2xl transition-shadow animate-pulse border-2 border-white">
-                            <Bus className="w-4 h-4 text-black" />
+                          <div className={`p-3 rounded-full shadow-xl transition-all border-2 border-white ${
+                            routeCompleted ? 'bg-green-500' : 'bg-blue-500 animate-bounce'
+                          }`}>
+                            <Bus className="w-5 h-5 text-white" />
                           </div>
                         </div>
                       )}
                     </div>
 
-                    {/* Progress Slider and Controls */}
+                    {/* Controls for Historical Mode */}
                     {!isLiveMode && (
                       <div className="space-y-4">
                         <div>
@@ -1146,7 +1189,7 @@ const MapViewPage = () => {
                             max="100"
                             value={busPosition}
                             onChange={(e) => handleBusPositionChange(parseInt(e.target.value))}
-                            className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer slider"
+                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
                           />
                         </div>
                         
@@ -1155,7 +1198,7 @@ const MapViewPage = () => {
                             <Button
                               onClick={() => setIsHistoricalPlaying(!isHistoricalPlaying)}
                               size="sm"
-                              className="bg-blue-600 hover:bg-blue-700 flex items-center space-x-2 px-4 py-2"
+                              className="bg-blue-600 hover:bg-blue-700 flex items-center space-x-2 px-4 py-2 text-white"
                               disabled={historicalData.length === 0}
                             >
                               {isHistoricalPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
@@ -1165,27 +1208,28 @@ const MapViewPage = () => {
                               onClick={() => {
                                 setBusPosition(0);
                                 setIsHistoricalPlaying(false);
+                                setRouteCompleted(false);
                                 handleBusPositionChange(0);
                               }}
                               size="sm"
                               variant="outline"
-                              className="border-slate-600 text-white hover:bg-slate-700 flex items-center space-x-2 px-4 py-2"
+                              className="border-gray-300 text-gray-700 hover:bg-gray-100 flex items-center space-x-2 px-4 py-2"
                             >
                               <RotateCcw className="w-4 h-4" />
                               <span className="text-sm">Reset</span>
                             </Button>
                           </div>
                           
-                          <div className="flex items-center space-x-4 text-sm">
-                            {currentGPSData && (
-                              <div className="text-green-400">
-                                GPS: {parseFloat(currentGPSData.latitude).toFixed(4)}, {parseFloat(currentGPSData.longitude).toFixed(4)}
+                          <div className="flex items-center space-x-4 text-sm text-gray-600">
+                            {historicalLoading && (
+                              <div className="text-blue-600 flex items-center">
+                                <div className="animate-spin rounded-full h-4 w-4 border-b border-blue-600 mr-2"></div>
+                                Loading...
                               </div>
                             )}
-                            {historicalLoading && (
-                              <div className="text-yellow-400 flex items-center">
-                                <div className="animate-spin rounded-full h-4 w-4 border-b border-yellow-400 mr-2"></div>
-                                Loading...
+                            {routeCompleted && (
+                              <div className="text-green-600 flex items-center">
+                                <span>✓ Route Completed</span>
                               </div>
                             )}
                           </div>
@@ -1196,9 +1240,9 @@ const MapViewPage = () => {
                     {/* Live Mode Status */}
                     {isLiveMode && (
                       <div className="text-center">
-                        <div className="text-sm text-green-400 flex items-center justify-center">
-                          <div className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></div>
-                          Live tracking active • {currentTime}
+                        <div className="text-sm text-green-600 flex items-center justify-center">
+                          <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+                          Live tracking mode • {formatDisplayTime(currentTime)}
                         </div>
                       </div>
                     )}
@@ -1211,12 +1255,26 @@ const MapViewPage = () => {
           {/* All Routes Message */}
           {showAllRoutes && (
             <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
-              <Card className="bg-slate-800 border-slate-600 p-4">
+              <Card className="bg-white shadow-lg border p-6">
                 <div className="text-center">
-                  <div className="text-lg font-semibold text-white mb-2">All Routes View</div>
-                  <div className="text-sm text-gray-300">
-                    Showing all {routes.length} routes on the map. Select a specific route for detailed tracking.
+                  <div className="text-lg font-semibold text-gray-800 mb-2">All Routes View</div>
+                  <div className="text-sm text-gray-600 mb-2">
+                    Displaying all {routes.length} routes on the map.
                   </div>
+                  <div className="text-xs text-blue-600">
+                    Select a specific route for detailed tracking and journey progress.
+                  </div>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* Error Message */}
+          {error && (
+            <div className="absolute top-4 right-4 max-w-md">
+              <Card className="bg-red-100 border-red-300 p-4">
+                <div className="text-red-800 text-sm">
+                  <strong>Error:</strong> {error}
                 </div>
               </Card>
             </div>
@@ -1231,9 +1289,9 @@ const MapViewPage = () => {
           width: 20px;
           height: 20px;
           border-radius: 50%;
-          background: linear-gradient(45deg, #FACC15, #F59E0B);
+          background: linear-gradient(45deg, #3B82F6, #1E40AF);
           cursor: pointer;
-          box-shadow: 0 0 12px rgba(250, 204, 21, 0.6);
+          box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
           border: 2px solid white;
         }
         
@@ -1241,10 +1299,22 @@ const MapViewPage = () => {
           width: 20px;
           height: 20px;
           border-radius: 50%;
-          background: linear-gradient(45deg, #FACC15, #F59E0B);
+          background: linear-gradient(45deg, #3B82F6, #1E40AF);
           cursor: pointer;
           border: 2px solid white;
-          box-shadow: 0 0 12px rgba(250, 204, 21, 0.6);
+          box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+        }
+
+        @media (max-width: 768px) {
+          .w-80 {
+            width: 16rem;
+          }
+        }
+        
+        @media (max-width: 640px) {
+          .w-80 {
+            width: 12rem;
+          }
         }
       `}</style>
     </div>

@@ -231,7 +231,7 @@ const AllUsersPage = () => {
             "Student ID": student.smStudentId,
             "First Name": student.firstName,
             "Last Name": student.lastName,
-            "parentUsername": student.parentUsername,
+            "Parent Username": student.parentUsername,
             "SM Parent ID": student.smParentId,
             "Parent First Name": student.parentFirstName || "N/A",
             "Parent Last Name": student.parentLastName || "N/A",
@@ -451,7 +451,7 @@ const AllUsersPage = () => {
                           Last Name {sortColumn === "lastName" && (sortDirection === "asc" ? "↑" : "↓")}
                         </TableHead>
                         <TableHead onClick={() => handleSort("parentUsername")} className="cursor-pointer py-3">
-                          parentUsername {sortColumn === "parentUsername" && (sortDirection === "asc" ? "↑" : "↓")}
+                          Parent Username {sortColumn === "parentUsername" && (sortDirection === "asc" ? "↑" : "↓")}
                         </TableHead>
                         <TableHead onClick={() => handleSort("smParentId")} className="cursor-pointer py-3">
                           Parent ID {sortColumn === "smParentId" && (sortDirection === "asc" ? "↑" : "↓")}
@@ -549,7 +549,7 @@ const AllUsersPage = () => {
                             <TableCell className="py-3 font-medium">{item.smStudentId}</TableCell>
                             <TableCell className="py-3">{item.firstName}</TableCell>
                             <TableCell className="py-3">{item.lastName}</TableCell>
-                            <TableCell className="py-3">{item.username}</TableCell>
+                            <TableCell className="py-3">{item.parentUsername || 'N/A'}</TableCell>
                             <TableCell className="py-3">{item.smParentId}</TableCell>
                             <TableCell className="py-3">{item.routeName}</TableCell>
                             <TableCell className="py-3">{item.schoolName}</TableCell>

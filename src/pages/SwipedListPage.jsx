@@ -7,7 +7,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { MapPin, BarChart3, Calendar, ChevronDown } from 'lucide-react';
+import { MapPin, BarChart3, Calendar, ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 const SwipedListPage = () => {
   const location = useLocation();
@@ -38,9 +38,14 @@ const SwipedListPage = () => {
   const [searchStudent, setSearchStudent] = useState("");
   const [schoolIdError, setSchoolIdError] = useState(false);
   const [routeIdError, setRouteIdError] = useState(false);
-  const [hoveredLocation, setHoveredLocation] = useState(null);
+
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
+  const GOOGLE_MAPS_API_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
 
   // Get authentication token (either superadmintoken or admintoken)
   const getAuthToken = () => {
@@ -86,6 +91,7 @@ const SwipedListPage = () => {
     setRouteIdError(false);
     setSearchRoute("");
     setSearchStudent("");
+    setCurrentPage(1);
 
     const fetchRoutes = async () => {
       if (!schoolId) {
@@ -152,6 +158,7 @@ const SwipedListPage = () => {
     setSwipeRecords([]);
     setAnalyticsData(null);
     setError(null);
+    setCurrentPage(1);
   }, [routeId, studentId]);
 
   const getResultLabel = (reserv) => {
@@ -184,6 +191,7 @@ const SwipedListPage = () => {
     setSwipeRecords([]);
     setAnalyticsData(null);
     setShowAnalytics(false);
+    setCurrentPage(1);
 
     try {
       const token = getAuthToken();
@@ -271,7 +279,9 @@ const SwipedListPage = () => {
   };
 
   const handleLocationClick = (latitude, longitude) => {
-    setSelectedLocation({ lat: latitude, lng: longitude });
+    if (latitude && longitude) {
+      setSelectedLocation({ lat: latitude, lng: longitude });
+    }
   };
 
   const exportToExcel = async () => {
@@ -283,9 +293,11 @@ const SwipedListPage = () => {
         "School ID": record.schoolId,
         "Route ID": record.routeId,
         "Source": record.source || '',
-        "Route Point Name": record.routePointname || '',
+        "Route Point Name": record.routePointName || record.routePointname || '',
         "Timestamp": record.timestamp,
         "Result": getResultLabel(record.reserv),
+        "Latitude": record.latitude || '',
+        "Longitude": record.longitude || ''
       }));
       const worksheet = XLSX.utils.json_to_sheet(worksheetData);
       const workbook = XLSX.utils.book_new();
@@ -304,6 +316,7 @@ const SwipedListPage = () => {
       setSortColumn(column);
       setSortDirection("asc");
     }
+    setCurrentPage(1);
   };
 
   // Filter swipe records based on resultFilter
@@ -323,9 +336,17 @@ const SwipedListPage = () => {
     return 0;
   });
 
+  // Pagination calculations
+  const totalPages = Math.ceil(sortedSwipeRecords.length / itemsPerPage);
+  const paginatedRecords = sortedSwipeRecords.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
   const handleAnalyticsBoxClick = (filter) => {
     setResultFilter(filter);
     setShowAnalytics(true);
+    setCurrentPage(1);
   };
 
   const renderAnalytics = () => {
@@ -482,7 +503,7 @@ const SwipedListPage = () => {
             <div className="flex items-center space-x-3 mb-6">
               <h1 className="text-3xl font-bold text-yellow-400">Student Swiped List</h1>
             </div>
-            <p className="text-gray-300 mb-6">Easily view and manage student swipe records.</p>
+            <p className="text-gray-300 mb-6">Easily view and manage student swipe records with pagination.</p>
 
             {error && (
               <div className="mb-4 p-4 bg-red-500/10 border border-red-500 text-red-300 rounded-xl">
@@ -665,7 +686,7 @@ const SwipedListPage = () => {
           {swipeRecords.length > 0 && analyticsData && (
             <div className="mt-12">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-2xl font-bold text-yellow-400">Swipe Records</h3>
+                <h3 className="text-2xl font-bold text-yellow-400">Swipe Records ({sortedSwipeRecords.length} total)</h3>
                 <div className="flex space-x-4">
                   <Button
                     onClick={() => setShowAnalytics(!showAnalytics)}
@@ -685,6 +706,78 @@ const SwipedListPage = () => {
 
               {showAnalytics && renderAnalytics()}
 
+              {/* Pagination Controls */}
+              <div className="bg-gray-800 p-4 rounded-2xl shadow-xl border-4 border-yellow-500 mt-6">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                  <div className="flex items-center space-x-4">
+                    <span className="text-gray-300">Items per page:</span>
+                    <Select onValueChange={(value) => {
+                      setItemsPerPage(parseInt(value));
+                      setCurrentPage(1);
+                    }} value={itemsPerPage.toString()}>
+                      <SelectTrigger className="w-20 border-gray-600 focus:ring-yellow-400 focus:border-yellow-400 rounded-xl text-gray-300 bg-gray-700">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="25">25</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
+                        <SelectItem value="100">100</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <span className="text-gray-300 text-sm">
+                      Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, sortedSwipeRecords.length)} of {sortedSwipeRecords.length} results
+                    </span>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      variant="outline"
+                      size="sm"
+                      className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      Previous
+                    </Button>
+                    
+                    <div className="flex items-center space-x-1">
+                      {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                        const pageNum = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i;
+                        return (
+                          <Button
+                            key={pageNum}
+                            onClick={() => setCurrentPage(pageNum)}
+                            variant={currentPage === pageNum ? "default" : "outline"}
+                            size="sm"
+                            className={currentPage === pageNum 
+                              ? "bg-yellow-500 text-black" 
+                              : "border-gray-600 text-gray-300 hover:bg-gray-700"
+                            }
+                          >
+                            {pageNum}
+                          </Button>
+                        );
+                      })}
+                    </div>
+
+                    <Button
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      variant="outline"
+                      size="sm"
+                      className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                    >
+                      Next
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
               <div className="bg-gray-800 p-6 rounded-2xl shadow-xl border-4 border-yellow-500 mt-6">
                 <Table>
                   <TableHeader>
@@ -701,14 +794,8 @@ const SwipedListPage = () => {
                       <TableHead onClick={() => handleSort("source")} className="cursor-pointer">
                         Source {sortColumn === "source" && (sortDirection === "asc" ? "↑" : "↓")}
                       </TableHead>
-                      <TableHead onClick={() => handleSort("routePointname")} className="cursor-pointer relative">
-                        Route Point Name {sortColumn === "routePointname" && (sortDirection === "asc" ? "↑" : "↓")}
-                        {hoveredLocation && (
-                          <div className="absolute top-full left-0 bg-gray-900 border border-yellow-400 rounded-lg p-2 text-sm z-10 whitespace-nowrap">
-                            <div>Lat: {hoveredLocation.lat}</div>
-                            <div>Lng: {hoveredLocation.lng}</div>
-                          </div>
-                        )}
+                      <TableHead onClick={() => handleSort("routePointName")} className="cursor-pointer">
+                        Route Point Name {sortColumn === "routePointName" && (sortDirection === "asc" ? "↑" : "↓")}
                       </TableHead>
                       <TableHead onClick={() => handleSort("timestamp")} className="cursor-pointer">
                         Timestamp {sortColumn === "timestamp" && (sortDirection === "asc" ? "↑" : "↓")}
@@ -720,26 +807,35 @@ const SwipedListPage = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {sortedSwipeRecords.map((record, index) => (
+                    {paginatedRecords.map((record, index) => (
                       <TableRow key={index} className="border-b border-gray-600 text-gray-300 hover:bg-gray-700 transition-colors">
                         <TableCell>{record.studentId}</TableCell>
                         <TableCell>{record.schoolId}</TableCell>
                         <TableCell>{record.routeId}</TableCell>
                         <TableCell>{record.source || 'N/A'}</TableCell>
-                        <TableCell 
-                          onMouseEnter={() => setHoveredLocation({ lat: record.latitude, lng: record.longitude })}
-                          onMouseLeave={() => setHoveredLocation(null)}
-                          className="cursor-help"
-                        >
-                          {record.routePointname || 'N/A'}
+                        <TableCell>
+                          {record.routePointName || record.routePointname || 'N/A'}
                         </TableCell>
                         <TableCell>{record.timestamp}</TableCell>
-                        <TableCell>{getResultLabel(record.reserv)}</TableCell>
                         <TableCell>
-                          <MapPin 
-                            onClick={() => handleLocationClick(record.latitude, record.longitude)}
-                            className="w-6 h-6 text-yellow-400 hover:text-yellow-300 cursor-pointer"
-                          />
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            getResultLabel(record.reserv) === 'Matched' ? 'bg-green-100 text-green-800' :
+                            getResultLabel(record.reserv) === 'Mismatched' ? 'bg-red-100 text-red-800' :
+                            'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {getResultLabel(record.reserv)}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {record.latitude && record.longitude ? (
+                            <MapPin 
+                              onClick={() => handleLocationClick(record.latitude, record.longitude)}
+                              className="w-6 h-6 text-yellow-400 hover:text-yellow-300 cursor-pointer transition-colors"
+                              title={`View location: ${record.latitude}, ${record.longitude}`}
+                            />
+                          ) : (
+                            <span className="text-gray-500 text-sm">No location</span>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -782,26 +878,47 @@ const SwipedListPage = () => {
           )}
         </div>
 
+        {/* Google Maps Modal */}
         {selectedLocation && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-            <div className="relative bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full p-6 border-4 border-yellow-500">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="relative bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl mx-auto p-4 sm:p-6 border-4 border-yellow-500">
               <button
                 onClick={() => setSelectedLocation(null)}
-                className="absolute top-4 right-4 text-yellow-400 hover:text-yellow-300 transition-colors"
+                className="absolute top-2 right-2 sm:top-4 sm:right-4 text-yellow-400 hover:text-yellow-300 transition-colors z-10"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
+                <X className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
-              <h3 className="text-2xl font-bold text-yellow-400 mb-4 text-center">Student Location</h3>
-              <iframe
-                width="100%"
-                height="400"
-                style={{ border: 0, borderRadius: '0.75rem' }}
-                loading="lazy"
-                allowFullScreen
-                src={`https://www.google.com/maps/embed/v1/place?key=${process.env.REACT_APP_API_BASE_URL}&q=${selectedLocation.lat},${selectedLocation.lng}`}
-              ></iframe>
+              <h3 className="text-lg sm:text-2xl font-bold text-yellow-400 mb-3 sm:mb-4 text-center pr-8">Student Location</h3>
+              <div className="bg-gray-700 p-2 rounded-lg mb-3 sm:mb-4 text-center">
+                <p className="text-gray-300 text-xs sm:text-sm">
+                  Coordinates: <span className="text-green-400">{selectedLocation.lat}</span>, <span className="text-blue-400">{selectedLocation.lng}</span>
+                </p>
+              </div>
+              {GOOGLE_MAPS_API_KEY ? (
+                <iframe
+                  width="100%"
+                  height="300"
+                  className="sm:h-80"
+                  style={{ border: 0, borderRadius: '0.75rem' }}
+                  loading="lazy"
+                  allowFullScreen
+                  src={`https://www.google.com/maps/embed/v1/place?key=${GOOGLE_MAPS_API_KEY}&q=${selectedLocation.lat},${selectedLocation.lng}&zoom=15&maptype=roadmap`}
+                  title="Student Location Map"
+                ></iframe>
+              ) : (
+                <div className="bg-gray-700 p-4 rounded-lg text-center h-64 sm:h-80 flex flex-col justify-center">
+                  <p className="text-red-400 mb-2">Google Maps API key not configured</p>
+                  <p className="text-gray-300 text-sm mb-3">Location: {selectedLocation.lat}, {selectedLocation.lng}</p>
+                  <a
+                    href={`https://www.google.com/maps?q=${selectedLocation.lat},${selectedLocation.lng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors mx-auto"
+                  >
+                    Open in Google Maps
+                  </a>
+                </div>
+              )}
             </div>
           </div>
         )}
