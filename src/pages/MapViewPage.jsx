@@ -266,15 +266,6 @@ const MapViewPage = () => {
     return interpolatePosition(point1, point2, segmentProgress);
   };
 
-  // Find GPS data based on current position
-  const findGPSDataFromPosition = (position) => {
-    if (!historicalData.length) return null;
-    
-    const progress = position / 100;
-    const dataIndex = Math.floor(progress * (historicalData.length - 1));
-    return historicalData[dataIndex] || null;
-  };
-
   // Fetch routes from API and auto-select all routes
   const fetchRoutes = useCallback(async () => {
     setLoading(true);
@@ -375,21 +366,59 @@ const MapViewPage = () => {
       }
 
       const data = await response.json();
-      setHistoricalData(data);
+      
+      // Sort historical data by eventTime
+      const sortedData = data.sort((a, b) => new Date(a.eventTime) - new Date(b.eventTime));
+      setHistoricalData(sortedData);
+      
+      // Calculate total journey time from historical data
+      if (sortedData.length > 1) {
+        const startTime = new Date(sortedData[0].eventTime);
+        const endTime = new Date(sortedData[sortedData.length - 1].eventTime);
+        const totalMinutes = Math.round((endTime - startTime) / (1000 * 60));
+        setTotalJourneyTime(totalMinutes);
+      }
+      
       setBusPosition(0);
       setRouteCompleted(false);
+      
+      // Set initial bus position to first GPS coordinate
+      if (sortedData.length > 0) {
+        setBusMapPosition({
+          lat: parseCoordinate(sortedData[0].latitude),
+          lng: parseCoordinate(sortedData[0].longitude)
+        });
+      }
+      
     } catch (error) {
       console.error('Historical data fetch error:', error);
-      // Mock historical data for demonstration
+      // Enhanced mock historical data for demonstration with realistic timeline
+      const baseDate = format(selectedDate, 'yyyy-MM-dd');
+      const startHour = selectedShift === 'morning' ? '08' : '15';
       const mockHistoricalData = [
-        { id: 1, latitude: 12.9716, longitude: 77.5946, eventTime: "2025-08-22T08:30:00" },
-        { id: 2, latitude: 12.9591, longitude: 77.7017, eventTime: "2025-08-22T08:45:00" },
-        { id: 3, latitude: 12.9611, longitude: 77.7172, eventTime: "2025-08-22T09:00:00" },
-        { id: 4, latitude: 12.9698, longitude: 77.7499, eventTime: "2025-08-22T09:15:00" },
+        { id: 1, latitude: 12.9716, longitude: 77.5946, eventTime: `${baseDate}T${startHour}:30:00` },
+        { id: 2, latitude: 12.9591, longitude: 77.7017, eventTime: `${baseDate}T${startHour}:35:00` },
+        { id: 3, latitude: 12.9611, longitude: 77.7172, eventTime: `${baseDate}T${startHour}:42:00` },
+        { id: 4, latitude: 12.9698, longitude: 77.7499, eventTime: `${baseDate}T${startHour}:48:00` },
+        { id: 5, latitude: 12.9750, longitude: 77.7800, eventTime: `${baseDate}T${startHour}:55:00` },
       ];
+      
       setHistoricalData(mockHistoricalData);
+      
+      // Calculate total journey time for mock data
+      const startTime = new Date(mockHistoricalData[0].eventTime);
+      const endTime = new Date(mockHistoricalData[mockHistoricalData.length - 1].eventTime);
+      const totalMinutes = Math.round((endTime - startTime) / (1000 * 60));
+      setTotalJourneyTime(totalMinutes);
+      
       setBusPosition(0);
       setRouteCompleted(false);
+      
+      // Set initial bus position
+      setBusMapPosition({
+        lat: parseCoordinate(mockHistoricalData[0].latitude),
+        lng: parseCoordinate(mockHistoricalData[0].longitude)
+      });
     } finally {
       setHistoricalLoading(false);
     }
@@ -592,37 +621,74 @@ const MapViewPage = () => {
       setRouteCompleted(false);
     }
     
-    // Find GPS data for current position
+    // Find GPS data for current position from historical data
     const gpsData = findGPSDataFromPosition(newPosition);
     setCurrentGPSData(gpsData);
     
-    if (selectedRoute && selectedRoute.routePoints) {
+    // Use actual GPS coordinates from historical data when available
+    if (!isLiveMode && gpsData) {
+      setBusMapPosition({
+        lat: parseCoordinate(gpsData.latitude),
+        lng: parseCoordinate(gpsData.longitude)
+      });
+    } else if (selectedRoute && selectedRoute.routePoints) {
       const routePoints = selectedShift === 'evening' 
         ? [...selectedRoute.routePoints].reverse() 
         : selectedRoute.routePoints;
       
-      // Use GPS coordinates if available in historical mode
-      if (!isLiveMode && gpsData) {
+      const mapPosition = calculateBusMapPosition(newPosition, routePoints);
+      if (mapPosition) {
+        setBusMapPosition(mapPosition);
+      }
+      
+      // For completed route, set bus at destination
+      if (newPosition >= 100 && routePoints.length > 0) {
+        const lastPoint = routePoints[routePoints.length - 1];
         setBusMapPosition({
-          lat: parseCoordinate(gpsData.latitude),
-          lng: parseCoordinate(gpsData.longitude)
+          lat: parseCoordinate(lastPoint.latitude),
+          lng: parseCoordinate(lastPoint.longitude)
         });
-      } else {
-        const mapPosition = calculateBusMapPosition(newPosition, routePoints);
-        if (mapPosition) {
-          setBusMapPosition(mapPosition);
-        }
-        
-        // For completed route, set bus at destination
-        if (newPosition >= 100 && routePoints.length > 0) {
-          const lastPoint = routePoints[routePoints.length - 1];
-          setBusMapPosition({
-            lat: parseCoordinate(lastPoint.latitude),
-            lng: parseCoordinate(lastPoint.longitude)
-          });
-        }
       }
     }
+  };
+
+  // Find GPS data based on current position with improved accuracy
+  const findGPSDataFromPosition = (position) => {
+    if (!historicalData.length) return null;
+    
+    const progress = position / 100;
+    const dataIndex = Math.min(
+      Math.floor(progress * historicalData.length), 
+      historicalData.length - 1
+    );
+    return historicalData[dataIndex] || null;
+  };
+
+  // Get current time from historical GPS data
+  const getCurrentTimeFromHistoricalData = (position) => {
+    const gpsData = findGPSDataFromPosition(position);
+    if (gpsData && gpsData.eventTime) {
+      return format(new Date(gpsData.eventTime), 'HH:mm:ss');
+    }
+    return formatDisplayTime(currentTime);
+  };
+
+  // Calculate elapsed time from start of journey
+  const getElapsedTime = (position) => {
+    if (!historicalData.length) return '00:00';
+    
+    const startTime = new Date(historicalData[0].eventTime);
+    const currentGPS = findGPSDataFromPosition(position);
+    
+    if (currentGPS && currentGPS.eventTime) {
+      const currentTime = new Date(currentGPS.eventTime);
+      const elapsedMinutes = Math.floor((currentTime - startTime) / (1000 * 60));
+      const hours = Math.floor(elapsedMinutes / 60);
+      const minutes = elapsedMinutes % 60;
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    }
+    
+    return '00:00';
   };
 
   // Historical data simulation
@@ -693,10 +759,45 @@ const MapViewPage = () => {
     }
   };
 
-  // Get all route points when showing all routes
+  // Get all route points when showing all routes - show only one school for common coordinates
   const getAllRoutePoints = () => {
-    return routes.flatMap(route => route.routePoints || [])
+    const allPoints = routes.flatMap(route => route.routePoints || [])
       .filter(point => isValidCoordinate(point.latitude) && isValidCoordinate(point.longitude));
+    
+    // Find unique school locations (points with same lat/lng coordinates)
+    const uniquePoints = [];
+    const schoolCoordinates = new Set();
+    
+    allPoints.forEach(point => {
+      const coordKey = `${point.latitude}_${point.longitude}`;
+      
+      // Check if this is likely a school (common endpoint for multiple routes)
+      const sameLocationPoints = allPoints.filter(p => 
+        p.latitude === point.latitude && p.longitude === point.longitude
+      );
+      
+      // If multiple points share same coordinates, treat as school and show only once
+      if (sameLocationPoints.length > 1) {
+        if (!schoolCoordinates.has(coordKey)) {
+          schoolCoordinates.add(coordKey);
+          // Mark as school and add only once
+          uniquePoints.push({
+            ...point,
+            isSchoolLocation: true,
+            routePointName: point.routePointName.toLowerCase().includes('school') ? 
+              point.routePointName : 'School'
+          });
+        }
+      } else {
+        // Regular route point
+        uniquePoints.push({
+          ...point,
+          isSchoolLocation: false
+        });
+      }
+    });
+    
+    return uniquePoints;
   };
 
   // Get distance-based position for route points
@@ -995,7 +1096,7 @@ const MapViewPage = () => {
 
               {/* Route Points */}
               {(showAllRoutes ? getAllRoutePoints() : (selectedRoute ? selectedRoute.routePoints : [])).map((point, index) => {
-                const isSchool = point.routePointName.toLowerCase().includes('school');
+                const isSchool = showAllRoutes ? point.isSchoolLocation : point.routePointName.toLowerCase().includes('school');
                 const isFirst = !showAllRoutes && selectedRoute && index === 0;
                 
                 return (
@@ -1007,16 +1108,17 @@ const MapViewPage = () => {
                     }}
                     icon={{
                       url: isSchool 
-                        ? "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24' fill='%23EF4444'%3E%3Cpath d='M12 2L13.09 8.26L22 9L14.5 13.03L17.18 21.02L12 17L6.82 21.02L9.5 13.03L2 9L10.91 8.26L12 2Z'/%3E%3C/svg%3E"
+                        ? "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24' fill='%23FFD700'%3E%3Cpath d='M12 2L13.09 8.26L22 9L14.5 13.03L17.18 21.02L12 17L6.82 21.02L9.5 13.03L2 9L10.91 8.26L12 2Z'/%3E%3C/svg%3E"
                         : isFirst 
                         ? "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24' fill='%2322C55E'%3E%3Ccircle cx='12' cy='12' r='10' stroke='%23ffffff' stroke-width='2'/%3E%3C/svg%3E"
                         : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='%23F59E0B'%3E%3Ccircle cx='12' cy='12' r='8' stroke='%23ffffff' stroke-width='2'/%3E%3Ctext x='12' y='16' text-anchor='middle' fill='%23ffffff' font-size='8' font-weight='bold'%3E" + (index + 1) + "%3C/text%3E%3C/svg%3E",
                       scaledSize: new window.google.maps.Size(
-                        isSchool ? 32 : isFirst ? 32 : 28, 
-                        isSchool ? 32 : isFirst ? 32 : 28
+                        isSchool ? 40 : isFirst ? 32 : 28, 
+                        isSchool ? 40 : isFirst ? 32 : 28
                       ),
                     }}
                     title={point.routePointName}
+                    zIndex={isSchool ? 1000 : 100}
                   />
                 );
               })}
@@ -1182,6 +1284,41 @@ const MapViewPage = () => {
                     {/* Controls for Historical Mode */}
                     {!isLiveMode && (
                       <div className="space-y-4">
+                        {/* Historical Data Information */}
+                        {historicalData.length > 0 && (
+                          <div className="bg-slate-50 p-4 rounded-lg border">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                              <div>
+                                <span className="text-gray-600">Journey Time:</span>
+                                <div className="font-semibold text-blue-600">
+                                  {totalJourneyTime > 0 ? `${Math.floor(totalJourneyTime / 60)}h ${totalJourneyTime % 60}m` : '--'}
+                                </div>
+                              </div>
+                              <div>
+                                <span className="text-gray-600">Elapsed:</span>
+                                <div className="font-semibold text-green-600">{getElapsedTime(busPosition)}</div>
+                              </div>
+                              <div>
+                                <span className="text-gray-600">Current Time:</span>
+                                <div className="font-semibold text-purple-600">{getCurrentTimeFromHistoricalData(busPosition)}</div>
+                              </div>
+                              <div>
+                                <span className="text-gray-600">GPS Points:</span>
+                                <div className="font-semibold text-orange-600">{historicalData.length}</div>
+                              </div>
+                            </div>
+                            
+                            {currentGPSData && (
+                              <div className="mt-3 pt-3 border-t border-gray-200">
+                                <div className="flex items-center justify-between text-xs text-gray-600">
+                                  <span>Current GPS: {parseCoordinate(currentGPSData.latitude).toFixed(6)}, {parseCoordinate(currentGPSData.longitude).toFixed(6)}</span>
+                                  <span>Event Time: {format(new Date(currentGPSData.eventTime), 'HH:mm:ss')}</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        
                         <div>
                           <input
                             type="range"
