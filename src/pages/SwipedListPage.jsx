@@ -800,7 +800,7 @@ const SwipedListPage = () => {
                 style={{ border: 0, borderRadius: '0.75rem' }}
                 loading="lazy"
                 allowFullScreen
-                src={`https://www.google.com/maps/embed/v1/place?key=${process.env.REACT_GOOGLE_MAPS_API_KEY}&q=${selectedLocation.lat},${selectedLocation.lng}`}
+                src={`https://www.google.com/maps/embed/v1/place?key=${process.env.REACT_APP_API_BASE_URL}&q=${selectedLocation.lat},${selectedLocation.lng}`}
               ></iframe>
             </div>
           </div>

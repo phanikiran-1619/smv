@@ -3,6 +3,15 @@ import { useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { Card } from '../components/ui/card';
 import { 
+  Pagination, 
+  PaginationContent, 
+  PaginationEllipsis, 
+  PaginationItem, 
+  PaginationLink, 
+  PaginationNext, 
+  PaginationPrevious 
+} from '../components/ui/pagination';
+import { 
   MapPin, Users, Bus, UserCheck, 
   Plus, Search, ChevronDown, X, Trash2, Edit
 } from 'lucide-react';
@@ -34,6 +43,10 @@ const RouteAssignPage = () => {
   const [attenderSearch, setAttenderSearch] = useState('');
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(8);
+
   // Form state
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -48,7 +61,7 @@ const RouteAssignPage = () => {
 
   // Helper functions
   const getAuthToken = () => localStorage.getItem("admintoken");
-  const getSchoolId = () => localStorage.getItem("adminSchoolId");
+  const getSchoolId = () => localStorage.getItem("adminSchoolId") || localStorage.getItem("schoolId");
 
   const showNotification = (message, type = 'success') => {
     setNotification({ show: true, message, type });
@@ -106,6 +119,7 @@ const RouteAssignPage = () => {
       setDrivers(driversData || []);
       setAttenders(attendersData || []);
       setAssignments(assignmentsData || []);
+      setCurrentPage(1); // Reset to first page when data is loaded
     } catch (error) {
       console.error('Error fetching data:', error);
       setRoutes([]);
@@ -239,11 +253,125 @@ const RouteAssignPage = () => {
            driverName.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
+  // Pagination logic
+  const totalPages = Math.ceil(filteredAssignments.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentAssignments = filteredAssignments.slice(startIndex, endIndex);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
+
+  const renderPaginationItems = () => {
+    const items = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        items.push(
+          <PaginationItem key={i}>
+            <PaginationLink
+              href="#"
+              isActive={currentPage === i}
+              onClick={(e) => {
+                e.preventDefault();
+                handlePageChange(i);
+              }}
+            >
+              {i}
+            </PaginationLink>
+          </PaginationItem>
+        );
+      }
+    } else {
+      // Always show first page
+      items.push(
+        <PaginationItem key={1}>
+          <PaginationLink
+            href="#"
+            isActive={currentPage === 1}
+            onClick={(e) => {
+              e.preventDefault();
+              handlePageChange(1);
+            }}
+          >
+            1
+          </PaginationLink>
+        </PaginationItem>
+      );
+
+      // Show ellipsis if needed
+      if (currentPage > 3) {
+        items.push(
+          <PaginationItem key="ellipsis1">
+            <PaginationEllipsis />
+          </PaginationItem>
+        );
+      }
+
+      // Show pages around current page
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      
+      for (let i = start; i <= end; i++) {
+        items.push(
+          <PaginationItem key={i}>
+            <PaginationLink
+              href="#"
+              isActive={currentPage === i}
+              onClick={(e) => {
+                e.preventDefault();
+                handlePageChange(i);
+              }}
+            >
+              {i}
+            </PaginationLink>
+          </PaginationItem>
+        );
+      }
+
+      // Show ellipsis if needed
+      if (currentPage < totalPages - 2) {
+        items.push(
+          <PaginationItem key="ellipsis2">
+            <PaginationEllipsis />
+          </PaginationItem>
+        );
+      }
+
+      // Always show last page
+      if (totalPages > 1) {
+        items.push(
+          <PaginationItem key={totalPages}>
+            <PaginationLink
+              href="#"
+              isActive={currentPage === totalPages}
+              onClick={(e) => {
+                e.preventDefault();
+                handlePageChange(totalPages);
+              }}
+            >
+              {totalPages}
+            </PaginationLink>
+          </PaginationItem>
+        );
+      }
+    }
+
+    return items;
+  };
+
   // Calculate stats
   const totalRoutes = routes.length;
   const totalDrivers = drivers.length;
   const totalAttenders = attenders.length;
   const activeAssignments = assignments.length;
+
+  // Reset pagination when search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   // Fetch data on component mount
   useEffect(() => {
@@ -327,7 +455,14 @@ const RouteAssignPage = () => {
           {/* Assignments Table */}
           <Card className="bg-slate-800/60 border-slate-700 overflow-hidden rounded-xl shadow-lg">
             <div className="p-6">
-              <h2 className="text-xl font-bold text-white mb-4">Current Route Assignments</h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-white">Current Route Assignments</h2>
+                {totalPages > 1 && (
+                  <div className="text-sm text-gray-400">
+                    Page {currentPage} of {totalPages} ({currentAssignments.length} of {filteredAssignments.length} assignments)
+                  </div>
+                )}
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -339,7 +474,7 @@ const RouteAssignPage = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredAssignments.map((assignment) => {
+                    {currentAssignments.map((assignment) => {
                       const route = routes.find(r => r.smRouteId === assignment.smRouteId);
                       const driver = drivers.find(d => d.smDriverId === assignment.smDriverID);
                       const attender = attenders.find(a => a.smAttenderId === assignment.smAttenderId);
@@ -390,14 +525,47 @@ const RouteAssignPage = () => {
                     })}
                   </tbody>
                 </table>
-                {filteredAssignments.length === 0 && (
+                {currentAssignments.length === 0 && (
                   <div className="text-center py-8 text-gray-400">
-                    No assignments found for today.
+                    {searchTerm ? 'No assignments found matching your search.' : 'No assignments found for today.'}
                   </div>
                 )}
               </div>
             </div>
           </Card>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center mt-6">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (currentPage > 1) handlePageChange(currentPage - 1);
+                      }}
+                      className={currentPage === 1 ? 'pointer-events-none opacity-50' : ''}
+                    />
+                  </PaginationItem>
+                  
+                  {renderPaginationItems()}
+                  
+                  <PaginationItem>
+                    <PaginationNext 
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (currentPage < totalPages) handlePageChange(currentPage + 1);
+                      }}
+                      className={currentPage === totalPages ? 'pointer-events-none opacity-50' : ''}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
         </div>
       </div>
 
@@ -424,18 +592,18 @@ const RouteAssignPage = () => {
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Route Selection */}
               <div>
-                <label className="block text-sm font-medium text-gray-200 mb-2">Route</label>
+                <label className="block text-sm font-medium text-gray-200 mb-2">Route *</label>
                 <div className="relative">
                   <div 
                     onClick={() => setShowRouteDropdown(!showRouteDropdown)}
-                    className="w-full px-4 py-3 bg-slate-700/80 border border-slate-600 rounded-lg text-white flex items-center justify-between cursor-pointer hover:bg-slate-700/90 transition-all duration-200 shadow-sm"
+                    className="w-full px-4 py-3 bg-slate-700/90 border border-slate-600 rounded-xl text-white flex items-center justify-between cursor-pointer hover:bg-slate-700 transition-all duration-200 shadow-md"
                   >
                     <span className="text-gray-200">{routeSearch || 'Select Route'}</span>
-                    <ChevronDown className="w-5 h-5 text-gray-400" />
+                    <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${showRouteDropdown ? 'rotate-180' : ''}`} />
                   </div>
                   {showRouteDropdown && (
-                    <div className="absolute z-10 w-full mt-2 bg-slate-700 border border-slate-600 rounded-lg max-h-64 shadow-xl">
-                      <div className="px-4 py-3 sticky top-0 bg-slate-700">
+                    <div className="absolute z-20 w-full mt-2 bg-slate-700 border border-slate-600 rounded-xl max-h-64 shadow-2xl overflow-hidden">
+                      <div className="px-4 py-3 sticky top-0 bg-slate-700 border-b border-slate-600">
                         <input
                           type="text"
                           placeholder="Search routes..."
@@ -453,11 +621,15 @@ const RouteAssignPage = () => {
                               setRouteSearch(route.routeName);
                               setShowRouteDropdown(false);
                             }}
-                            className="px-4 py-3 hover:bg-slate-600 cursor-pointer text-white transition-colors duration-150"
+                            className="px-4 py-3 hover:bg-slate-600 cursor-pointer text-white transition-colors duration-150 border-b border-slate-600/30 last:border-b-0"
                           >
-                            {route.routeName}
+                            <div className="font-medium">{route.routeName}</div>
+                            <div className="text-sm text-gray-400">{route.smRouteId}</div>
                           </div>
                         ))}
+                        {filteredRoutes.length === 0 && (
+                          <div className="px-4 py-3 text-gray-400 text-sm">No routes found</div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -466,18 +638,18 @@ const RouteAssignPage = () => {
 
               {/* Driver Selection */}
               <div>
-                <label className="block text-sm font-medium text-gray-200 mb-2">Driver</label>
+                <label className="block text-sm font-medium text-gray-200 mb-2">Driver *</label>
                 <div className="relative">
                   <div 
                     onClick={() => setShowDriverDropdown(!showDriverDropdown)}
-                    className="w-full px-4 py-3 bg-slate-700/80 border border-slate-600 rounded-lg text-white flex items-center justify-between cursor-pointer hover:bg-slate-700/90 transition-all duration-200 shadow-sm"
+                    className="w-full px-4 py-3 bg-slate-700/90 border border-slate-600 rounded-xl text-white flex items-center justify-between cursor-pointer hover:bg-slate-700 transition-all duration-200 shadow-md"
                   >
                     <span className="text-gray-200">{driverSearch || 'Select Driver'}</span>
-                    <ChevronDown className="w-5 h-5 text-gray-400" />
+                    <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${showDriverDropdown ? 'rotate-180' : ''}`} />
                   </div>
                   {showDriverDropdown && (
-                    <div className="absolute z-10 w-full mt-2 bg-slate-700 border border-slate-600 rounded-lg max-h-64 shadow-xl">
-                      <div className="px-4 py-3 sticky top-0 bg-slate-700">
+                    <div className="absolute z-20 w-full mt-2 bg-slate-700 border border-slate-600 rounded-xl max-h-64 shadow-2xl overflow-hidden">
+                      <div className="px-4 py-3 sticky top-0 bg-slate-700 border-b border-slate-600">
                         <input
                           type="text"
                           placeholder="Search drivers..."
@@ -495,11 +667,15 @@ const RouteAssignPage = () => {
                               setDriverSearch(driver.user?.username || '');
                               setShowDriverDropdown(false);
                             }}
-                            className="px-4 py-3 hover:bg-slate-600 cursor-pointer text-white transition-colors duration-150"
+                            className="px-4 py-3 hover:bg-slate-600 cursor-pointer text-white transition-colors duration-150 border-b border-slate-600/30 last:border-b-0"
                           >
-                            {driver.user?.username}
+                            <div className="font-medium">{driver.user?.username}</div>
+                            <div className="text-sm text-gray-400">{driver.smDriverId}</div>
                           </div>
                         ))}
+                        {filteredDrivers.length === 0 && (
+                          <div className="px-4 py-3 text-gray-400 text-sm">No available drivers found</div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -508,18 +684,18 @@ const RouteAssignPage = () => {
 
               {/* Attender Selection */}
               <div>
-                <label className="block text-sm font-medium text-gray-200 mb-2">Attender</label>
+                <label className="block text-sm font-medium text-gray-200 mb-2">Attender *</label>
                 <div className="relative">
                   <div 
                     onClick={() => setShowAttenderDropdown(!showAttenderDropdown)}
-                    className="w-full px-4 py-3 bg-slate-700/80 border border-slate-600 rounded-lg text-white flex items-center justify-between cursor-pointer hover:bg-slate-700/90 transition-all duration-200 shadow-sm"
+                    className="w-full px-4 py-3 bg-slate-700/90 border border-slate-600 rounded-xl text-white flex items-center justify-between cursor-pointer hover:bg-slate-700 transition-all duration-200 shadow-md"
                   >
                     <span className="text-gray-200">{attenderSearch || 'Select Attender'}</span>
-                    <ChevronDown className="w-5 h-5 text-gray-400" />
+                    <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${showAttenderDropdown ? 'rotate-180' : ''}`} />
                   </div>
                   {showAttenderDropdown && (
-                    <div className="absolute z-10 w-full mt-2 bg-slate-700 border border-slate-600 rounded-lg max-h-64 shadow-xl">
-                      <div className="px-4 py-3 sticky top-0 bg-slate-700">
+                    <div className="absolute z-20 w-full mt-2 bg-slate-700 border border-slate-600 rounded-xl max-h-64 shadow-2xl overflow-hidden">
+                      <div className="px-4 py-3 sticky top-0 bg-slate-700 border-b border-slate-600">
                         <input
                           type="text"
                           placeholder="Search attenders..."
@@ -537,11 +713,15 @@ const RouteAssignPage = () => {
                               setAttenderSearch(attender.user?.username || '');
                               setShowAttenderDropdown(false);
                             }}
-                            className="px-4 py-3 hover:bg-slate-600 cursor-pointer text-white transition-colors duration-150"
+                            className="px-4 py-3 hover:bg-slate-600 cursor-pointer text-white transition-colors duration-150 border-b border-slate-600/30 last:border-b-0"
                           >
-                            {attender.user?.username}
+                            <div className="font-medium">{attender.user?.username}</div>
+                            <div className="text-sm text-gray-400">{attender.smAttenderId}</div>
                           </div>
                         ))}
+                        {filteredAttenders.length === 0 && (
+                          <div className="px-4 py-3 text-gray-400 text-sm">No available attenders found</div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -557,15 +737,15 @@ const RouteAssignPage = () => {
                     setEditingAssignment(null);
                     resetForm();
                   }}
-                  className="px-6 py-3 bg-slate-600 text-white rounded-lg hover:bg-slate-500 transition-all duration-200 font-medium shadow-sm"
+                  className="px-6 py-3 bg-slate-600 text-white rounded-xl hover:bg-slate-500 transition-all duration-200 font-medium shadow-md"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 font-semibold rounded-lg hover:from-yellow-600 hover:to-orange-600 transition-all duration-200 shadow-md"
+                  className="px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 font-semibold rounded-xl hover:from-yellow-600 hover:to-orange-600 transition-all duration-200 shadow-md"
                 >
-                  {editingAssignment ? 'Update' : 'Assign'}
+                  {editingAssignment ? 'Update Assignment' : 'Create Assignment'}
                 </button>
               </div>
             </form>
@@ -578,20 +758,20 @@ const RouteAssignPage = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-slate-800 rounded-xl p-6 w-full max-w-sm mx-4 shadow-2xl">
             <h3 className="text-lg font-bold text-white mb-4">Confirm Delete</h3>
-            <p className="text-gray-200 mb-6">Are you sure you want to delete this assignment?</p>
+            <p className="text-gray-200 mb-6">Are you sure you want to delete this assignment? This action cannot be undone.</p>
             <div className="flex justify-end gap-4">
               <button
                 onClick={() => {
                   setShowDeleteConfirm(false);
                   setDeleteId(null);
                 }}
-                className="px-6 py-3 bg-slate-600 text-white rounded-lg hover:bg-slate-500 transition-all duration-200 font-medium shadow-sm"
+                className="px-6 py-3 bg-slate-600 text-white rounded-xl hover:bg-slate-500 transition-all duration-200 font-medium shadow-md"
               >
                 Cancel
               </button>
               <button
                 onClick={deleteAssignment}
-                className="px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all duration-200 font-medium shadow-sm"
+                className="px-6 py-3 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-all duration-200 font-medium shadow-md"
               >
                 Delete
               </button>
@@ -602,8 +782,8 @@ const RouteAssignPage = () => {
 
       {/* Notification Popup */}
       {notification.show && (
-        <div className="fixed inset-0 flex items-center justify-center z-50">
-          <div className={`rounded-xl p-4 max-w-sm w-full mx-4 text-center shadow-xl ${
+        <div className="fixed top-20 right-4 z-50">
+          <div className={`rounded-xl p-4 max-w-sm w-full shadow-xl transform transition-all duration-300 ${
             notification.type === 'success' 
               ? 'bg-green-500/90 text-white' 
               : 'bg-red-500/90 text-white'

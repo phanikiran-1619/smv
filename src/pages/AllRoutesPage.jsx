@@ -167,7 +167,7 @@ const AllRoutesPage = () => {
     }
 
     try {
-      const schoolId = localStorage.getItem("schoolId") || "AC0F0001";
+      const schoolId = localStorage.getItem("adminSchoolId") || "AC0F0001";
       const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
       if (!API_BASE_URL) {
         throw new Error("API base URL is not configured");

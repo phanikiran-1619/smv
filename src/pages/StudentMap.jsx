@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Button } from '../components/ui/button';
 import { GoogleMap, Marker, Polyline, useJsApiLoader } from '@react-google-maps/api';
-import axios from 'axios';
 import { Client } from '@stomp/stompjs';
+import { Button } from '../components/ui/button';
 import { toast } from '../hooks/use-toast';
 
 const containerStyle = {
@@ -78,7 +77,7 @@ const StudentMap = () => {
 
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
-    googleMapsApiKey: process.env.REACT_GOOGLE_MAPS_API_KEY || '',
+    googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY || '',
     libraries,
   });
 
@@ -215,8 +214,40 @@ const StudentMap = () => {
     animationRef.current = requestAnimationFrame(animate);
   }, [isFollowingBus, splitRoute]);
 
+  const generateStraightRoute = useCallback((points) => {
+    const sortedPoints = isMorningShift ? points : [...points].reverse();
+    const path = sortedPoints.map(point => 
+      new window.google.maps.LatLng(Number(point.latitude), Number(point.longitude))
+    );
+
+    const segments = [];
+    for (let i = 0; i < path.length - 1; i++) {
+      segments.push([path[i], path[i + 1]]);
+    }
+
+    routePathRef.current = path;
+    setRouteSegments(segments);
+
+    stopPathIndicesRef.current = sortedPoints.map((point) => {
+      const pos = {
+        lat: Number(point.latitude),
+        lng: Number(point.longitude),
+        timestamp: 0,
+      };
+      return findClosestPointOnRoute(pos);
+    });
+
+    setCompletedRoutePath([]);
+    setUpcomingRoutePath(path);
+    setCurrentStopIndex(0);
+    setProgressPercentage(0);
+  }, [isMorningShift, findClosestPointOnRoute]);
+
   const generateRoadRoute = useCallback((points) => {
-    if (points.length < 2 || !directionsServiceRef.current) return;
+    if (points.length < 2 || !directionsServiceRef.current) {
+      generateStraightRoute(points);
+      return;
+    }
 
     const sortedPoints = isMorningShift ? points : [...points].reverse();
     const waypoints = sortedPoints
@@ -274,15 +305,16 @@ const StudentMap = () => {
         } else {
           console.error('Directions request failed:', status);
           toast({
-            title: "Directions API Error",
-            description: `Failed to fetch road routes: ${status}. Please check your API key and enable Directions API.`,
-            variant: "destructive",
+            title: 'Directions API Error',
+            description: `Failed to fetch road routes: ${status}. Falling back to straight-line route.`,
+            variant: 'destructive',
             duration: 5000,
           });
+          generateStraightRoute(points);
         }
       }
     );
-  }, [isMorningShift, findClosestPointOnRoute]);
+  }, [isMorningShift, findClosestPointOnRoute, generateStraightRoute]);
 
   useEffect(() => {
     timeIntervalRef.current = setInterval(() => {
@@ -334,6 +366,12 @@ const StudentMap = () => {
   useEffect(() => {
     if (loadError) {
       setError(`Google Maps API Load Error: ${loadError.message}`);
+      toast({
+        title: 'Error',
+        description: `Google Maps API Load Error: ${loadError.message}`,
+        variant: 'destructive',
+        duration: 5000,
+      });
       return;
     }
 
@@ -363,14 +401,16 @@ const StudentMap = () => {
       }
 
       try {
-        const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/route/${routeId}`, {
+        const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/route/${routeId}`, {
           headers: {
             Authorization: `Bearer ${token}`,
             'Client-Type': 'web',
           },
         });
 
-        const data = response.data;
+        if (!response.ok) throw new Error(`Failed to fetch route data: ${response.statusText}`);
+
+        const data = await response.json();
         const validPoints = data.routePoints.filter((point) => {
           const lat = Number(point.latitude);
           const lng = Number(point.longitude);

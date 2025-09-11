@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Bus, LogOut, } from 'lucide-react';
+import { ArrowLeft, Bus, LogOut } from 'lucide-react';
 import { Button } from './ui/button';
 import LogoutConfirmDialog from './LogoutConfirmDialog';
 
@@ -9,10 +9,15 @@ const Navbar = ({ showBackButton = false }) => {
   const location = useLocation();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   
-  const isDashboard = location.pathname.includes('/dashboard');
+  // Define which pages should NOT show the logout button
   const isHomePage = location.pathname === '/';
-  const isLoginPage = location.pathname === '/login' || location.pathname.includes('/parent') || location.pathname.includes('/admin') || location.pathname.includes('/superadmin');
-  const showLogoutButton = !isHomePage && !isLoginPage;
+  const isLoginPage = location.pathname.includes('/login');
+  const isAuthPage = location.pathname.includes('/parent-login') || 
+                     location.pathname.includes('/admin-login') || 
+                     location.pathname.includes('/superadmin-login');
+  
+  // Show logout button on all pages except home, login, and auth pages
+  const showLogoutButton = !isHomePage && !isLoginPage && !isAuthPage;
 
   const handleLogoutClick = () => {
     setShowLogoutDialog(true);
@@ -46,7 +51,7 @@ const Navbar = ({ showBackButton = false }) => {
               </div>
             </div>
             
-            {/* Right side content - Only show logout if not on home/login pages */}
+            {/* Right side content - Show logout on dashboard pages */}
             {showLogoutButton && (
               <div className="flex items-center gap-3">
                 <Button
