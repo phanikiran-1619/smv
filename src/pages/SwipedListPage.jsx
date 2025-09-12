@@ -57,6 +57,19 @@ const SwipedListPage = () => {
       try {
         setSchoolsLoading(true);
         setError(null);
+        
+        // Check if admin has a fixed school ID
+        const adminSchoolId = localStorage.getItem("adminSchoolId");
+        
+        if (adminSchoolId) {
+          // For admin users, set the school directly and skip school fetching
+          setSchoolId(adminSchoolId);
+          setSchools([{ id: adminSchoolId, name: 'School' }]); // Placeholder school data
+          setSchoolsLoading(false);
+          return;
+        }
+        
+        // For superadmin users, fetch all schools
         const token = getAuthToken();
         const response = await axios.get(`${API_BASE_URL}/school`, {
           headers: {
@@ -518,37 +531,45 @@ const SwipedListPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">School ID *</label>
-                <Select 
-                  onValueChange={(value) => {
-                    setSchoolId(value);
-                    setSchoolIdError(false);
-                  }} 
-                  disabled={schoolsLoading} 
-                  value={schoolId}
-                >
-                  <SelectTrigger className={`border-gray-600 focus:ring-yellow-400 focus:border-yellow-400 rounded-xl text-gray-300 bg-gray-700 transition-all w-full ${schoolIdError ? 'border-red-500' : ''}`}>
-                    <SelectValue placeholder={schoolsLoading ? "Loading schools..." : "Select School ID"} />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-60 overflow-auto">
-                    <Input
-                      type="text"
-                      placeholder="Search Schools..."
-                      value={searchSchool}
-                      onChange={(e) => setSearchSchool(e.target.value)}
-                      className="border-gray-600 focus:ring-yellow-400 focus:border-yellow-400 rounded-xl text-gray-300 bg-gray-700 mb-2 w-full px-2 py-1"
-                    />
-                    {schools
-                      .filter(school => 
-                        school.name.toLowerCase().includes(searchSchool.toLowerCase()) || 
-                        school.id.toLowerCase().includes(searchSchool.toLowerCase())
-                      )
-                      .map((school) => (
-                        <SelectItem key={school.id} value={school.id}>
-                          {school.name} ({school.id})
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+                {localStorage.getItem("adminSchoolId") ? (
+                  // For admin users - show fixed school (no dropdown)
+                  <div className="border-gray-600 rounded-xl text-gray-300 bg-gray-700 px-4 py-3 w-full flex items-center">
+                    <span>{localStorage.getItem("adminSchoolId")} -School</span>
+                  </div>
+                ) : (
+                  // For superadmin users - show dropdown
+                  <Select 
+                    onValueChange={(value) => {
+                      setSchoolId(value);
+                      setSchoolIdError(false);
+                    }} 
+                    disabled={schoolsLoading} 
+                    value={schoolId}
+                  >
+                    <SelectTrigger className={`border-gray-600 focus:ring-yellow-400 focus:border-yellow-400 rounded-xl text-gray-300 bg-gray-700 transition-all w-full ${schoolIdError ? 'border-red-500' : ''}`}>
+                      <SelectValue placeholder={schoolsLoading ? "Loading schools..." : "Select School ID"} />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60 overflow-auto">
+                      <Input
+                        type="text"
+                        placeholder="Search Schools..."
+                        value={searchSchool}
+                        onChange={(e) => setSearchSchool(e.target.value)}
+                        className="border-gray-600 focus:ring-yellow-400 focus:border-yellow-400 rounded-xl text-gray-300 bg-gray-700 mb-2 w-full px-2 py-1"
+                      />
+                      {schools
+                        .filter(school => 
+                          school.name.toLowerCase().includes(searchSchool.toLowerCase()) || 
+                          school.id.toLowerCase().includes(searchSchool.toLowerCase())
+                        )
+                        .map((school) => (
+                          <SelectItem key={school.id} value={school.id}>
+                            {school.name} ({school.id})
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
               <div>

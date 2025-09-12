@@ -309,6 +309,7 @@ const RouteAssignPage = () => {
       smDriverID: assignment.smDriverID,
       smAttenderId: assignment.smAttenderId
     });
+    // Set display names but clear search text (will be cleared when dropdown opens)
     setRouteSearch(routes.find(r => r.smRouteId === assignment.smRouteId)?.routeName || '');
     setDriverSearch(drivers.find(d => d.smDriverId === assignment.smDriverID)?.user?.username || '');
     setAttenderSearch(attenders.find(a => a.smAttenderId === assignment.smAttenderId)?.user?.username || '');
@@ -332,8 +333,13 @@ const RouteAssignPage = () => {
     }
   };
 
-  // Filter functions
-  const filteredRoutes = routes.filter(route =>
+  // Filter functions - show only available (unassigned) routes
+  const assignedRouteIds = assignments
+    .filter(a => !editingAssignment || a.id !== editingAssignment.id) // Exclude current assignment when editing
+    .map(a => a.smRouteId);
+  const availableRoutes = routes.filter(route => !assignedRouteIds.includes(route.smRouteId));
+  
+  const filteredRoutes = availableRoutes.filter(route =>
     route.routeName?.toLowerCase().includes(routeSearch.toLowerCase())
   );
 
@@ -476,6 +482,16 @@ const RouteAssignPage = () => {
   const totalDrivers = drivers.length;
   const totalAttenders = attenders.length;
   const activeAssignments = assignments.length;
+  
+  // Calculate assigned vs available counts
+  const assignedRoutes = assignments.length;
+  const availableRoutesCount = totalRoutes - assignedRoutes;
+  
+  const assignedDrivers = assignments.length;
+  const availableDriversCount = totalDrivers - assignedDrivers;
+  
+  const assignedAttenders = assignments.length;
+  const availableAttendersCount = totalAttenders - assignedAttenders;
 
   // Reset pagination when search term changes
   useEffect(() => {
@@ -549,21 +565,33 @@ const RouteAssignPage = () => {
               <MapPin className="w-8 h-8 text-blue-400 mx-auto mb-2" />
               <h3 className="text-2xl font-bold text-white">{totalRoutes}</h3>
               <p className="text-blue-300">Total Routes</p>
+              <div className="text-sm text-blue-200 mt-1">
+                {assignedRoutes} assigned, {availableRoutesCount} available
+              </div>
             </Card>
             <Card className="bg-gradient-to-br from-green-500/20 to-green-600/20 border-green-500/30 p-6 text-center rounded-xl shadow-lg">
               <Users className="w-8 h-8 text-green-400 mx-auto mb-2" />
               <h3 className="text-2xl font-bold text-white">{totalDrivers}</h3>
               <p className="text-green-300">Total Drivers</p>
+              <div className="text-sm text-green-200 mt-1">
+                {assignedDrivers} assigned, {availableDriversCount} available
+              </div>
             </Card>
             <Card className="bg-gradient-to-br from-purple-500/20 to-purple-600/20 border-purple-500/30 p-6 text-center rounded-xl shadow-lg">
               <UserCheck className="w-8 h-8 text-purple-400 mx-auto mb-2" />
               <h3 className="text-2xl font-bold text-white">{totalAttenders}</h3>
               <p className="text-purple-300">Total Attenders</p>
+              <div className="text-sm text-purple-200 mt-1">
+                {assignedAttenders} assigned, {availableAttendersCount} available
+              </div>
             </Card>
             <Card className="bg-gradient-to-br from-orange-500/20 to-orange-600/20 border-orange-500/30 p-6 text-center rounded-xl shadow-lg">
               <Bus className="w-8 h-8 text-orange-400 mx-auto mb-2" />
               <h3 className="text-2xl font-bold text-white">{activeAssignments}</h3>
               <p className="text-orange-300">Active Assignments</p>
+              <div className="text-sm text-orange-200 mt-1">
+                Currently assigned today
+              </div>
             </Card>
           </div>
 
@@ -738,7 +766,13 @@ const RouteAssignPage = () => {
                     <label className="block text-sm font-medium text-gray-200 mb-2">Route *</label>
                     <div className="relative">
                       <div 
-                        onClick={() => setShowRouteDropdown(!showRouteDropdown)}
+                        onClick={() => {
+                          setShowRouteDropdown(!showRouteDropdown);
+                          // Clear search text when opening dropdown in edit mode
+                          if (editingAssignment && !showRouteDropdown) {
+                            setRouteSearch('');
+                          }
+                        }}
                         className="w-full px-4 py-3 bg-slate-700/90 border border-slate-600 rounded-xl text-white flex items-center justify-between cursor-pointer hover:bg-slate-700 transition-all duration-200 shadow-md"
                       >
                         <span className="text-gray-200">{routeSearch || 'Select Route'}</span>
@@ -784,7 +818,13 @@ const RouteAssignPage = () => {
                     <label className="block text-sm font-medium text-gray-200 mb-2">Driver *</label>
                     <div className="relative">
                       <div 
-                        onClick={() => setShowDriverDropdown(!showDriverDropdown)}
+                        onClick={() => {
+                          setShowDriverDropdown(!showDriverDropdown);
+                          // Clear search text when opening dropdown in edit mode
+                          if (editingAssignment && !showDriverDropdown) {
+                            setDriverSearch('');
+                          }
+                        }}
                         className="w-full px-4 py-3 bg-slate-700/90 border border-slate-600 rounded-xl text-white flex items-center justify-between cursor-pointer hover:bg-slate-700 transition-all duration-200 shadow-md"
                       >
                         <span className="text-gray-200">{driverSearch || 'Select Driver'}</span>
@@ -830,7 +870,13 @@ const RouteAssignPage = () => {
                     <label className="block text-sm font-medium text-gray-200 mb-2">Attender *</label>
                     <div className="relative">
                       <div 
-                        onClick={() => setShowAttenderDropdown(!showAttenderDropdown)}
+                        onClick={() => {
+                          setShowAttenderDropdown(!showAttenderDropdown);
+                          // Clear search text when opening dropdown in edit mode
+                          if (editingAssignment && !showAttenderDropdown) {
+                            setAttenderSearch('');
+                          }
+                        }}
                         className="w-full px-4 py-3 bg-slate-700/90 border border-slate-600 rounded-xl text-white flex items-center justify-between cursor-pointer hover:bg-slate-700 transition-all duration-200 shadow-md"
                       >
                         <span className="text-gray-200">{attenderSearch || 'Select Attender'}</span>

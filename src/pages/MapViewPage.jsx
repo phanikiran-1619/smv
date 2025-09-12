@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { GoogleMap, Marker, DirectionsRenderer, useJsApiLoader } from '@react-google-maps/api';
-import { Search, MapPin, Calendar, ChevronDown, Bus, Users, School, Navigation, Clock, Play, Pause, RotateCcw, Route } from 'lucide-react';
+import { Search, MapPin, Calendar, ChevronDown, Bus, Users, School, Navigation, Clock, Play, Pause, RotateCcw, Route, AlertCircle, Maximize2, Minimize2 } from 'lucide-react';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -9,10 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { format } from 'date-fns';
 import Navbar from '../components/Navbar';
 
-// Map container style
+// Map container style - responsive
 const mapContainerStyle = {
   width: '100%',
-  height: '100vh',
+  height: '100%',
 };
 
 // Default center for Pune
@@ -89,11 +89,18 @@ const MapViewPage = () => {
   const [totalJourneyTime, setTotalJourneyTime] = useState(0);
   const [currentGPSData, setCurrentGPSData] = useState(null);
   const [routeCompleted, setRouteCompleted] = useState(false);
+  const [showHistoricalPreview, setShowHistoricalPreview] = useState(false);
+  const [directionsRequested, setDirectionsRequested] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [deviceTime, setDeviceTime] = useState(new Date());
+  const [cardSize, setCardSize] = useState('normal'); // 'small', 'normal', 'large'
+  const [isCardExpanded, setIsCardExpanded] = useState(false);
   
   // Refs
   const mapRef = useRef(null);
   const intervalRef = useRef(null);
   const timeUpdateRef = useRef(null);
+  const deviceTimeRef = useRef(null);
   const dateInputRef = useRef(null);
 
   const { isLoaded, loadError } = useJsApiLoader({
@@ -118,6 +125,44 @@ const MapViewPage = () => {
     return () => {
       if (timeUpdateRef.current) {
         clearInterval(timeUpdateRef.current);
+      }
+    };
+  }, []);
+
+  // Device time update from API
+  useEffect(() => {
+    const updateDeviceTime = async () => {
+      try {
+        // Get device time from API or fallback to local time
+        const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
+        if (API_BASE_URL) {
+          const response = await fetch(`${API_BASE_URL}/device-time`, {
+            headers: {
+              'Authorization': `Bearer ${getAuthToken()}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          if (response.ok) {
+            const data = await response.json();
+            setDeviceTime(new Date(data.currentTime));
+          } else {
+            setDeviceTime(new Date());
+          }
+        } else {
+          setDeviceTime(new Date());
+        }
+      } catch (error) {
+        console.error('Error fetching device time:', error);
+        setDeviceTime(new Date());
+      }
+    };
+
+    updateDeviceTime();
+    deviceTimeRef.current = setInterval(updateDeviceTime, 30000); // Update every 30 seconds
+
+    return () => {
+      if (deviceTimeRef.current) {
+        clearInterval(deviceTimeRef.current);
       }
     };
   }, []);
@@ -205,25 +250,32 @@ const MapViewPage = () => {
     return format(date, 'HH:mm:ss');
   };
 
-  // Get current time based on bus position
+  // Get current time based on bus position - use actual GPS eventTime
   const getCurrentTimeFromPosition = (position) => {
-    if (!routeTimings.length) return formatDisplayTime(currentTime);
-    
-    const progress = position / 100;
-    const totalSegments = routeTimings.length;
-    const segmentIndex = Math.floor(progress * totalSegments);
-    
-    if (segmentIndex >= totalSegments) {
-      return formatTime(routeTimings[totalSegments - 1].arrivalTime);
+    if (!isLiveMode && historicalData.length > 0) {
+      // For historical mode, use actual GPS eventTime
+      const gpsData = findGPSDataFromPosition(position);
+      if (gpsData && gpsData.eventTime) {
+        return format(new Date(gpsData.eventTime), 'HH:mm:ss');
+      }
     }
     
-    const segmentProgress = (progress * totalSegments) - segmentIndex;
-    const currentTiming = routeTimings[segmentIndex];
-    const startTime = segmentIndex === 0 ? 8.5 * 60 : routeTimings[segmentIndex - 1].arrivalTime;
-    const endTime = currentTiming.arrivalTime;
-    const currentTimeMinutes = startTime + (endTime - startTime) * segmentProgress;
+    // For live mode, use current device time
+    return formatDisplayTime(deviceTime);
+  };
+
+  // Get current date based on bus position - use actual GPS eventTime
+  const getCurrentDateFromPosition = (position) => {
+    if (!isLiveMode && historicalData.length > 0) {
+      // For historical mode, use actual GPS eventTime
+      const gpsData = findGPSDataFromPosition(position);
+      if (gpsData && gpsData.eventTime) {
+        return format(new Date(gpsData.eventTime), 'EEE, MMM d');
+      }
+    }
     
-    return formatTime(currentTimeMinutes);
+    // For live mode, use current device time
+    return format(deviceTime, 'EEE, MMM d');
   };
 
   // Calculate interpolated position between two points
@@ -233,25 +285,88 @@ const MapViewPage = () => {
     return { lat, lng };
   };
 
-  // Calculate bus position on map based on route progress
-  const calculateBusMapPosition = (progressPercent, routePoints) => {
+  // Calculate bus position on map based on route progress and actual movement direction
+  const calculateBusMapPosition = (progressPercent, routePoints, historicalGPSData = null) => {
     if (!routePoints || routePoints.length < 2) return null;
 
+    // If we have historical GPS data, use actual coordinates
+    if (historicalGPSData && historicalGPSData.length > 0) {
+      const progress = progressPercent / 100;
+      const dataIndex = Math.min(
+        Math.floor(progress * historicalGPSData.length), 
+        historicalGPSData.length - 1
+      );
+      const gpsPoint = historicalGPSData[dataIndex];
+      return {
+        lat: parseCoordinate(gpsPoint.latitude),
+        lng: parseCoordinate(gpsPoint.longitude)
+      };
+    }
+
+    // Determine actual movement direction based on coordinates and session
+    const sortedPoints = [...routePoints].sort((a, b) => a.seqOrder - b.seqOrder);
+    
+    // For morning: typically starts from pickup points and goes to school
+    // For evening: typically starts from school and goes to drop points
+    // But we need to check actual coordinate progression to determine real direction
+    
+    let actualRouteOrder = sortedPoints;
+    
+    // Check if we need to reverse based on actual coordinate progression in historical data
+    if (historicalGPSData && historicalGPSData.length > 1) {
+      const firstGPS = historicalGPSData[0];
+      const lastGPS = historicalGPSData[historicalGPSData.length - 1];
+      
+      // Find which route point is closest to first GPS position
+      const firstDistances = sortedPoints.map(point => 
+        calculateDistance(
+          parseCoordinate(firstGPS.latitude),
+          parseCoordinate(firstGPS.longitude),
+          parseCoordinate(point.latitude),
+          parseCoordinate(point.longitude)
+        )
+      );
+      
+      const closestToFirst = firstDistances.indexOf(Math.min(...firstDistances));
+      
+      // Find which route point is closest to last GPS position
+      const lastDistances = sortedPoints.map(point => 
+        calculateDistance(
+          parseCoordinate(lastGPS.latitude),
+          parseCoordinate(lastGPS.longitude),
+          parseCoordinate(point.latitude),
+          parseCoordinate(point.longitude)
+        )
+      );
+      
+      const closestToLast = lastDistances.indexOf(Math.min(...lastDistances));
+      
+      // If the journey goes from higher index to lower index, reverse the route
+      if (closestToFirst > closestToLast) {
+        actualRouteOrder = [...sortedPoints].reverse();
+      }
+    } else {
+      // Fallback to session-based logic only if no GPS data
+      if (selectedShift === 'evening') {
+        actualRouteOrder = [...sortedPoints].reverse();
+      }
+    }
+
     const progress = progressPercent / 100;
-    const totalSegments = routePoints.length - 1;
+    const totalSegments = actualRouteOrder.length - 1;
     const segmentIndex = Math.floor(progress * totalSegments);
     const segmentProgress = (progress * totalSegments) - segmentIndex;
 
     if (segmentIndex >= totalSegments) {
-      const lastPoint = routePoints[routePoints.length - 1];
+      const lastPoint = actualRouteOrder[actualRouteOrder.length - 1];
       return {
         lat: parseCoordinate(lastPoint.latitude),
         lng: parseCoordinate(lastPoint.longitude)
       };
     }
 
-    const currentPoint = routePoints[segmentIndex];
-    const nextPoint = routePoints[segmentIndex + 1];
+    const currentPoint = actualRouteOrder[segmentIndex];
+    const nextPoint = actualRouteOrder[segmentIndex + 1];
 
     const point1 = {
       lat: parseCoordinate(currentPoint.latitude),
@@ -336,7 +451,38 @@ const MapViewPage = () => {
     }
   }, [searchTerm, routes]);
 
-  // Fetch historical data
+  // Refresh map center based on new data
+  const refreshMapCenter = (newHistoricalData, route) => {
+    if (newHistoricalData && newHistoricalData.length > 0) {
+      // Center map on the starting position of the historical data
+      const startingPoint = newHistoricalData[0];
+      setMapCenter({
+        lat: parseCoordinate(startingPoint.latitude),
+        lng: parseCoordinate(startingPoint.longitude)
+      });
+      
+      // Fit map bounds to show the entire journey
+      if (mapRef.current && newHistoricalData.length > 1) {
+        const bounds = new window.google.maps.LatLngBounds();
+        newHistoricalData.forEach(point => {
+          bounds.extend(new window.google.maps.LatLng(
+            parseCoordinate(point.latitude),
+            parseCoordinate(point.longitude)
+          ));
+        });
+        mapRef.current.fitBounds(bounds, { padding: 50 });
+      }
+    } else if (route && route.routePoints && route.routePoints.length > 0) {
+      // Fallback to route points
+      const firstPoint = route.routePoints[0];
+      setMapCenter({
+        lat: parseCoordinate(firstPoint.latitude),
+        lng: parseCoordinate(firstPoint.longitude)
+      });
+    }
+  };
+
+  // Fetch historical data with completed trip first
   const fetchHistoricalData = async () => {
     if (!selectedRoute || selectedRouteId === 'all') {
       alert('Please select a specific route for historical data');
@@ -344,6 +490,7 @@ const MapViewPage = () => {
     }
 
     setHistoricalLoading(true);
+    setDirectionsRequested(true);
     const token = getAuthToken();
     
     try {
@@ -379,16 +526,22 @@ const MapViewPage = () => {
         setTotalJourneyTime(totalMinutes);
       }
       
-      setBusPosition(0);
-      setRouteCompleted(false);
+      // Start with completed trip first (100% position)
+      setBusPosition(100);
+      setRouteCompleted(true);
+      setShowHistoricalPreview(true);
       
-      // Set initial bus position to first GPS coordinate
+      // Set bus position to last GPS coordinate (completed position)
       if (sortedData.length > 0) {
+        const lastData = sortedData[sortedData.length - 1];
         setBusMapPosition({
-          lat: parseCoordinate(sortedData[0].latitude),
-          lng: parseCoordinate(sortedData[0].longitude)
+          lat: parseCoordinate(lastData.latitude),
+          lng: parseCoordinate(lastData.longitude)
         });
       }
+      
+      // Refresh map center and bounds
+      refreshMapCenter(sortedData, selectedRoute);
       
     } catch (error) {
       console.error('Historical data fetch error:', error);
@@ -411,14 +564,19 @@ const MapViewPage = () => {
       const totalMinutes = Math.round((endTime - startTime) / (1000 * 60));
       setTotalJourneyTime(totalMinutes);
       
-      setBusPosition(0);
-      setRouteCompleted(false);
+      // Start with completed trip first
+      setBusPosition(100);
+      setRouteCompleted(true);
+      setShowHistoricalPreview(true);
       
-      // Set initial bus position
+      // Set bus position to last position
       setBusMapPosition({
-        lat: parseCoordinate(mockHistoricalData[0].latitude),
-        lng: parseCoordinate(mockHistoricalData[0].longitude)
+        lat: parseCoordinate(mockHistoricalData[mockHistoricalData.length - 1].latitude),
+        lng: parseCoordinate(mockHistoricalData[mockHistoricalData.length - 1].longitude)
       });
+
+      // Refresh map center
+      refreshMapCenter(mockHistoricalData, selectedRoute);
     } finally {
       setHistoricalLoading(false);
     }
@@ -426,6 +584,10 @@ const MapViewPage = () => {
 
   // Handle route selection
   const handleRouteSelect = (routeId) => {
+    // Hide historical preview card when route changes
+    setShowHistoricalPreview(false);
+    setDirectionsRequested(false);
+    
     if (routeId === 'all') {
       setSelectedRoute(null);
       setSelectedRouteId('all');
@@ -456,25 +618,34 @@ const MapViewPage = () => {
         // Set initial bus position based on shift and mode
         if (route.routePoints && route.routePoints.length > 0) {
           if (isLiveMode) {
-            if (selectedShift === 'morning') {
-              // Morning: start at first boarding point
-              const firstPoint = route.routePoints.find(p => p.seqOrder === 1) || route.routePoints[0];
-              setBusMapPosition({
-                lat: parseCoordinate(firstPoint.latitude),
-                lng: parseCoordinate(firstPoint.longitude)
-              });
-            } else {
-              // Evening: start at school
-              const schoolPoint = route.routePoints.find(p => p.routePointName.toLowerCase().includes('school'));
-              if (schoolPoint) {
-                setBusMapPosition({
-                  lat: parseCoordinate(schoolPoint.latitude),
-                  lng: parseCoordinate(schoolPoint.longitude)
-                });
-              }
-            }
+            // For live mode, always start at the first point (beginning of route)
+            const firstPoint = route.routePoints.find(p => p.seqOrder === 1) || route.routePoints[0];
+            setBusMapPosition({
+              lat: parseCoordinate(firstPoint.latitude),
+              lng: parseCoordinate(firstPoint.longitude)
+            });
           }
         }
+      }
+    }
+  };
+
+  // Handle date change - hide preview card when date changes
+  const handleDateChange = (event) => {
+    const selectedDateValue = new Date(event.target.value);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    selectedDateValue.setHours(0, 0, 0, 0);
+
+    // Hide historical preview when date changes
+    setShowHistoricalPreview(false);
+    setDirectionsRequested(false);
+
+    // Only allow past dates and today
+    if (selectedDateValue <= today) {
+      setSelectedDate(selectedDateValue);
+      if (isLiveMode && selectedDateValue.getTime() !== today.getTime()) {
+        setIsLiveMode(false);
       }
     }
   };
@@ -610,7 +781,7 @@ const MapViewPage = () => {
     }
   };
 
-  // Handle historical bus movement
+  // Handle historical bus movement with proper direction
   const handleBusPositionChange = (newPosition) => {
     setBusPosition(newPosition);
     
@@ -625,29 +796,11 @@ const MapViewPage = () => {
     const gpsData = findGPSDataFromPosition(newPosition);
     setCurrentGPSData(gpsData);
     
-    // Use actual GPS coordinates from historical data when available
-    if (!isLiveMode && gpsData) {
-      setBusMapPosition({
-        lat: parseCoordinate(gpsData.latitude),
-        lng: parseCoordinate(gpsData.longitude)
-      });
-    } else if (selectedRoute && selectedRoute.routePoints) {
-      const routePoints = selectedShift === 'evening' 
-        ? [...selectedRoute.routePoints].reverse() 
-        : selectedRoute.routePoints;
-      
-      const mapPosition = calculateBusMapPosition(newPosition, routePoints);
+    // Calculate bus position using improved direction logic
+    if (selectedRoute && selectedRoute.routePoints) {
+      const mapPosition = calculateBusMapPosition(newPosition, selectedRoute.routePoints, historicalData);
       if (mapPosition) {
         setBusMapPosition(mapPosition);
-      }
-      
-      // For completed route, set bus at destination
-      if (newPosition >= 100 && routePoints.length > 0) {
-        const lastPoint = routePoints[routePoints.length - 1];
-        setBusMapPosition({
-          lat: parseCoordinate(lastPoint.latitude),
-          lng: parseCoordinate(lastPoint.longitude)
-        });
       }
     }
   };
@@ -670,7 +823,41 @@ const MapViewPage = () => {
     if (gpsData && gpsData.eventTime) {
       return format(new Date(gpsData.eventTime), 'HH:mm:ss');
     }
-    return formatDisplayTime(currentTime);
+    return formatDisplayTime(deviceTime);
+  };
+
+  // Get current date from historical GPS data
+  const getCurrentDateFromHistoricalData = (position) => {
+    const gpsData = findGPSDataFromPosition(position);
+    if (gpsData && gpsData.eventTime) {
+      return format(new Date(gpsData.eventTime), 'EEE, MMM d');
+    }
+    return format(deviceTime, 'EEE, MMM d');
+  };
+
+  // Match route points with actual GPS coordinates and get arrival times
+  const getRoutePointArrivalTime = (routePoint, historicalGPSData) => {
+    if (!historicalGPSData || historicalGPSData.length === 0) return null;
+    
+    const routeLat = parseCoordinate(routePoint.latitude);
+    const routeLng = parseCoordinate(routePoint.longitude);
+    
+    // Find the GPS point closest to this route point (within 100 meters)
+    let closestPoint = null;
+    let minDistance = Infinity;
+    
+    historicalGPSData.forEach(gpsPoint => {
+      const gpsLat = parseCoordinate(gpsPoint.latitude);
+      const gpsLng = parseCoordinate(gpsPoint.longitude);
+      const distance = calculateDistance(routeLat, routeLng, gpsLat, gpsLng) * 1000; // Convert to meters
+      
+      if (distance < 100 && distance < minDistance) { // Within 100 meters
+        minDistance = distance;
+        closestPoint = gpsPoint;
+      }
+    });
+    
+    return closestPoint;
   };
 
   // Calculate elapsed time from start of journey
@@ -705,38 +892,28 @@ const MapViewPage = () => {
     }
   };
 
-  // Handle date change (switch to historical mode)
-  const handleDateChange = (event) => {
-    const selectedDateValue = new Date(event.target.value);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    selectedDateValue.setHours(0, 0, 0, 0);
-
-    // Only allow past dates and today
-    if (selectedDateValue <= today) {
-      setSelectedDate(selectedDateValue);
-      if (isLiveMode && selectedDateValue.getTime() !== today.getTime()) {
-        setIsLiveMode(false);
-      }
-    }
-  };
-
-  // Get route points for preview card with distance-based positioning
+  // Get route points for preview card with proper evening shift handling
   const getRoutePointsForDisplay = () => {
     if (!selectedRoute || !selectedRoute.routePoints || showAllRoutes) return [];
     
     const points = [...selectedRoute.routePoints].sort((a, b) => a.seqOrder - b.seqOrder);
     
+    // For evening shift: reverse the order so school appears first, destination last
     if (selectedShift === 'evening') {
       return points.reverse().map((point, index) => ({
         ...point,
-        displayOrder: index + 1
+        displayOrder: index + 1,
+        isSchoolPoint: index === 0, // First point in evening is school
+        isDestinationPoint: index === points.length - 1 // Last point in evening is destination
       }));
     }
     
+    // For morning shift: normal order
     return points.map((point, index) => ({
       ...point,
-      displayOrder: index + 1
+      displayOrder: index + 1,
+      isSchoolPoint: index === points.length - 1, // Last point in morning is school
+      isDestinationPoint: false
     }));
   };
 
@@ -746,17 +923,11 @@ const MapViewPage = () => {
     
     const points = [...selectedRoute.routePoints].sort((a, b) => a.seqOrder - b.seqOrder);
     
-    if (selectedShift === 'morning') {
-      return {
-        start: points[0]?.routePointName || 'Start',
-        end: points[points.length - 1]?.routePointName || 'School'
-      };
-    } else {
-      return {
-        start: points[points.length - 1]?.routePointName || 'School',
-        end: points[0]?.routePointName || 'Destination'
-      };
-    }
+    // Base display on actual route order, not session
+    return {
+      start: points[0]?.routePointName || 'Start',
+      end: points[points.length - 1]?.routePointName || 'End'
+    };
   };
 
   // Get all route points when showing all routes - show only one school for common coordinates
@@ -821,6 +992,43 @@ const MapViewPage = () => {
     return format(new Date(), 'yyyy-MM-dd');
   };
 
+  // Get card size classes
+  const getCardSizeClasses = () => {
+    const baseSize = isCardExpanded ? 'large' : cardSize;
+    switch (baseSize) {
+      case 'small':
+        return {
+          container: 'w-[60vw] sm:w-[55vw] lg:w-[600px]',
+          padding: 'p-2 sm:p-3 lg:p-4',
+          text: 'text-xs lg:text-sm',
+          title: 'text-sm lg:text-base',
+          icon: 'w-3 h-3 lg:w-4 lg:h-4',
+          circle: 'w-6 h-6 lg:w-8 lg:w-8',
+          bus: 'w-2 h-2 lg:w-3 lg:h-3'
+        };
+      case 'large':
+        return {
+          container: 'w-[98vw] sm:w-[95vw] lg:w-[1200px]',
+          padding: 'p-4 sm:p-6 lg:p-8',
+          text: 'text-sm lg:text-base',
+          title: 'text-lg lg:text-xl',
+          icon: 'w-5 h-5 lg:w-6 lg:h-6',
+          circle: 'w-10 h-10 lg:w-14 lg:h-14',
+          bus: 'w-4 h-4 lg:w-6 lg:h-6'
+        };
+      default: // normal
+        return {
+          container: 'w-[85vw] sm:w-[80vw] lg:w-[900px]',
+          padding: 'p-3 sm:p-4 lg:p-6',
+          text: 'text-xs lg:text-sm',
+          title: 'text-base lg:text-xl',
+          icon: 'w-4 h-4 lg:w-5 lg:h-5',
+          circle: 'w-8 h-8 lg:w-12 lg:h-12',
+          bus: 'w-3 h-3 lg:w-5 lg:h-5'
+        };
+    }
+  };
+
   // Effects
   useEffect(() => {
     fetchRoutes();
@@ -861,22 +1069,46 @@ const MapViewPage = () => {
 
   const routeDisplayInfo = getRouteDisplayInfo();
   const displayPoints = getRoutePointsForDisplay();
+  const cardClasses = getCardSizeClasses();
 
   return (
     <div className="h-screen w-screen flex bg-slate-900 text-white overflow-hidden">
-      {/* Left Sidebar */}
-      <div className="w-80 bg-slate-800 flex flex-col border-r border-slate-700 min-w-80 max-w-80 lg:w-80 md:w-72 sm:w-64">
+      {/* Mobile Menu Button */}
+      <button
+        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-slate-800 border border-slate-600 rounded-lg text-white hover:bg-slate-700 transition-colors"
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
+      {/* Left Sidebar - Responsive */}
+      <div className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:relative z-40 
+        w-80 sm:w-72 md:w-80 lg:w-80 xl:w-96 bg-slate-800 flex flex-col border-r border-slate-700 
+        transition-transform duration-300 ease-in-out h-full`}>
+        
+        {/* Close button for mobile */}
+        <button
+          onClick={() => setIsSidebarOpen(false)}
+          className="lg:hidden absolute top-4 right-4 p-2 text-gray-400 hover:text-white"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
         <div className="p-4 border-b border-slate-700">
           <Button
             onClick={() => navigate(-1)}
-            className="w-full mb-4 bg-yellow-500 text-black hover:bg-yellow-600"
+            className="w-full mb-4 bg-yellow-500 text-black hover:bg-yellow-600 text-sm sm:text-base"
           >
             ← Back to Dashboard
           </Button>
           
           {/* Routes Dropdown with integrated search */}
           <Select value={selectedRouteId} onValueChange={handleRouteSelect}>
-            <SelectTrigger className="w-full bg-slate-700 border-slate-600 text-white mb-4">
+            <SelectTrigger className="w-full bg-slate-700 border-slate-600 text-white mb-4 text-sm">
               <SelectValue placeholder="Select Route" />
             </SelectTrigger>
             <SelectContent className="bg-slate-700 border-slate-600">
@@ -887,7 +1119,7 @@ const MapViewPage = () => {
                     placeholder="Search routes..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 bg-slate-600 border-slate-500 text-white placeholder-gray-400"
+                    className="pl-10 bg-slate-600 border-slate-500 text-white placeholder-gray-400 text-sm"
                     onClick={(e) => e.stopPropagation()}
                   />
                 </div>
@@ -914,7 +1146,7 @@ const MapViewPage = () => {
                 value={format(selectedDate, 'yyyy-MM-dd')}
                 max={getTodayDateString()}
                 onChange={handleDateChange}
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent pl-10"
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent pl-10 text-sm"
               />
               <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             </div>
@@ -929,7 +1161,7 @@ const MapViewPage = () => {
                 <div className="flex space-x-2">
                   <Button
                     onClick={() => setSelectedShift('morning')}
-                    className={`flex-1 ${
+                    className={`flex-1 text-xs sm:text-sm ${
                       selectedShift === 'morning' 
                         ? 'bg-yellow-500 text-black' 
                         : 'bg-slate-600 text-white hover:bg-slate-500'
@@ -939,7 +1171,7 @@ const MapViewPage = () => {
                   </Button>
                   <Button
                     onClick={() => setSelectedShift('evening')}
-                    className={`flex-1 ${
+                    className={`flex-1 text-xs sm:text-sm ${
                       selectedShift === 'evening' 
                         ? 'bg-slate-300 text-black' 
                         : 'bg-slate-600 text-white hover:bg-slate-500'
@@ -954,7 +1186,7 @@ const MapViewPage = () => {
               <Button
                 onClick={fetchHistoricalData}
                 disabled={historicalLoading || selectedRouteId === 'all'}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center space-x-2"
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center space-x-2 text-sm"
               >
                 <Route className="w-4 h-4" />
                 <span>{historicalLoading ? 'Loading...' : 'Get Directions'}</span>
@@ -977,7 +1209,7 @@ const MapViewPage = () => {
             </Card>
           ) : (
             <Card className="p-4 bg-slate-700 border-slate-600">
-              <h3 className="text-yellow-400 font-semibold mb-3">Fleet Overview</h3>
+              <h3 className="text-yellow-400 font-semibold mb-3 text-sm">Fleet Overview</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-300">Total Routes:</span>
@@ -995,31 +1227,39 @@ const MapViewPage = () => {
           <Card className="p-4 bg-slate-700 border-slate-600">
             <div className="flex items-center justify-between">
               <span className="text-gray-300 text-sm">Current Time:</span>
-              <span className="text-yellow-400 font-mono">
-                {formatDisplayTime(currentTime)}
+              <span className="text-yellow-400 font-mono text-sm">
+                {formatDisplayTime(deviceTime)}
               </span>
             </div>
             <div className="flex items-center justify-between mt-2">
               <span className="text-gray-300 text-sm">Date:</span>
               <span className="text-white text-sm">
-                {format(currentTime, 'dd MMM yyyy')}
+                {format(deviceTime, 'dd MMM yyyy')}
               </span>
             </div>
           </Card>
         </div>
       </div>
 
+      {/* Overlay for mobile */}
+      {isSidebarOpen && (
+        <div 
+          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-30"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Controls */}
-        <div className="bg-slate-800 p-4 flex items-center justify-between border-b border-slate-700 flex-wrap gap-4">
-          <div className="flex items-center space-x-4 min-w-0">
-            <div className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent truncate">
+        <div className="bg-slate-800 p-3 lg:p-4 flex items-center justify-between border-b border-slate-700 flex-wrap gap-2 lg:gap-4">
+          <div className="flex items-center space-x-2 lg:space-x-4 min-w-0 ml-12 lg:ml-0">
+            <div className="text-lg lg:text-2xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent truncate">
               {showAllRoutes ? 'ALL ROUTES' : selectedRoute?.routeName || 'Route View'}
             </div>
             {loading && (
-              <div className="text-sm text-gray-400 flex items-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-400 mr-2"></div>
+              <div className="text-xs lg:text-sm text-gray-400 flex items-center">
+                <div className="animate-spin rounded-full h-3 w-3 lg:h-4 lg:w-4 border-b-2 border-yellow-400 mr-2"></div>
                 Loading routes...
               </div>
             )}
@@ -1028,7 +1268,7 @@ const MapViewPage = () => {
           <div className="flex items-center space-x-2">
             <Button
               onClick={() => setIsLiveMode(true)}
-              className={`px-6 py-2 rounded-full ${
+              className={`px-3 lg:px-6 py-2 rounded-full text-xs lg:text-sm ${
                 isLiveMode 
                   ? 'bg-yellow-500 text-black' 
                   : 'bg-slate-600 text-white hover:bg-slate-500'
@@ -1038,7 +1278,7 @@ const MapViewPage = () => {
             </Button>
             <Button
               onClick={() => setIsLiveMode(false)}
-              className={`px-6 py-2 rounded-full ${
+              className={`px-3 lg:px-6 py-2 rounded-full text-xs lg:text-sm ${
                 !isLiveMode 
                   ? 'bg-slate-300 text-black' 
                   : 'bg-slate-600 text-white hover:bg-slate-500'
@@ -1055,7 +1295,7 @@ const MapViewPage = () => {
             <GoogleMap
               mapContainerStyle={mapContainerStyle}
               center={mapCenter}
-              zoom={12}
+              zoom={window.innerWidth < 768 ? 11 : 12}
               onLoad={(map) => {
                 mapRef.current = map;
               }}
@@ -1084,7 +1324,7 @@ const MapViewPage = () => {
                     options={{
                       polylineOptions: {
                         strokeColor: showAllRoutes ? routeDir.color || ROUTE_COLORS[index % ROUTE_COLORS.length] : '#3B82F6',
-                        strokeWeight: 5,
+                        strokeWeight: window.innerWidth < 768 ? 4 : 5,
                         strokeOpacity: 0.8,
                       },
                       suppressMarkers: true,
@@ -1098,6 +1338,7 @@ const MapViewPage = () => {
               {(showAllRoutes ? getAllRoutePoints() : (selectedRoute ? selectedRoute.routePoints : [])).map((point, index) => {
                 const isSchool = showAllRoutes ? point.isSchoolLocation : point.routePointName.toLowerCase().includes('school');
                 const isFirst = !showAllRoutes && selectedRoute && index === 0;
+                const markerSize = window.innerWidth < 768 ? (isSchool ? 32 : 24) : (isSchool ? 40 : 28);
                 
                 return (
                   <Marker
@@ -1112,10 +1353,7 @@ const MapViewPage = () => {
                         : isFirst 
                         ? "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24' fill='%2322C55E'%3E%3Ccircle cx='12' cy='12' r='10' stroke='%23ffffff' stroke-width='2'/%3E%3C/svg%3E"
                         : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='%23F59E0B'%3E%3Ccircle cx='12' cy='12' r='8' stroke='%23ffffff' stroke-width='2'/%3E%3Ctext x='12' y='16' text-anchor='middle' fill='%23ffffff' font-size='8' font-weight='bold'%3E" + (index + 1) + "%3C/text%3E%3C/svg%3E",
-                      scaledSize: new window.google.maps.Size(
-                        isSchool ? 40 : isFirst ? 32 : 28, 
-                        isSchool ? 40 : isFirst ? 32 : 28
-                      ),
+                      scaledSize: new window.google.maps.Size(markerSize, markerSize),
                     }}
                     title={point.routePointName}
                     zIndex={isSchool ? 1000 : 100}
@@ -1131,7 +1369,7 @@ const MapViewPage = () => {
                     url: routeCompleted 
                       ? "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24' fill='%2322C55E'%3E%3Cpath d='M4,16C4,16.88 4.39,17.67 5,18.22V20A1,1 0 0,0 6,21H7A1,1 0 0,0 8,20V19H16V20A1,1 0 0,0 17,21H18A1,1 0 0,0 19,20V18.22C19.61,17.67 20,16.88 20,16V6C20,2.5 16.42,2 12,2C7.58,2 4,2.5 4,6V16M6.5,17A1.5,1.5 0 0,1 5,15.5A1.5,1.5 0 0,1 6.5,14A1.5,1.5 0 0,1 8,15.5A1.5,1.5 0 0,1 6.5,17M17.5,17A1.5,1.5 0 0,1 16,15.5A1.5,1.5 0 0,1 17.5,14A1.5,1.5 0 0,1 19,15.5A1.5,1.5 0 0,1 17.5,17M6,13V6H18V13H6Z'/%3E%3C/svg%3E"
                       : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24' fill='%23FACC15'%3E%3Cpath d='M4,16C4,16.88 4.39,17.67 5,18.22V20A1,1 0 0,0 6,21H7A1,1 0 0,0 8,20V19H16V20A1,1 0 0,0 17,21H18A1,1 0 0,0 19,20V18.22C19.61,17.67 20,16.88 20,16V6C20,2.5 16.42,2 12,2C7.58,2 4,2.5 4,6V16M6.5,17A1.5,1.5 0 0,1 5,15.5A1.5,1.5 0 0,1 6.5,14A1.5,1.5 0 0,1 8,15.5A1.5,1.5 0 0,1 6.5,17M17.5,17A1.5,1.5 0 0,1 16,15.5A1.5,1.5 0 0,1 17.5,14A1.5,1.5 0 0,1 19,15.5A1.5,1.5 0 0,1 17.5,17M6,13V6H18V13H6Z'/%3E%3C/svg%3E",
-                    scaledSize: new window.google.maps.Size(40, 40),
+                    scaledSize: new window.google.maps.Size(window.innerWidth < 768 ? 32 : 40, window.innerWidth < 768 ? 32 : 40),
                   }}
                   animation={isLiveMode ? window.google.maps.Animation.BOUNCE : null}
                 />
@@ -1139,63 +1377,246 @@ const MapViewPage = () => {
             </GoogleMap>
           )}
 
-          {/* Enhanced Preview Card */}
-          {!showAllRoutes && selectedRoute && routeDisplayInfo && (
-            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-[900px] max-w-[95vw]">
+          {/* Live Mode Preview Card - Always show when route is selected */}
+          {isLiveMode && !showAllRoutes && selectedRoute && routeDisplayInfo && (
+            <div className={`absolute bottom-2 sm:bottom-4 left-1/2 transform -translate-x-1/2 ${cardClasses.container} max-w-[95vw]`}>
+              <Card className="bg-white shadow-2xl rounded-lg border">
+                <div className={cardClasses.padding}>
+                  {/* Header with resize controls */}
+                  <div className="flex items-center justify-between mb-4 lg:mb-6">
+                    <div className="flex items-center space-x-2 lg:space-x-3">
+                      <Clock className={`${cardClasses.icon} text-blue-600`} />
+                      <div className={`${cardClasses.text} text-gray-600`}>
+                        {format(deviceTime, 'EEE, MMM d')} • 
+                        <span className="text-blue-600 font-medium ml-1">
+                          {formatDisplayTime(deviceTime)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {/* Resize Controls */}
+                      <div className="flex items-center space-x-1">
+                        <button
+                          onClick={() => setCardSize('small')}
+                          className={`p-1 rounded ${cardSize === 'small' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}
+                          title="Small"
+                        >
+                          <Minimize2 className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => setCardSize('normal')}
+                          className={`p-1 rounded ${cardSize === 'normal' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}
+                          title="Normal"
+                        >
+                          <div className="w-3 h-3 border border-current"></div>
+                        </button>
+                        <button
+                          onClick={() => setCardSize('large')}
+                          className={`p-1 rounded ${cardSize === 'large' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}
+                          title="Large"
+                        >
+                          <Maximize2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <div className={`px-2 lg:px-3 py-1 rounded-full ${cardClasses.text} font-semibold bg-yellow-100 text-yellow-800 border border-yellow-200`}>
+                        {selectedShift === 'morning' ? 'Morning Shift' : 'Evening Shift'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Route Title */}
+                  <div className="text-center mb-4 lg:mb-6">
+                    <div className={`${cardClasses.title} font-bold text-gray-800 flex items-center justify-center`}>
+                      <MapPin className={`${cardClasses.icon} mr-2 text-blue-600`} />
+                      <span className="truncate">
+                        {routeDisplayInfo.start} → {routeDisplayInfo.end}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Route Progress - Static for Live Mode */}
+                  <div className="relative mb-4 lg:mb-6">
+                    {/* Progress Line - Always at 0% for live mode */}
+                    <div className="absolute top-6 left-0 right-0 h-1 bg-gray-200 rounded-full mx-4 sm:mx-8">
+                      <div className="h-full rounded-full transition-all duration-300 bg-gray-300" style={{ width: '0%' }}></div>
+                    </div>
+
+                    {/* Route Points */}
+                    <div className="flex justify-between items-center relative" style={{ minHeight: '80px' }}>
+                      {displayPoints.slice(0, window.innerWidth < 640 ? 4 : displayPoints.length).map((point, index) => {
+                        const isFirst = index === 0;
+                        const isLast = index === displayPoints.length - 1;
+                        const positionPercent = getDistanceBasedPosition(index, displayPoints.length);
+
+                        return (
+                          <div
+                            key={point.id}
+                            className="absolute flex flex-col items-center cursor-pointer group"
+                            style={{ left: `${positionPercent}%`, transform: 'translateX(-50%)' }}
+                            onMouseEnter={() => setHoveredPoint(point)}
+                            onMouseLeave={() => setHoveredPoint(null)}
+                          >
+                            {/* Circle Point */}
+                            <div className={`relative ${cardClasses.circle} rounded-full flex items-center justify-center ${cardClasses.text} font-bold border-2 mb-2 lg:mb-3 transition-all duration-200 shadow-lg ${
+                              isFirst
+                                ? 'bg-green-500 text-white border-green-400'
+                                : isLast && selectedShift === 'morning'
+                                ? 'bg-red-500 text-white border-red-400'
+                                : 'bg-gray-300 text-gray-600 border-gray-400'
+                            }`}>
+                              {isFirst && selectedShift === 'morning' ? (
+                                <div className={`${cardSize === 'small' ? 'w-2 h-2' : cardSize === 'large' ? 'w-6 h-6' : 'w-4 h-4'} rounded-full bg-white`}></div>
+                              ) : (isLast && selectedShift === 'morning') || (isFirst && selectedShift === 'evening') ? (
+                                <School className={cardClasses.bus} />
+                              ) : (
+                                point.displayOrder
+                              )}
+                            </div>
+
+                            {/* Point Name */}
+                            <div className={`${cardClasses.text} text-gray-600 text-center max-w-16 lg:max-w-20 leading-tight font-medium`}>
+                              {point.routePointName.length > 8 ? 
+                                `${point.routePointName.substring(0, 8)}...` : 
+                                point.routePointName
+                              }
+                            </div>
+
+                            {/* Hover Tooltip - Hidden on mobile */}
+                            {hoveredPoint && hoveredPoint.id === point.id && window.innerWidth >= 768 && (
+                              <div className="absolute bottom-full mb-3 px-4 py-3 bg-gray-800 text-white text-xs rounded-lg shadow-xl whitespace-nowrap z-20 min-w-48">
+                                <div className="font-bold text-blue-400 mb-1">{point.routePointName}</div>
+                                <div className="text-green-400 mb-1">
+                                  Current Time: {formatDisplayTime(deviceTime)}
+                                </div>
+                                <div className="text-yellow-400">
+                                  Status: Bus not started yet
+                                </div>
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Bus Icon at starting position */}
+                    <div 
+                      className="absolute top-1 lg:top-2 transition-all duration-300 z-10"
+                      style={{ 
+                        left: '8px',
+                        transform: 'translateY(-50%)'
+                      }}
+                    >
+                      <div className={`${cardSize === 'small' ? 'p-1' : cardSize === 'large' ? 'p-4' : 'p-2'} lg:p-3 rounded-full shadow-xl transition-all border-2 border-white bg-gray-400`}>
+                        <Bus className={cardClasses.bus} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Live Mode Status */}
+                  <div className="text-center">
+                    <div className="flex items-center justify-center mb-2">
+                      <AlertCircle className={`${cardClasses.icon} text-yellow-500 mr-2`} />
+                      <span className={`${cardClasses.title} font-semibold text-gray-800`}>Bus not started yet</span>
+                    </div>
+                    <div className={`${cardClasses.text} text-green-600 flex items-center justify-center`}>
+                      <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+                      Live tracking mode • {formatDisplayTime(deviceTime)}
+                    </div>
+                    <div className={`${cardClasses.text} text-gray-500 mt-2`}>
+                      Switch to Historical mode to view past journey data
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* Enhanced Historical Preview Card - Only shown when directions are requested */}
+          {!showAllRoutes && selectedRoute && routeDisplayInfo && !isLiveMode && showHistoricalPreview && directionsRequested && (
+            <div className={`absolute bottom-2 sm:bottom-4 left-1/2 transform -translate-x-1/2 ${cardClasses.container} max-w-[95vw]`}>
               {loading ? (
                 <SkeletonPreviewCard />
               ) : (
                 <Card className="bg-white shadow-2xl rounded-lg border">
-                  <div className="p-6">
-                    {/* Header */}
-                    <div className="flex items-center justify-between mb-6">
-                      <div className="flex items-center space-x-3">
-                        <Clock className="w-5 h-5 text-blue-600" />
-                        <div className="text-sm text-gray-600">
-                          {format(isLiveMode ? currentTime : selectedDate, 'EEE, MMM d')} • 
+                  <div className={cardClasses.padding}>
+                    {/* Header with resize controls */}
+                    <div className="flex items-center justify-between mb-4 lg:mb-6">
+                      <div className="flex items-center space-x-2 lg:space-x-3">
+                        <Clock className={`${cardClasses.icon} text-blue-600`} />
+                        <div className={`${cardClasses.text} text-gray-600`}>
+                          {getCurrentDateFromPosition(busPosition)} • 
                           <span className="text-blue-600 font-medium ml-1">
-                            {isLiveMode ? formatDisplayTime(currentTime) : getCurrentTimeFromPosition(busPosition)}
+                            {getCurrentTimeFromPosition(busPosition)}
                           </span>
                         </div>
                       </div>
-                      <div className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                        selectedShift === 'morning' 
-                          ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' 
-                          : 'bg-purple-100 text-purple-800 border border-purple-200'
-                      }`}>
-                        {selectedShift === 'morning' ? 'Morning Shift' : 'Evening Shift'}
-                        {routeCompleted && !isLiveMode && (
-                          <span className="ml-2 text-green-600">✓ Completed</span>
-                        )}
+                      <div className="flex items-center space-x-2">
+                        {/* Resize Controls */}
+                        <div className="flex items-center space-x-1">
+                          <button
+                            onClick={() => setCardSize('small')}
+                            className={`p-1 rounded ${cardSize === 'small' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}
+                            title="Small"
+                          >
+                            <Minimize2 className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={() => setCardSize('normal')}
+                            className={`p-1 rounded ${cardSize === 'normal' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}
+                            title="Normal"
+                          >
+                            <div className="w-3 h-3 border border-current"></div>
+                          </button>
+                          <button
+                            onClick={() => setCardSize('large')}
+                            className={`p-1 rounded ${cardSize === 'large' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}
+                            title="Large"
+                          >
+                            <Maximize2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                        <div className={`px-2 lg:px-3 py-1 rounded-full ${cardClasses.text} font-semibold ${
+                          selectedShift === 'morning' 
+                            ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' 
+                            : 'bg-purple-100 text-purple-800 border border-purple-200'
+                        }`}>
+                          {selectedShift === 'morning' ? 'Morning Shift' : 'Evening Shift'}
+                          {routeCompleted && (
+                            <span className="ml-2 text-green-600">✓ Completed</span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
                     {/* Route Title */}
-                    <div className="text-center mb-6">
-                      <div className="text-xl font-bold text-gray-800 flex items-center justify-center">
-                        <MapPin className="w-6 h-6 mr-2 text-blue-600" />
-                        {routeDisplayInfo.start} → {routeDisplayInfo.end}
+                    <div className="text-center mb-4 lg:mb-6">
+                      <div className={`${cardClasses.title} font-bold text-gray-800 flex items-center justify-center`}>
+                        <MapPin className={`${cardClasses.icon} mr-2 text-blue-600`} />
+                        <span className="truncate">
+                          {routeDisplayInfo.start} → {routeDisplayInfo.end}
+                        </span>
                       </div>
                     </div>
 
                     {/* Route Progress */}
-                    <div className="relative mb-6">
+                    <div className="relative mb-4 lg:mb-6">
                       {/* Progress Line */}
-                      <div className="absolute top-6 left-0 right-0 h-1 bg-gray-200 rounded-full mx-8">
+                      <div className="absolute top-6 left-0 right-0 h-1 bg-gray-200 rounded-full mx-4 sm:mx-8">
                         <div 
                           className={`h-full rounded-full transition-all duration-300 ${
                             routeCompleted ? 'bg-green-500' : 'bg-blue-500'
                           }`}
-                          style={{ width: `${isLiveMode ? 0 : busPosition}%` }}
+                          style={{ width: `${busPosition}%` }}
                         ></div>
                       </div>
 
                       {/* Route Points */}
-                      <div className="flex justify-between items-center relative" style={{ minHeight: '100px' }}>
-                        {displayPoints.map((point, index) => {
-                          const progress = isLiveMode ? 0 : (busPosition / 100) * (displayPoints.length - 1);
-                          const isActive = !isLiveMode && index <= progress;
-                          const isCurrent = !isLiveMode && Math.floor(progress) === index;
+                      <div className="flex justify-between items-center relative" style={{ minHeight: '80px' }}>
+                        {displayPoints.slice(0, window.innerWidth < 640 ? 4 : displayPoints.length).map((point, index) => {
+                          const progress = (busPosition / 100) * (displayPoints.length - 1);
+                          const isActive = index <= progress;
+                          const isCurrent = Math.floor(progress) === index;
                           const isFirst = index === 0;
                           const isLast = index === displayPoints.length - 1;
                           
@@ -1210,7 +1631,7 @@ const MapViewPage = () => {
                               onMouseLeave={() => setHoveredPoint(null)}
                             >
                               {/* Circle Point */}
-                              <div className={`relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold border-2 mb-3 transition-all duration-200 shadow-lg ${
+                              <div className={`relative ${cardClasses.circle} rounded-full flex items-center justify-center ${cardClasses.text} font-bold border-2 mb-2 lg:mb-3 transition-all duration-200 shadow-lg ${
                                 isCurrent 
                                   ? 'bg-blue-500 text-white border-blue-400 scale-110 animate-pulse' 
                                   : routeCompleted
@@ -1224,27 +1645,35 @@ const MapViewPage = () => {
                                   : 'bg-gray-300 text-gray-600 border-gray-400'
                               }`}>
                                 {isFirst && selectedShift === 'morning' ? (
-                                  <div className="w-4 h-4 rounded-full bg-white"></div>
+                                  <div className={`${cardSize === 'small' ? 'w-2 h-2' : cardSize === 'large' ? 'w-6 h-6' : 'w-4 h-4'} rounded-full bg-white`}></div>
                                 ) : (isLast && selectedShift === 'morning') || (isFirst && selectedShift === 'evening') ? (
-                                  <School className="w-5 h-5" />
+                                  <School className={cardClasses.bus} />
                                 ) : (
                                   point.displayOrder
                                 )}
                               </div>
 
                               {/* Point Name */}
-                              <div className="text-xs text-gray-600 text-center max-w-20 leading-tight font-medium">
-                                {point.routePointName}
+                              <div className={`${cardClasses.text} text-gray-600 text-center max-w-16 lg:max-w-20 leading-tight font-medium`}>
+                                {point.routePointName.length > 8 ? 
+                                  `${point.routePointName.substring(0, 8)}...` : 
+                                  point.routePointName
+                                }
                               </div>
 
-                              {/* Hover Tooltip */}
-                              {hoveredPoint && hoveredPoint.id === point.id && (
+                              {/* Hover Tooltip - Hidden on mobile */}
+                              {hoveredPoint && hoveredPoint.id === point.id && window.innerWidth >= 768 && (
                                 <div className="absolute bottom-full mb-3 px-4 py-3 bg-gray-800 text-white text-xs rounded-lg shadow-xl whitespace-nowrap z-20 min-w-48">
                                   <div className="font-bold text-blue-400 mb-1">{point.routePointName}</div>
                                   
-                                  {/* Show times from API if available */}
-                                  {!isLiveMode && routeTimings[index - 1] && (
-                                    <div className="text-green-400 mb-1">
+                                  {/* Show current device time */}
+                                  <div className="text-green-400 mb-1">
+                                    Current Time: {formatDisplayTime(deviceTime)}
+                                  </div>
+                                  
+                                  {/* Show route times if available */}
+                                  {routeTimings[index - 1] && (
+                                    <div className="text-yellow-400 mb-1">
                                       {index === 0 ? `Started at ${formatTime(8.5 * 60)}` : `Reached: ${formatTime(routeTimings[index - 1].arrivalTime)}`}
                                     </div>
                                   )}
@@ -1264,125 +1693,111 @@ const MapViewPage = () => {
                       </div>
 
                       {/* Bus Icon */}
-                      {!isLiveMode && (
-                        <div 
-                          className="absolute top-2 transition-all duration-300 z-10"
-                          style={{ 
-                            left: `calc(${busPosition}% - 20px)`,
-                            transform: 'translateY(-50%)'
-                          }}
-                        >
-                          <div className={`p-3 rounded-full shadow-xl transition-all border-2 border-white ${
-                            routeCompleted ? 'bg-green-500' : 'bg-blue-500 animate-bounce'
-                          }`}>
-                            <Bus className="w-5 h-5 text-white" />
-                          </div>
+                      <div 
+                        className="absolute top-1 lg:top-2 transition-all duration-300 z-10"
+                        style={{ 
+                          left: `calc(${busPosition}% - 12px)`,
+                          transform: 'translateY(-50%)'
+                        }}
+                      >
+                        <div className={`${cardSize === 'small' ? 'p-1' : cardSize === 'large' ? 'p-4' : 'p-2'} lg:p-3 rounded-full shadow-xl transition-all border-2 border-white ${
+                          routeCompleted ? 'bg-green-500' : 'bg-blue-500 animate-bounce'
+                        }`}>
+                          <Bus className={cardClasses.bus} />
                         </div>
-                      )}
+                      </div>
                     </div>
 
                     {/* Controls for Historical Mode */}
-                    {!isLiveMode && (
-                      <div className="space-y-4">
-                        {/* Historical Data Information */}
-                        {historicalData.length > 0 && (
-                          <div className="bg-slate-50 p-4 rounded-lg border">
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                              <div>
-                                <span className="text-gray-600">Journey Time:</span>
-                                <div className="font-semibold text-blue-600">
-                                  {totalJourneyTime > 0 ? `${Math.floor(totalJourneyTime / 60)}h ${totalJourneyTime % 60}m` : '--'}
-                                </div>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">Elapsed:</span>
-                                <div className="font-semibold text-green-600">{getElapsedTime(busPosition)}</div>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">Current Time:</span>
-                                <div className="font-semibold text-purple-600">{getCurrentTimeFromHistoricalData(busPosition)}</div>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">GPS Points:</span>
-                                <div className="font-semibold text-orange-600">{historicalData.length}</div>
+                    <div className="space-y-3 lg:space-y-4">
+                      {/* Historical Data Information */}
+                      {historicalData.length > 0 && (
+                        <div className="bg-slate-50 p-3 lg:p-4 rounded-lg border">
+                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 lg:gap-4 text-xs lg:text-sm">
+                            <div>
+                              <span className="text-gray-600">Journey Time:</span>
+                              <div className="font-semibold text-blue-600">
+                                {totalJourneyTime > 0 ? `${Math.floor(totalJourneyTime / 60)}h ${totalJourneyTime % 60}m` : '--'}
                               </div>
                             </div>
-                            
-                            {currentGPSData && (
-                              <div className="mt-3 pt-3 border-t border-gray-200">
-                                <div className="flex items-center justify-between text-xs text-gray-600">
-                                  <span>Current GPS: {parseCoordinate(currentGPSData.latitude).toFixed(6)}, {parseCoordinate(currentGPSData.longitude).toFixed(6)}</span>
-                                  <span>Event Time: {format(new Date(currentGPSData.eventTime), 'HH:mm:ss')}</span>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        
-                        <div>
-                          <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            value={busPosition}
-                            onChange={(e) => handleBusPositionChange(parseInt(e.target.value))}
-                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                          />
-                        </div>
-                        
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <Button
-                              onClick={() => setIsHistoricalPlaying(!isHistoricalPlaying)}
-                              size="sm"
-                              className="bg-blue-600 hover:bg-blue-700 flex items-center space-x-2 px-4 py-2 text-white"
-                              disabled={historicalData.length === 0}
-                            >
-                              {isHistoricalPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                              <span className="text-sm">{isHistoricalPlaying ? 'Pause' : 'Play'}</span>
-                            </Button>
-                            <Button
-                              onClick={() => {
-                                setBusPosition(0);
-                                setIsHistoricalPlaying(false);
-                                setRouteCompleted(false);
-                                handleBusPositionChange(0);
-                              }}
-                              size="sm"
-                              variant="outline"
-                              className="border-gray-300 text-gray-700 hover:bg-gray-100 flex items-center space-x-2 px-4 py-2"
-                            >
-                              <RotateCcw className="w-4 h-4" />
-                              <span className="text-sm">Reset</span>
-                            </Button>
+                            <div>
+                              <span className="text-gray-600">Elapsed:</span>
+                              <div className="font-semibold text-green-600">{getElapsedTime(busPosition)}</div>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">Event Time:</span>
+                              <div className="font-semibold text-purple-600">{getCurrentTimeFromHistoricalData(busPosition)}</div>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">GPS Points:</span>
+                              <div className="font-semibold text-orange-600">{historicalData.length}</div>
+                            </div>
                           </div>
                           
-                          <div className="flex items-center space-x-4 text-sm text-gray-600">
-                            {historicalLoading && (
-                              <div className="text-blue-600 flex items-center">
-                                <div className="animate-spin rounded-full h-4 w-4 border-b border-blue-600 mr-2"></div>
-                                Loading...
+                          {currentGPSData && (
+                            <div className="mt-2 lg:mt-3 pt-2 lg:pt-3 border-t border-gray-200">
+                              <div className="flex items-center justify-between text-xs text-gray-600">
+                                <span>Current GPS: {parseCoordinate(currentGPSData.latitude).toFixed(4)}, {parseCoordinate(currentGPSData.longitude).toFixed(4)}</span>
+                                <span>Device Time: {formatDisplayTime(deviceTime)}</span>
                               </div>
-                            )}
-                            {routeCompleted && (
-                              <div className="text-green-600 flex items-center">
-                                <span>✓ Route Completed</span>
-                              </div>
-                            )}
-                          </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      <div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={busPosition}
+                          onChange={(e) => handleBusPositionChange(parseInt(e.target.value))}
+                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                        />
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2 lg:space-x-3">
+                          <Button
+                            onClick={() => setIsHistoricalPlaying(!isHistoricalPlaying)}
+                            size="sm"
+                            className="bg-blue-600 hover:bg-blue-700 flex items-center space-x-1 lg:space-x-2 px-3 lg:px-4 py-2 text-white text-xs lg:text-sm"
+                            disabled={historicalData.length === 0}
+                          >
+                            {isHistoricalPlaying ? <Pause className="w-3 h-3 lg:w-4 lg:h-4" /> : <Play className="w-3 h-3 lg:w-4 lg:h-4" />}
+                            <span>{isHistoricalPlaying ? 'Pause' : 'Play'}</span>
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              setBusPosition(0);
+                              setIsHistoricalPlaying(false);
+                              setRouteCompleted(false);
+                              handleBusPositionChange(0);
+                            }}
+                            size="sm"
+                            variant="outline"
+                            className="border-gray-300 text-gray-700 hover:bg-gray-100 flex items-center space-x-1 lg:space-x-2 px-3 lg:px-4 py-2 text-xs lg:text-sm"
+                          >
+                            <RotateCcw className="w-3 h-3 lg:w-4 lg:h-4" />
+                            <span>Reset</span>
+                          </Button>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2 lg:space-x-4 text-xs lg:text-sm text-gray-600">
+                          {historicalLoading && (
+                            <div className="text-blue-600 flex items-center">
+                              <div className="animate-spin rounded-full h-3 w-3 lg:h-4 lg:w-4 border-b border-blue-600 mr-2"></div>
+                              Loading...
+                            </div>
+                          )}
+                          {routeCompleted && (
+                            <div className="text-green-600 flex items-center">
+                              <span>✓ Route Completed</span>
+                            </div>
+                          )}
                         </div>
                       </div>
-                    )}
-
-                    {/* Live Mode Status */}
-                    {isLiveMode && (
-                      <div className="text-center">
-                        <div className="text-sm text-green-600 flex items-center justify-center">
-                          <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                          Live tracking mode • {formatDisplayTime(currentTime)}
-                        </div>
-                      </div>
-                    )}
+                    </div>
                   </div>
                 </Card>
               )}
@@ -1391,11 +1806,11 @@ const MapViewPage = () => {
 
           {/* All Routes Message */}
           {showAllRoutes && (
-            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
-              <Card className="bg-white shadow-lg border p-6">
+            <div className="absolute bottom-2 sm:bottom-4 left-1/2 transform -translate-x-1/2">
+              <Card className="bg-white shadow-lg border p-4 lg:p-6">
                 <div className="text-center">
-                  <div className="text-lg font-semibold text-gray-800 mb-2">All Routes View</div>
-                  <div className="text-sm text-gray-600 mb-2">
+                  <div className="text-base lg:text-lg font-semibold text-gray-800 mb-2">All Routes View</div>
+                  <div className="text-xs lg:text-sm text-gray-600 mb-2">
                     Displaying all {routes.length} routes on the map.
                   </div>
                   <div className="text-xs text-blue-600">
@@ -1408,9 +1823,9 @@ const MapViewPage = () => {
 
           {/* Error Message */}
           {error && (
-            <div className="absolute top-4 right-4 max-w-md">
-              <Card className="bg-red-100 border-red-300 p-4">
-                <div className="text-red-800 text-sm">
+            <div className="absolute top-16 lg:top-4 right-2 lg:right-4 max-w-sm lg:max-w-md">
+              <Card className="bg-red-100 border-red-300 p-3 lg:p-4">
+                <div className="text-red-800 text-xs lg:text-sm">
                   <strong>Error:</strong> {error}
                 </div>
               </Card>
@@ -1423,34 +1838,34 @@ const MapViewPage = () => {
       <style>{`
         .slider::-webkit-slider-thumb {
           appearance: none;
-          width: 20px;
-          height: 20px;
+          width: 16px;
+          height: 16px;
           border-radius: 50%;
           background: linear-gradient(45deg, #3B82F6, #1E40AF);
           cursor: pointer;
-          box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+          box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
           border: 2px solid white;
         }
         
         .slider::-moz-range-thumb {
-          width: 20px;
-          height: 20px;
+          width: 16px;
+          height: 16px;
           border-radius: 50%;
           background: linear-gradient(45deg, #3B82F6, #1E40AF);
           cursor: pointer;
           border: 2px solid white;
-          box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+          box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
         }
 
-        @media (max-width: 768px) {
-          .w-80 {
-            width: 16rem;
+        @media (min-width: 1024px) {
+          .slider::-webkit-slider-thumb {
+            width: 20px;
+            height: 20px;
           }
-        }
-        
-        @media (max-width: 640px) {
-          .w-80 {
-            width: 12rem;
+          
+          .slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
           }
         }
       `}</style>
