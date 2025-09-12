@@ -478,7 +478,7 @@ const LiveMap = () => {
         
         <div className="flex items-center space-x-3">
           <Button
-            onClick={() => navigate(-1)}
+            onClick={() => navigate('/dashboard/admin')}
             className="px-6 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-black hover:from-yellow-600 hover:to-orange-600 font-semibold rounded-full shadow-lg transform hover:scale-105 transition-all duration-200"
           >
             ← Back to Dashboard
