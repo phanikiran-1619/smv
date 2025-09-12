@@ -10,6 +10,8 @@ import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import SchoolAdminDashboard from "./pages/SchoolAdminDashboard";
 import StudentMap from "./pages/StudentMap";
 import MapViewPage from "./pages/MapViewPage";
+import LiveMap from "./pages/LiveMap";
+import HistoricalMap from "./pages/HistoricalMap";
 import DummyPage from "./pages/DummyPage";
 import SwipedListPage from "./pages/SwipedListPage";
 import RegistrationPage from "./pages/RegistrationPage";
@@ -43,9 +45,12 @@ function App() {
           <Route path="/dashboard/admin" element={<SchoolAdminDashboard />} />
           <Route path="/dashboard/superadmin" element={<SuperAdminDashboard />} />
           
-          {/* Map Route */}
+          {/* Map Routes */}
           <Route path="/student-map" element={<StudentMap />} />
           <Route path="/map-view" element={<MapViewPage />} />
+          <Route path="/live-map" element={<LiveMap />} />
+          <Route path="/historical-map" element={<HistoricalMap />} />
+          <Route path="/by-route" element={<LiveMap />} />
           
           {/* Dummy Pages for Dashboard Items */}
           <Route path="/swiped-list" element={<SwipedListPage />} />
@@ -53,7 +58,7 @@ function App() {
           <Route path="/registration" element={<RegistrationPage />} />
           <Route path="/admin-reset" element={<AdminResetPage />} />
           <Route path="/photo-upload" element={<PhotoUploadPage />} />
-          <Route path="/by-route" element={<MapViewPage />} />
+          <Route path="/by-route" element={<LiveMap />} />
           <Route path="/all-users" element={<AllUsersPage />} />
           <Route path="/driver-tracker" element={<DummyPage />} />
           <Route path="/route-assign" element={<RouteAssignPage />} />

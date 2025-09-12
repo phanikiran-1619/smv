@@ -250,8 +250,8 @@ const MapViewPage = () => {
     return format(date, 'HH:mm:ss');
   };
 
-  // Get current time based on bus position - use actual GPS eventTime
-  const getCurrentTimeFromPosition = (position) => {
+  // Get reached time based on bus position - use actual GPS eventTime
+  const getReachedTimeFromPosition = (position) => {
     if (!isLiveMode && historicalData.length > 0) {
       // For historical mode, use actual GPS eventTime
       const gpsData = findGPSDataFromPosition(position);
@@ -264,8 +264,8 @@ const MapViewPage = () => {
     return formatDisplayTime(deviceTime);
   };
 
-  // Get current date based on bus position - use actual GPS eventTime
-  const getCurrentDateFromPosition = (position) => {
+  // Get reached date based on bus position - use actual GPS eventTime
+  const getReachedDateFromPosition = (position) => {
     if (!isLiveMode && historicalData.length > 0) {
       // For historical mode, use actual GPS eventTime
       const gpsData = findGPSDataFromPosition(position);
@@ -303,52 +303,56 @@ const MapViewPage = () => {
       };
     }
 
-    // Determine actual movement direction based on coordinates and session
+    // For live mode, determine starting position based on shift
     const sortedPoints = [...routePoints].sort((a, b) => a.seqOrder - b.seqOrder);
-    
-    // For morning: typically starts from pickup points and goes to school
-    // For evening: typically starts from school and goes to drop points
-    // But we need to check actual coordinate progression to determine real direction
-    
     let actualRouteOrder = sortedPoints;
     
-    // Check if we need to reverse based on actual coordinate progression in historical data
-    if (historicalGPSData && historicalGPSData.length > 1) {
-      const firstGPS = historicalGPSData[0];
-      const lastGPS = historicalGPSData[historicalGPSData.length - 1];
-      
-      // Find which route point is closest to first GPS position
-      const firstDistances = sortedPoints.map(point => 
-        calculateDistance(
-          parseCoordinate(firstGPS.latitude),
-          parseCoordinate(firstGPS.longitude),
-          parseCoordinate(point.latitude),
-          parseCoordinate(point.longitude)
-        )
-      );
-      
-      const closestToFirst = firstDistances.indexOf(Math.min(...firstDistances));
-      
-      // Find which route point is closest to last GPS position
-      const lastDistances = sortedPoints.map(point => 
-        calculateDistance(
-          parseCoordinate(lastGPS.latitude),
-          parseCoordinate(lastGPS.longitude),
-          parseCoordinate(point.latitude),
-          parseCoordinate(point.longitude)
-        )
-      );
-      
-      const closestToLast = lastDistances.indexOf(Math.min(...lastDistances));
-      
-      // If the journey goes from higher index to lower index, reverse the route
-      if (closestToFirst > closestToLast) {
+    // For live mode, position bus at appropriate starting point based on shift
+    if (isLiveMode) {
+      if (selectedShift === 'evening') {
+        // Evening: start from school (last point in morning order)
         actualRouteOrder = [...sortedPoints].reverse();
       }
+      // Morning: use normal order (start from first point)
     } else {
-      // Fallback to session-based logic only if no GPS data
-      if (selectedShift === 'evening') {
-        actualRouteOrder = [...sortedPoints].reverse();
+      // For historical mode, determine direction based on GPS data
+      if (historicalGPSData && historicalGPSData.length > 1) {
+        const firstGPS = historicalGPSData[0];
+        const lastGPS = historicalGPSData[historicalGPSData.length - 1];
+        
+        // Find which route point is closest to first GPS position
+        const firstDistances = sortedPoints.map(point => 
+          calculateDistance(
+            parseCoordinate(firstGPS.latitude),
+            parseCoordinate(firstGPS.longitude),
+            parseCoordinate(point.latitude),
+            parseCoordinate(point.longitude)
+          )
+        );
+        
+        const closestToFirst = firstDistances.indexOf(Math.min(...firstDistances));
+        
+        // Find which route point is closest to last GPS position
+        const lastDistances = sortedPoints.map(point => 
+          calculateDistance(
+            parseCoordinate(lastGPS.latitude),
+            parseCoordinate(lastGPS.longitude),
+            parseCoordinate(point.latitude),
+            parseCoordinate(point.longitude)
+          )
+        );
+        
+        const closestToLast = lastDistances.indexOf(Math.min(...lastDistances));
+        
+        // If the journey goes from higher index to lower index, reverse the route
+        if (closestToFirst > closestToLast) {
+          actualRouteOrder = [...sortedPoints].reverse();
+        }
+      } else {
+        // Fallback to session-based logic only if no GPS data
+        if (selectedShift === 'evening') {
+          actualRouteOrder = [...sortedPoints].reverse();
+        }
       }
     }
 
@@ -499,7 +503,7 @@ const MapViewPage = () => {
       const formattedDate = format(selectedDate, 'yyyy-MM-dd');
       
       const response = await fetch(
-        `${API_BASE_URL}/device-locations?schoolId=${schoolId}&routeId=${selectedRouteId}&date=${formattedDate}&period=${selectedShift}`,
+        `${API_BASE_URL}/api/v1/device-locations?schoolId=${schoolId}&routeId=${selectedRouteId}&date=${formattedDate}&period=${selectedShift}`,
         {
           headers: {
             Authorization: token ? `Bearer ${token}` : '',
@@ -549,11 +553,11 @@ const MapViewPage = () => {
       const baseDate = format(selectedDate, 'yyyy-MM-dd');
       const startHour = selectedShift === 'morning' ? '08' : '15';
       const mockHistoricalData = [
-        { id: 1, latitude: 12.9716, longitude: 77.5946, eventTime: `${baseDate}T${startHour}:30:00` },
-        { id: 2, latitude: 12.9591, longitude: 77.7017, eventTime: `${baseDate}T${startHour}:35:00` },
-        { id: 3, latitude: 12.9611, longitude: 77.7172, eventTime: `${baseDate}T${startHour}:42:00` },
-        { id: 4, latitude: 12.9698, longitude: 77.7499, eventTime: `${baseDate}T${startHour}:48:00` },
-        { id: 5, latitude: 12.9750, longitude: 77.7800, eventTime: `${baseDate}T${startHour}:55:00` },
+        { id: 1, latitude: 12.9716, longitude: 77.5946, eventTime: `${baseDate}T${startHour}:30:00`, deviceId: 'BNG200001' },
+        { id: 2, latitude: 12.9591, longitude: 77.7017, eventTime: `${baseDate}T${startHour}:35:00`, deviceId: 'BNG200001' },
+        { id: 3, latitude: 12.9611, longitude: 77.7172, eventTime: `${baseDate}T${startHour}:42:00`, deviceId: 'BNG200001' },
+        { id: 4, latitude: 12.9698, longitude: 77.7499, eventTime: `${baseDate}T${startHour}:48:00`, deviceId: 'BNG200001' },
+        { id: 5, latitude: 12.9750, longitude: 77.7800, eventTime: `${baseDate}T${startHour}:55:00`, deviceId: 'BNG200001' },
       ];
       
       setHistoricalData(mockHistoricalData);
@@ -618,11 +622,19 @@ const MapViewPage = () => {
         // Set initial bus position based on shift and mode
         if (route.routePoints && route.routePoints.length > 0) {
           if (isLiveMode) {
-            // For live mode, always start at the first point (beginning of route)
-            const firstPoint = route.routePoints.find(p => p.seqOrder === 1) || route.routePoints[0];
+            // For live mode, start position depends on shift
+            let startPoint;
+            if (selectedShift === 'morning') {
+              // Morning: start from first pickup point
+              startPoint = route.routePoints.find(p => p.seqOrder === 1) || route.routePoints[0];
+            } else {
+              // Evening: start from school (last point in morning order)
+              const sortedPoints = [...route.routePoints].sort((a, b) => a.seqOrder - b.seqOrder);
+              startPoint = sortedPoints[sortedPoints.length - 1];
+            }
             setBusMapPosition({
-              lat: parseCoordinate(firstPoint.latitude),
-              lng: parseCoordinate(firstPoint.longitude)
+              lat: parseCoordinate(startPoint.latitude),
+              lng: parseCoordinate(startPoint.longitude)
             });
           }
         }
@@ -805,6 +817,27 @@ const MapViewPage = () => {
     }
   };
 
+  // Sync bus position between preview card and map
+  const syncBusPosition = (position) => {
+    // Update bus position in preview card
+    setBusPosition(position);
+    
+    // Update bus position on map
+    if (selectedRoute && selectedRoute.routePoints) {
+      const mapPosition = calculateBusMapPosition(position, selectedRoute.routePoints, historicalData);
+      if (mapPosition) {
+        setBusMapPosition(mapPosition);
+      }
+    }
+    
+    // Update current GPS data
+    const gpsData = findGPSDataFromPosition(position);
+    setCurrentGPSData(gpsData);
+    
+    // Check if route is completed
+    setRouteCompleted(position >= 100);
+  };
+
   // Find GPS data based on current position with improved accuracy
   const findGPSDataFromPosition = (position) => {
     if (!historicalData.length) return null;
@@ -817,8 +850,8 @@ const MapViewPage = () => {
     return historicalData[dataIndex] || null;
   };
 
-  // Get current time from historical GPS data
-  const getCurrentTimeFromHistoricalData = (position) => {
+  // Get reached time from historical GPS data
+  const getReachedTimeFromHistoricalData = (position) => {
     const gpsData = findGPSDataFromPosition(position);
     if (gpsData && gpsData.eventTime) {
       return format(new Date(gpsData.eventTime), 'HH:mm:ss');
@@ -826,8 +859,8 @@ const MapViewPage = () => {
     return formatDisplayTime(deviceTime);
   };
 
-  // Get current date from historical GPS data
-  const getCurrentDateFromHistoricalData = (position) => {
+  // Get reached date from historical GPS data
+  const getReachedDateFromHistoricalData = (position) => {
     const gpsData = findGPSDataFromPosition(position);
     if (gpsData && gpsData.eventTime) {
       return format(new Date(gpsData.eventTime), 'EEE, MMM d');
@@ -842,7 +875,7 @@ const MapViewPage = () => {
     const routeLat = parseCoordinate(routePoint.latitude);
     const routeLng = parseCoordinate(routePoint.longitude);
     
-    // Find the GPS point closest to this route point (within 100 meters)
+    // Find the GPS point closest to this route point (within 10 meters)
     let closestPoint = null;
     let minDistance = Infinity;
     
@@ -851,13 +884,32 @@ const MapViewPage = () => {
       const gpsLng = parseCoordinate(gpsPoint.longitude);
       const distance = calculateDistance(routeLat, routeLng, gpsLat, gpsLng) * 1000; // Convert to meters
       
-      if (distance < 100 && distance < minDistance) { // Within 100 meters
+      if (distance < 10 && distance < minDistance) { // Within 10 meters
         minDistance = distance;
         closestPoint = gpsPoint;
       }
     });
     
     return closestPoint;
+  };
+
+  // Get reached time for a specific route point based on GPS proximity
+  const getRoutePointReachedTime = (routePoint) => {
+    if (!historicalData || historicalData.length === 0) return null;
+    
+    const closestGPS = getRoutePointArrivalTime(routePoint, historicalData);
+    if (closestGPS && closestGPS.eventTime) {
+      return format(new Date(closestGPS.eventTime), 'HH:mm:ss');
+    }
+    return null;
+  };
+
+  // Get device ID from historical data
+  const getDeviceId = () => {
+    if (historicalData && historicalData.length > 0) {
+      return historicalData[0].deviceId || 'Unknown';
+    }
+    return 'Unknown';
   };
 
   // Calculate elapsed time from start of journey
@@ -884,9 +936,10 @@ const MapViewPage = () => {
       setBusPosition(prev => {
         const newPosition = prev + 0.5;
         if (newPosition > 100) {
+          syncBusPosition(100);
           return 100;
         }
-        handleBusPositionChange(newPosition);
+        syncBusPosition(newPosition);
         return newPosition;
       });
     }
@@ -1486,7 +1539,7 @@ const MapViewPage = () => {
                               <div className="absolute bottom-full mb-3 px-4 py-3 bg-gray-800 text-white text-xs rounded-lg shadow-xl whitespace-nowrap z-20 min-w-48">
                                 <div className="font-bold text-blue-400 mb-1">{point.routePointName}</div>
                                 <div className="text-green-400 mb-1">
-                                  Current Time: {formatDisplayTime(deviceTime)}
+                                  Reached Time: {formatDisplayTime(deviceTime)}
                                 </div>
                                 <div className="text-yellow-400">
                                   Status: Bus not started yet
@@ -1499,11 +1552,11 @@ const MapViewPage = () => {
                       })}
                     </div>
 
-                    {/* Bus Icon at starting position */}
+                    {/* Bus Icon at starting position based on shift */}
                     <div 
                       className="absolute top-1 lg:top-2 transition-all duration-300 z-10"
                       style={{ 
-                        left: '8px',
+                        left: selectedShift === 'morning' ? '8px' : 'calc(100% - 24px)',
                         transform: 'translateY(-50%)'
                       }}
                     >
@@ -1524,7 +1577,7 @@ const MapViewPage = () => {
                       Live tracking mode • {formatDisplayTime(deviceTime)}
                     </div>
                     <div className={`${cardClasses.text} text-gray-500 mt-2`}>
-                      Switch to Historical mode to view past journey data
+                      {selectedShift === 'morning' ? 'Bus ready to start from pickup point' : 'Bus ready to start from school'}
                     </div>
                   </div>
                 </div>
@@ -1545,10 +1598,13 @@ const MapViewPage = () => {
                       <div className="flex items-center space-x-2 lg:space-x-3">
                         <Clock className={`${cardClasses.icon} text-blue-600`} />
                         <div className={`${cardClasses.text} text-gray-600`}>
-                          {getCurrentDateFromPosition(busPosition)} • 
+                          {getReachedDateFromPosition(busPosition)} • 
                           <span className="text-blue-600 font-medium ml-1">
-                            {getCurrentTimeFromPosition(busPosition)}
+                            {getReachedTimeFromPosition(busPosition)}
                           </span>
+                        </div>
+                        <div className={`${cardClasses.text} text-gray-500 bg-gray-100 px-2 py-1 rounded`}>
+                          Device: {getDeviceId()}
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
@@ -1666,17 +1722,21 @@ const MapViewPage = () => {
                                 <div className="absolute bottom-full mb-3 px-4 py-3 bg-gray-800 text-white text-xs rounded-lg shadow-xl whitespace-nowrap z-20 min-w-48">
                                   <div className="font-bold text-blue-400 mb-1">{point.routePointName}</div>
                                   
-                                  {/* Show current device time */}
-                                  <div className="text-green-400 mb-1">
-                                    Current Time: {formatDisplayTime(deviceTime)}
-                                  </div>
-                                  
-                                  {/* Show route times if available */}
-                                  {routeTimings[index - 1] && (
-                                    <div className="text-yellow-400 mb-1">
-                                      {index === 0 ? `Started at ${formatTime(8.5 * 60)}` : `Reached: ${formatTime(routeTimings[index - 1].arrivalTime)}`}
+                                  {/* Show actual reached time from GPS data */}
+                                  {getRoutePointReachedTime(point) ? (
+                                    <div className="text-green-400 mb-1">
+                                      Reached: {getRoutePointReachedTime(point)}
+                                    </div>
+                                  ) : (
+                                    <div className="text-gray-400 mb-1">
+                                      Not reached yet
                                     </div>
                                   )}
+                                  
+                                  {/* Show current position time */}
+                                  <div className="text-yellow-400 mb-1">
+                                    Current: {getReachedTimeFromHistoricalData(busPosition)}
+                                  </div>
                                   
                                   {routeCompleted && (
                                     <div className="text-green-400">
@@ -1712,33 +1772,39 @@ const MapViewPage = () => {
                     <div className="space-y-3 lg:space-y-4">
                       {/* Historical Data Information */}
                       {historicalData.length > 0 && (
-                        <div className="bg-slate-50 p-3 lg:p-4 rounded-lg border">
-                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 lg:gap-4 text-xs lg:text-sm">
-                            <div>
-                              <span className="text-gray-600">Journey Time:</span>
-                              <div className="font-semibold text-blue-600">
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 lg:p-5 rounded-xl border border-blue-200 shadow-sm">
+                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 text-xs lg:text-sm">
+                            <div className="text-center">
+                              <div className="text-gray-600 mb-1">Journey Time</div>
+                              <div className="font-bold text-blue-700 text-sm lg:text-base">
                                 {totalJourneyTime > 0 ? `${Math.floor(totalJourneyTime / 60)}h ${totalJourneyTime % 60}m` : '--'}
                               </div>
                             </div>
-                            <div>
-                              <span className="text-gray-600">Elapsed:</span>
-                              <div className="font-semibold text-green-600">{getElapsedTime(busPosition)}</div>
+                            <div className="text-center">
+                              <div className="text-gray-600 mb-1">Elapsed</div>
+                              <div className="font-bold text-green-700 text-sm lg:text-base">{getElapsedTime(busPosition)}</div>
                             </div>
-                            <div>
-                              <span className="text-gray-600">Event Time:</span>
-                              <div className="font-semibold text-purple-600">{getCurrentTimeFromHistoricalData(busPosition)}</div>
+                            <div className="text-center">
+                              <div className="text-gray-600 mb-1">Current Time</div>
+                              <div className="font-bold text-purple-700 text-sm lg:text-base">{getReachedTimeFromHistoricalData(busPosition)}</div>
                             </div>
-                            <div>
-                              <span className="text-gray-600">GPS Points:</span>
-                              <div className="font-semibold text-orange-600">{historicalData.length}</div>
+                            <div className="text-center">
+                              <div className="text-gray-600 mb-1">GPS Points</div>
+                              <div className="font-bold text-orange-700 text-sm lg:text-base">{historicalData.length}</div>
                             </div>
                           </div>
                           
                           {currentGPSData && (
-                            <div className="mt-2 lg:mt-3 pt-2 lg:pt-3 border-t border-gray-200">
-                              <div className="flex items-center justify-between text-xs text-gray-600">
-                                <span>Current GPS: {parseCoordinate(currentGPSData.latitude).toFixed(4)}, {parseCoordinate(currentGPSData.longitude).toFixed(4)}</span>
-                                <span>Device Time: {formatDisplayTime(deviceTime)}</span>
+                            <div className="mt-3 pt-3 border-t border-blue-200">
+                              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between text-xs text-gray-600 space-y-1 lg:space-y-0">
+                                <div className="flex items-center space-x-2">
+                                  <span className="font-medium">GPS:</span>
+                                  <span className="font-mono">{parseCoordinate(currentGPSData.latitude).toFixed(4)}, {parseCoordinate(currentGPSData.longitude).toFixed(4)}</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <span className="font-medium">Event Time:</span>
+                                  <span className="font-mono text-blue-600">{getReachedTimeFromHistoricalData(busPosition)}</span>
+                                </div>
                               </div>
                             </div>
                           )}
@@ -1751,7 +1817,7 @@ const MapViewPage = () => {
                           min="0"
                           max="100"
                           value={busPosition}
-                          onChange={(e) => handleBusPositionChange(parseInt(e.target.value))}
+                          onChange={(e) => syncBusPosition(parseInt(e.target.value))}
                           className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
                         />
                       </div>
@@ -1769,10 +1835,8 @@ const MapViewPage = () => {
                           </Button>
                           <Button
                             onClick={() => {
-                              setBusPosition(0);
+                              syncBusPosition(0);
                               setIsHistoricalPlaying(false);
-                              setRouteCompleted(false);
-                              handleBusPositionChange(0);
                             }}
                             size="sm"
                             variant="outline"
