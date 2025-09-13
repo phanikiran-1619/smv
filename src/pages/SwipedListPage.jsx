@@ -507,7 +507,7 @@ const SwipedListPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-700 text-white">
+    <div className="min-h-screen bg-gradient-to-br dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 from-gray-50 via-gray-100 to-gray-200 dark:text-white text-gray-800">
       <Navbar showBackButton={true} />
       
       <div className="pt-24 px-4 pb-8">

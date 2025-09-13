@@ -2,104 +2,139 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { Card } from '../components/ui/card';
-import { Button } from '../components/ui/button';
+import { 
+  MapPin, Users, Eye, Bell, 
+  Sparkles
+} from 'lucide-react';
 
 const SchoolAdminDashboard = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { username } = location.state || { username: 'Admin User' };
+  const { username } = location.state || { username: 'School Admin' };
+  const [isLoading, setIsLoading] = useState(true);
 
-  const menuItems = [
+  useEffect(() => {
+    setTimeout(() => {
+      setIsLoading(false);
+    }, 300);
+  }, []);
+
+  const primaryActions = [
     {
       title: 'By Route',
+      icon: <MapPin className="w-8 h-8" />,
+      path: '/by-route',
       description: 'View and manage route assignments',
-      path: '/live-map',
-      icon: '📍',
-      buttonText: 'Route Management'
+      color: 'from-blue-500 to-blue-600',
+      lightColor: 'from-blue-400 to-blue-500',
+      stats: 'Route Management'
     },
     {
-      title: 'All Users Data',  
-      description: 'Manage user information and records',
+      title: 'All Users Data',
+      icon: <Users className="w-8 h-8" />,
       path: '/all-users',
-      icon: '👥',
-      buttonText: 'User Records'
+      description: 'Manage user information and records',
+      color: 'from-green-500 to-green-600',
+      lightColor: 'from-green-400 to-green-500',
+      stats: 'User Records'
     },
     {
       title: 'Route Assign',
-      description: 'Assign routes to drivers and students',
+      icon: <Eye className="w-8 h-8" />,
       path: '/route-assign',
-      icon: '🔄',
-      buttonText: 'Route Assignment'
+      description: 'Assign routes to drivers and students',
+      color: 'from-orange-500 to-orange-600',
+      lightColor: 'from-orange-400 to-orange-500',
+      stats: 'Route Assignment'
     },
     {
       title: 'Swipe List',
-      description: 'Complete journey tracking records',
+      icon: <Bell className="w-8 h-8" />,
       path: '/swiped-list',
-      icon: '🔔',
-      buttonText: 'Swipe Records'
+      description: 'Complete journey tracking records',
+      color: 'from-purple-500 to-purple-600',
+      lightColor: 'from-purple-400 to-purple-500',
+      stats: 'Swipe Records'
     }
   ];
 
-  const handleNavigation = (path) => {
+  const handleCardClick = (path, title) => {
     navigate(path, { 
       state: { 
         userType: 'admin',
-        username 
+        username,
+        pageTitle: title
       } 
     });
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 from-gray-50 via-gray-100 to-gray-200 dark:text-white text-gray-800 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 dark:border-yellow-400 border-blue-500 mx-auto mb-4"></div>
+          <p className="dark:text-yellow-400 text-blue-600 text-lg">Loading Admin Panel...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 from-gray-50 via-gray-100 to-gray-200 dark:text-white text-gray-800">
       <Navbar />
       
       <div className="pt-24 px-4 pb-8">
         <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="text-center mb-12">
-            <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent mb-4">
-              Admin Control Panel
-            </h1>
-            <p className="text-muted-foreground text-xl">Welcome back, {username}</p>
+          {/* Header Section */}
+          <div className="mb-12">
+            <div className="text-center">
+              <h1 className="text-5xl sm:text-6xl font-bold bg-gradient-to-r dark:from-yellow-400 dark:via-orange-500 dark:to-red-500 from-blue-600 via-purple-600 to-blue-800 bg-clip-text text-transparent mb-4 flex items-center justify-center">
+                <Sparkles className="w-12 h-12 dark:text-yellow-400 text-blue-600 mr-4 animate-pulse" />
+                Admin Control Panel
+              </h1>
+              <p className="dark:text-gray-300 text-gray-600 text-xl">Welcome back, <span className="dark:text-yellow-400 text-blue-600 font-semibold">{username}</span></p>
+            </div>
           </div>
 
-          {/* Dashboard Grid - 4 cards in 2x2 layout */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
-            {menuItems.map((item, index) => (
-              <Card 
-                key={index} 
-                className="bg-card border-border p-8 hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:scale-105 group relative overflow-hidden"
-                onClick={() => handleNavigation(item.path)}
-              >
-                {/* Background gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 to-purple-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                
-                <div className="relative z-10 text-center space-y-6">
-                  {/* Icon */}
-                  <div className="text-6xl mb-4">
-                    {item.icon}
+          {/* Primary Actions Grid */}
+          <div className="mb-8">
+            <div className="text-center mb-8">
+            </div>
+            
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
+              {primaryActions.map((item, index) => (
+                <Card 
+                  key={index}
+                  onClick={() => handleCardClick(item.path, item.title)}
+                  className="dark:bg-slate-800/60 dark:border-slate-700 dark:hover:bg-slate-800/80 dark:hover:border-slate-600 bg-white/80 border-gray-200 hover:bg-white hover:border-gray-300 p-8 text-center transition-all duration-300 cursor-pointer group transform hover:scale-105 hover:-translate-y-2 relative overflow-hidden shadow-2xl hover:shadow-3xl backdrop-blur-sm"
+                >
+                  {/* Background Gradient Effect */}
+                  <div className={`absolute inset-0 bg-gradient-to-br dark:${item.color} ${item.lightColor} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}></div>
+                  
+                  <div className="relative">
+                    {/* Icon */}
+                    <div className={`inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br dark:${item.color} ${item.lightColor} mb-6 group-hover:scale-110 transition-transform duration-200 shadow-lg`}>
+                      <div className="text-white">
+                        {item.icon}
+                      </div>
+                    </div>
+                    
+                    {/* Content */}
+                    <h3 className="text-2xl font-bold dark:text-white text-gray-800 mb-3 dark:group-hover:text-yellow-400 group-hover:text-blue-600 transition-colors duration-200">
+                      {item.title}
+                    </h3>
+                    <p className="dark:text-gray-400 text-gray-600 text-sm mb-4 leading-relaxed">
+                      {item.description}
+                    </p>
+                    <div className="dark:bg-slate-700/50 bg-gray-100/70 rounded-full px-4 py-2 text-sm dark:text-yellow-400 text-blue-600 font-medium">
+                      {item.stats}
+                    </div>
                   </div>
-                  
-                  {/* Title */}
-                  <h3 className="text-2xl font-bold text-card-foreground group-hover:text-accent transition-colors duration-300">
-                    {item.title}
-                  </h3>
-                  
-                  {/* Description */}
-                  <p className="text-muted-foreground text-base leading-relaxed">
-                    {item.description}
-                  </p>
-                  
-                  {/* Button */}
-                  <Button 
-                    className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-semibold py-3 px-6 rounded-xl transition-all duration-300 transform group-hover:scale-105 shadow-lg"
-                  >
-                    {item.buttonText}
-                  </Button>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              ))}
+            </div>
           </div>
+
         </div>
       </div>
     </div>

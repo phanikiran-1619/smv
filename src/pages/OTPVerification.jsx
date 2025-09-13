@@ -136,7 +136,7 @@ const OTPVerification = () => {
   const isComplete = otp.every(digit => digit !== '');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200">
+    <div className="min-h-screen bg-gradient-to-br dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 from-gray-50 via-gray-100 to-gray-200">
       <Navbar showBackButton={true} />
       
       <main className="pt-16 min-h-screen flex items-center justify-center px-4 py-4">
@@ -146,7 +146,7 @@ const OTPVerification = () => {
             {/* Header */}
             <div className="text-center lg:text-left space-y-3">
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight">
-                <span className="text-slate-700">SCHOOL</span>
+                <span className="dark:text-white text-gray-800">SCHOOL</span>
               </h1>
               <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-yellow-500 leading-tight">
                 BUS MANAGEMENT
@@ -165,19 +165,19 @@ const OTPVerification = () => {
 
           {/* Right Side - OTP Verification */}
           <div className="flex justify-center lg:justify-end order-1 lg:order-2">
-            <Card className="w-full max-w-md mx-auto bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800 border-2 border-yellow-500/30 shadow-xl backdrop-blur-sm">
+            <Card className="w-full max-w-md mx-auto dark:bg-slate-800/90 dark:border-slate-600 bg-white/90 border-gray-200 border-2 dark:border-yellow-500/30 border-blue-500/30 shadow-xl backdrop-blur-sm">
               <div className="p-8 space-y-5">
                 {/* Header */}
                 <div className="text-center space-y-3">
-                  <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-yellow-500/20 border border-yellow-500/30 mb-2">
-                    <Shield className="w-7 h-7 text-yellow-400" />
+                  <div className="inline-flex items-center justify-center w-14 h-14 rounded-full dark:bg-yellow-500/20 dark:border-yellow-500/30 bg-blue-500/20 border-blue-500/30 border mb-2">
+                    <Shield className="w-7 h-7 dark:text-yellow-400 text-blue-600" />
                   </div>
-                  <h3 className="text-xl font-bold text-yellow-400">OTP Verification</h3>
-                  <p className="text-gray-300 text-sm">
+                  <h3 className="text-xl font-bold dark:text-yellow-400 text-blue-600">OTP Verification</h3>
+                  <p className="dark:text-gray-300 text-gray-600 text-sm">
                     Enter the 6-digit verification code
                   </p>
                   {username && (
-                    <p className="text-yellow-400/80 text-xs">
+                    <p className="dark:text-yellow-400/80 text-blue-600/80 text-xs">
                       Verification for: {username}
                     </p>
                   )}
@@ -197,8 +197,8 @@ const OTPVerification = () => {
                         onChange={(e) => handleOtpChange(index, e.target.value)}
                         onKeyDown={(e) => handleKeyDown(index, e)}
                         onPaste={handlePaste}
-                        className={`w-12 h-12 text-center text-lg font-bold bg-slate-600/50 border-slate-500/50 text-white focus:border-yellow-400 focus:ring-yellow-400/20 transition-all duration-200 ${
-                          digit ? 'border-yellow-400/50 bg-slate-600/70' : ''
+                        className={`w-12 h-12 text-center text-lg font-bold dark:bg-slate-600/50 dark:border-slate-500/50 dark:text-white dark:focus:border-yellow-400 dark:focus:ring-yellow-400/20 bg-gray-100 border-gray-300 text-gray-800 focus:border-blue-500 focus:ring-blue-500/20 transition-all duration-200 ${
+                          digit ? 'dark:border-yellow-400/50 dark:bg-slate-600/70 border-blue-400/50 bg-gray-200/70' : ''
                         }`}
                       />
                     ))}
@@ -211,7 +211,7 @@ const OTPVerification = () => {
                         <div
                           key={index}
                           className={`w-2 h-2 rounded-full transition-all duration-200 ${
-                            digit ? 'bg-yellow-400' : 'bg-slate-600'
+                            digit ? 'dark:bg-yellow-400 bg-blue-600' : 'dark:bg-slate-600 bg-gray-300'
                           }`}
                         />
                       ))}
@@ -222,11 +222,11 @@ const OTPVerification = () => {
                   <Button 
                     onClick={handleVerifyOTP}
                     disabled={isLoading || !isComplete}
-                    className="w-full bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-black font-semibold py-3 h-11 rounded-lg transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:transform-none shadow-lg text-sm"
+                    className="w-full dark:bg-gradient-to-r dark:from-yellow-500 dark:to-yellow-600 dark:hover:from-yellow-600 dark:hover:to-yellow-700 dark:text-black bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold py-3 h-11 rounded-lg transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:transform-none shadow-lg text-sm"
                   >
                     {isLoading ? (
                       <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+                        <div className="w-4 h-4 border-2 dark:border-black dark:border-t-transparent border-white border-t-transparent rounded-full animate-spin"></div>
                         Verifying...
                       </div>
                     ) : isComplete ? (
@@ -245,7 +245,7 @@ const OTPVerification = () => {
                       type="button"
                       onClick={handleResendOTP}
                       disabled={isResending}
-                      className="text-yellow-400 hover:text-yellow-300 text-sm transition-colors duration-200 underline-offset-4 hover:underline disabled:opacity-50 flex items-center gap-1 mx-auto"
+                      className="dark:text-yellow-400 dark:hover:text-yellow-300 text-blue-600 hover:text-blue-500 text-sm transition-colors duration-200 underline-offset-4 hover:underline disabled:opacity-50 flex items-center gap-1 mx-auto"
                     >
                       {isResending ? (
                         <>

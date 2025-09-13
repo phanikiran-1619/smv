@@ -20,7 +20,6 @@ import AdminResetPage from "./pages/AdminResetPage";
 import PhotoUploadPage from "./pages/PhotoUploadPage";
 import AllUsersPage from "./pages/AllUsersPage";
 import RouteAssignPage from "./pages/RouteAssignPage";
-import AllRoutesPage from "./pages/AllRoutesPage";
 import StudentRegistrationPage from "./pages/registration/StudentRegistrationPage";
 import DriverRegistrationPage from "./pages/registration/DriverRegistrationPage";
 import ParentRegistrationPage from "./pages/registration/ParentRegistrationPage";

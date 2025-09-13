@@ -86,27 +86,27 @@ const AdminResetPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 text-white flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gradient-to-br dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 from-gray-50 via-gray-100 to-gray-200 dark:text-white text-gray-800 flex items-center justify-center px-4">
       <Navbar showBackButton={true} />
       
       <div className="w-full max-w-md">
         {/* Reset Password Card */}
-        <Card className="bg-white/95 backdrop-blur-sm border-0 p-8 rounded-2xl shadow-2xl">
+        <Card className="dark:bg-slate-800/90 dark:backdrop-blur-sm bg-white/95 backdrop-blur-sm border-0 p-8 rounded-2xl shadow-2xl">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-slate-800 mb-2">Reset Password</h1>
-            <p className="text-orange-600 font-medium">Update your login credentials securely</p>
+            <h1 className="text-3xl font-bold dark:text-yellow-400 text-blue-600 mb-2">Reset Password</h1>
+            <p className="dark:text-gray-300 text-gray-600 font-medium">Update your login credentials securely</p>
           </div>
 
           {/* Error Message */}
           {error && (
-            <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded-lg text-sm">
+            <div className="mb-4 p-3 dark:bg-red-900/50 dark:border-red-700/50 dark:text-red-300 bg-red-100 border border-red-300 text-red-700 rounded-lg text-sm">
               {error}
             </div>
           )}
 
           {/* Success Message */}
           {success && (
-            <div className="mb-4 p-3 bg-green-100 border border-green-300 text-green-700 rounded-lg text-sm">
+            <div className="mb-4 p-3 dark:bg-green-900/50 dark:border-green-700/50 dark:text-green-300 bg-green-100 border border-green-300 text-green-700 rounded-lg text-sm">
               {success}
             </div>
           )}
@@ -114,14 +114,14 @@ const AdminResetPage = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Username Field */}
             <div>
-              <label className="block text-slate-700 text-sm font-medium mb-2">
+              <label className="block dark:text-gray-200 text-gray-700 text-sm font-medium mb-2">
                 Username
               </label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 dark:text-gray-400 text-gray-500 w-5 h-5" />
                 <input
                   type="text"
-                  className="w-full bg-slate-100 border border-slate-300 rounded-lg pl-10 pr-4 py-3 text-slate-800 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                  className="w-full dark:bg-slate-700/50 dark:border-slate-600 dark:text-white dark:placeholder-gray-400 bg-gray-100 border border-gray-300 text-gray-800 placeholder-gray-500 rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:ring-2 dark:focus:ring-yellow-500/50 dark:focus:border-transparent focus:ring-blue-500/50 focus:border-transparent transition-all"
                   value={formData.username}
                   onChange={(e) => handleInputChange('username', e.target.value)}
                   placeholder="Enter username"
@@ -133,14 +133,14 @@ const AdminResetPage = () => {
 
             {/* New Password Field */}
             <div>
-              <label className="block text-slate-700 text-sm font-medium mb-2">
+              <label className="block dark:text-gray-200 text-gray-700 text-sm font-medium mb-2">
                 New Password
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 dark:text-gray-400 text-gray-500 w-5 h-5" />
                 <input
                   type={showPassword ? "text" : "password"}
-                  className="w-full bg-slate-100 border border-slate-300 rounded-lg pl-10 pr-12 py-3 text-slate-800 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                  className="w-full dark:bg-slate-700/50 dark:border-slate-600 dark:text-white dark:placeholder-gray-400 bg-gray-100 border border-gray-300 text-gray-800 placeholder-gray-500 rounded-lg pl-10 pr-12 py-3 focus:outline-none focus:ring-2 dark:focus:ring-yellow-500/50 dark:focus:border-transparent focus:ring-blue-500/50 focus:border-transparent transition-all"
                   value={formData.newPassword}
                   onChange={(e) => handleInputChange('newPassword', e.target.value)}
                   placeholder="Enter new password"
@@ -151,7 +151,7 @@ const AdminResetPage = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 dark:text-gray-400 dark:hover:text-gray-200 text-gray-500 hover:text-gray-700 transition-colors"
                   disabled={isLoading}
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -163,11 +163,11 @@ const AdminResetPage = () => {
             <button
               type="submit"
               disabled={isLoading || !formData.username || !formData.newPassword}
-              className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-bold py-4 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed"
+              className="w-full dark:bg-gradient-to-r dark:from-yellow-500 dark:to-yellow-600 dark:hover:from-yellow-600 dark:hover:to-yellow-700 dark:disabled:from-gray-600 dark:disabled:to-gray-700 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:from-gray-400 disabled:to-gray-500 dark:text-black text-white font-bold py-4 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed shadow-lg"
             >
               {isLoading ? (
                 <div className="flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 dark:border-black border-white mr-2"></div>
                   Processing...
                 </div>
               ) : (
@@ -177,8 +177,8 @@ const AdminResetPage = () => {
           </form>
 
           {/* Security Note */}
-          <div className="mt-6 p-4 bg-slate-100 rounded-lg">
-            <p className="text-xs text-slate-600 text-center">
+          <div className="mt-6 p-4 dark:bg-slate-700/50 bg-gray-100 rounded-lg">
+            <p className="text-xs dark:text-gray-300 text-gray-600 text-center">
               <Lock className="w-4 h-4 inline mr-1" />
               Password will be encrypted and securely updated in the system
             </p>

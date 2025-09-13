@@ -332,7 +332,7 @@ const PhotoUploadPage = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 text-white">
+    <div className="min-h-screen bg-gradient-to-br dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 from-gray-50 via-gray-100 to-gray-200 dark:text-white text-gray-800">
       <Navbar showBackButton={true} />
       
       {/* Loading Overlay */}
@@ -340,9 +340,9 @@ const PhotoUploadPage = () => {
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50">
           <div className="flex flex-col items-center">
             <div className="relative w-20 h-20">
-              <div className="animate-spin rounded-full h-20 w-20 border-b-2 border-yellow-400"></div>
+              <div className="animate-spin rounded-full h-20 w-20 border-b-2 dark:border-yellow-400 border-blue-500"></div>
             </div>
-            <p className="mt-6 text-yellow-400 text-xl font-semibold animate-pulse">
+            <p className="mt-6 dark:text-yellow-400 text-blue-600 text-xl font-semibold animate-pulse">
               Uploading... {uploadProgress}%
             </p>
           </div>
@@ -362,39 +362,39 @@ const PhotoUploadPage = () => {
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-yellow-400 mb-2">Student Media Upload</h1>
-            <p className="text-gray-300">Upload student photos and manage their information</p>
+            <h1 className="text-4xl font-bold dark:text-yellow-400 text-blue-600 mb-2">Student Media Upload</h1>
+            <p className="dark:text-gray-300 text-gray-600">Upload student photos and manage their information</p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Student Information Form */}
-            <Card className="bg-slate-800/60 border-slate-600 p-6">
-              <h2 className="text-2xl font-bold text-yellow-400 mb-6">Student Information</h2>
+            <Card className="dark:bg-slate-800/60 dark:border-slate-600 bg-white/80 border-gray-200 p-6 backdrop-blur-sm">
+              <h2 className="text-2xl font-bold dark:text-yellow-400 text-blue-600 mb-6">Student Information</h2>
               
               <div className="space-y-4">
                 {/* School Dropdown */}
                 <div>
-                  <label className="block text-white text-sm font-medium mb-2">School</label>
+                  <label className="block dark:text-white text-gray-700 text-sm font-medium mb-2">School</label>
                   <div className="relative">
                     <div
-                      className={`w-full bg-slate-700 border ${formErrors.schoolId ? 'border-red-500' : 'border-slate-600'} rounded-lg px-4 py-3 text-white cursor-pointer focus:outline-none focus:border-yellow-400 transition-colors ${isSchoolOpen ? 'rounded-b-none' : ''}`}
+                      className={`w-full dark:bg-slate-700 dark:border-slate-600 bg-gray-100 border-gray-300 border ${formErrors.schoolId ? 'dark:border-red-500 border-red-500' : ''} rounded-lg px-4 py-3 dark:text-white text-gray-800 cursor-pointer focus:outline-none dark:focus:border-yellow-400 focus:border-blue-500 transition-colors ${isSchoolOpen ? 'rounded-b-none' : ''}`}
                       onClick={() => setIsSchoolOpen(!isSchoolOpen)}
                     >
                       {formData.schoolId ? schools.find(s => s.id === formData.schoolId)?.name || formData.schoolId : 'Select a School'}
-                      <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
+                      <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 dark:text-gray-400 text-gray-500 w-5 h-5 pointer-events-none" />
                     </div>
                     
                     {isSchoolOpen && (
-                      <div className="absolute z-10 w-full bg-slate-700 border border-slate-600 rounded-b-lg shadow-lg mt-1">
-                        <div className="p-2 border-b border-slate-600">
+                      <div className="absolute z-10 w-full dark:bg-slate-700 dark:border-slate-600 bg-white border-gray-300 border rounded-b-lg shadow-lg mt-1">
+                        <div className="p-2 dark:border-slate-600 border-gray-300 border-b">
                           <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 dark:text-gray-400 text-gray-500 w-4 h-4" />
                             <input
                               type="text"
                               value={schoolSearch}
                               onChange={(e) => setSchoolSearch(e.target.value)}
                               placeholder="Search school..."
-                              className="w-full bg-slate-600 text-white px-8 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                              className="w-full dark:bg-slate-600 dark:text-white bg-gray-100 text-gray-800 px-8 py-2 rounded-md focus:outline-none focus:ring-2 dark:focus:ring-yellow-400 focus:ring-blue-500"
                               autoFocus
                             />
                           </div>
@@ -403,7 +403,7 @@ const PhotoUploadPage = () => {
                           {filteredSchools.map((school) => (
                             <div
                               key={school.id}
-                              className="px-4 py-2 text-white hover:bg-slate-600 cursor-pointer transition-colors"
+                              className="px-4 py-2 dark:text-white text-gray-800 dark:hover:bg-slate-600 hover:bg-gray-100 cursor-pointer transition-colors"
                               onClick={() => {
                                 handleInputChange('schoolId', school.id);
                                 setIsSchoolOpen(false);
@@ -422,28 +422,28 @@ const PhotoUploadPage = () => {
 
                 {/* Route Dropdown */}
                 <div>
-                  <label className="block text-white text-sm font-medium mb-2">Route</label>
+                  <label className="block dark:text-white text-gray-700 text-sm font-medium mb-2">Route</label>
                   <div className="relative">
                     <div
-                      className={`w-full bg-slate-700 border ${formErrors.routeId ? 'border-red-500' : 'border-slate-600'} rounded-lg px-4 py-3 text-white cursor-pointer focus:outline-none focus:border-yellow-400 transition-colors ${isRouteOpen ? 'rounded-b-none' : ''}`}
+                      className={`w-full dark:bg-slate-700 dark:border-slate-600 bg-gray-100 border-gray-300 border ${formErrors.routeId ? 'dark:border-red-500 border-red-500' : ''} rounded-lg px-4 py-3 dark:text-white text-gray-800 cursor-pointer focus:outline-none dark:focus:border-yellow-400 focus:border-blue-500 transition-colors ${isRouteOpen ? 'rounded-b-none' : ''}`}
                       onClick={() => formData.schoolId && setIsRouteOpen(!isRouteOpen)}
                       style={{ opacity: formData.schoolId ? 1 : 0.6 }}
                     >
                       {formData.routeId ? routes.find(r => r.smRouteId === formData.routeId)?.name || formData.routeId : 'Select a Route'}
-                      <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
+                      <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 dark:text-gray-400 text-gray-500 w-5 h-5 pointer-events-none" />
                     </div>
                     
                     {isRouteOpen && (
-                      <div className="absolute z-10 w-full bg-slate-700 border border-slate-600 rounded-b-lg shadow-lg mt-1">
-                        <div className="p-2 border-b border-slate-600">
+                      <div className="absolute z-10 w-full dark:bg-slate-700 dark:border-slate-600 bg-white border-gray-300 border rounded-b-lg shadow-lg mt-1">
+                        <div className="p-2 dark:border-slate-600 border-gray-300 border-b">
                           <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 dark:text-gray-400 text-gray-500 w-4 h-4" />
                             <input
                               type="text"
                               value={routeSearch}
                               onChange={(e) => setRouteSearch(e.target.value)}
                               placeholder="Search route..."
-                              className="w-full bg-slate-600 text-white px-8 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                              className="w-full dark:bg-slate-600 dark:text-white bg-gray-100 text-gray-800 px-8 py-2 rounded-md focus:outline-none focus:ring-2 dark:focus:ring-yellow-400 focus:ring-blue-500"
                               autoFocus
                             />
                           </div>
@@ -452,7 +452,7 @@ const PhotoUploadPage = () => {
                           {filteredRoutes.map((route) => (
                             <div
                               key={route.smRouteId}
-                              className="px-4 py-2 text-white hover:bg-slate-600 cursor-pointer transition-colors"
+                              className="px-4 py-2 dark:text-white text-gray-800 dark:hover:bg-slate-600 hover:bg-gray-100 cursor-pointer transition-colors"
                               onClick={() => {
                                 handleInputChange('routeId', route.smRouteId);
                                 setIsRouteOpen(false);
@@ -471,29 +471,29 @@ const PhotoUploadPage = () => {
 
                 {/* Student Dropdown */}
                 <div>
-                  <label className="block text-white text-sm font-medium mb-2">Student</label>
+                  <label className="block dark:text-white text-gray-700 text-sm font-medium mb-2">Student</label>
                   <div className="relative">
                     <div
-                      className={`w-full bg-slate-700 border ${formErrors.studentId ? 'border-red-500' : 'border-slate-600'} rounded-lg px-4 py-3 text-white cursor-pointer focus:outline-none focus:border-yellow-400 transition-colors ${isStudentOpen ? 'rounded-b-none' : ''}`}
+                      className={`w-full dark:bg-slate-700 dark:border-slate-600 bg-gray-100 border-gray-300 border ${formErrors.studentId ? 'dark:border-red-500 border-red-500' : ''} rounded-lg px-4 py-3 dark:text-white text-gray-800 cursor-pointer focus:outline-none dark:focus:border-yellow-400 focus:border-blue-500 transition-colors ${isStudentOpen ? 'rounded-b-none' : ''}`}
                       onClick={() => formData.routeId && setIsStudentOpen(!isStudentOpen)}
                       style={{ opacity: formData.routeId ? 1 : 0.6 }}
                     >
                       {formData.studentId ? students.find(s => s.smStudentId === formData.studentId)?.firstName + ' ' + 
                         (students.find(s => s.smStudentId === formData.studentId)?.lastName || '') || formData.studentId : 'Select a Student'}
-                      <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
+                      <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 dark:text-gray-400 text-gray-500 w-5 h-5 pointer-events-none" />
                     </div>
                     
                     {isStudentOpen && (
-                      <div className="absolute z-10 w-full bg-slate-700 border border-slate-600 rounded-b-lg shadow-lg mt-1">
-                        <div className="p-2 border-b border-slate-600">
+                      <div className="absolute z-10 w-full dark:bg-slate-700 dark:border-slate-600 bg-white border-gray-300 border rounded-b-lg shadow-lg mt-1">
+                        <div className="p-2 dark:border-slate-600 border-gray-300 border-b">
                           <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 dark:text-gray-400 text-gray-500 w-4 h-4" />
                             <input
                               type="text"
                               value={studentSearch}
                               onChange={(e) => setStudentSearch(e.target.value)}
                               placeholder="Search student..."
-                              className="w-full bg-slate-600 text-white px-8 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                              className="w-full dark:bg-slate-600 dark:text-white bg-gray-100 text-gray-800 px-8 py-2 rounded-md focus:outline-none focus:ring-2 dark:focus:ring-yellow-400 focus:ring-blue-500"
                               autoFocus
                             />
                           </div>
@@ -502,7 +502,7 @@ const PhotoUploadPage = () => {
                           {filteredStudents.map((student) => (
                             <div
                               key={student.smStudentId}
-                              className="px-4 py-2 text-white hover:bg-slate-600 cursor-pointer transition-colors"
+                              className="px-4 py-2 dark:text-white text-gray-800 dark:hover:bg-slate-600 hover:bg-gray-100 cursor-pointer transition-colors"
                               onClick={() => {
                                 handleInputChange('studentId', student.smStudentId);
                                 setIsStudentOpen(false);
@@ -521,10 +521,10 @@ const PhotoUploadPage = () => {
 
                 {/* Device ID */}
                 <div>
-                  <label className="block text-white text-sm font-medium mb-2">Device ID</label>
+                  <label className="block dark:text-white text-gray-700 text-sm font-medium mb-2">Device ID</label>
                   <input
                     type="text"
-                    className={`w-full bg-slate-700 border ${formErrors.devId ? 'border-red-500' : 'border-slate-600'} rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-yellow-400 transition-colors`}
+                    className={`w-full dark:bg-slate-700 dark:border-slate-600 bg-gray-100 border-gray-300 border ${formErrors.devId ? 'dark:border-red-500 border-red-500' : ''} rounded-lg px-4 py-3 dark:text-white dark:placeholder-gray-400 text-gray-800 placeholder-gray-500 focus:outline-none dark:focus:border-yellow-400 focus:border-blue-500 transition-colors`}
                     value={formData.devId}
                     onChange={(e) => handleInputChange('devId', e.target.value)}
                     placeholder="Enter Device ID"
@@ -534,10 +534,10 @@ const PhotoUploadPage = () => {
 
                 {/* Vehicle Number */}
                 <div>
-                  <label className="block text-white text-sm font-medium mb-2">Vehicle Number</label>
+                  <label className="block dark:text-white text-gray-700 text-sm font-medium mb-2">Vehicle Number</label>
                   <input
                     type="text"
-                    className={`w-full bg-slate-700 border ${formErrors.vehNum ? 'border-red-500' : 'border-slate-600'} rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-yellow-400 transition-colors`}
+                    className={`w-full dark:bg-slate-700 dark:border-slate-600 bg-gray-100 border-gray-300 border ${formErrors.vehNum ? 'dark:border-red-500 border-red-500' : ''} rounded-lg px-4 py-3 dark:text-white dark:placeholder-gray-400 text-gray-800 placeholder-gray-500 focus:outline-none dark:focus:border-yellow-400 focus:border-blue-500 transition-colors`}
                     value={formData.vehNum}
                     onChange={(e) => handleInputChange('vehNum', e.target.value)}
                     placeholder="Enter Vehicle Number"
@@ -547,10 +547,10 @@ const PhotoUploadPage = () => {
 
                 {/* Detect Type */}
                 <div>
-                  <label className="block text-white text-sm font-medium mb-2">Detect Type</label>
+                  <label className="block dark:text-white text-gray-700 text-sm font-medium mb-2">Detect Type</label>
                   <input
                     type="text"
-                    className={`w-full bg-slate-700 border ${formErrors.detectType ? 'border-red-500' : 'border-slate-600'} rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-yellow-400 transition-colors`}
+                    className={`w-full dark:bg-slate-700 dark:border-slate-600 bg-gray-100 border-gray-300 border ${formErrors.detectType ? 'dark:border-red-500 border-red-500' : ''} rounded-lg px-4 py-3 dark:text-white dark:placeholder-gray-400 text-gray-800 placeholder-gray-500 focus:outline-none dark:focus:border-yellow-400 focus:border-blue-500 transition-colors`}
                     value={formData.detectType}
                     onChange={(e) => handleInputChange('detectType', e.target.value)}
                     placeholder="Enter Detect Type"
@@ -561,27 +561,27 @@ const PhotoUploadPage = () => {
             </Card>
 
             {/* Image Upload Section */}
-            <Card className="bg-slate-800/60 border-slate-600 p-6">
-              <h2 className="text-2xl font-bold text-yellow-400 mb-6">Image Upload</h2>
+            <Card className="dark:bg-slate-800/60 dark:border-slate-600 bg-white/80 border-gray-200 p-6 backdrop-blur-sm">
+              <h2 className="text-2xl font-bold dark:text-yellow-400 text-blue-600 mb-6">Image Upload</h2>
               
               {/* Upload Area */}
               <div
                 className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 cursor-pointer ${
                   isDragOver
-                    ? 'border-yellow-400 bg-yellow-400/10'
-                    : 'border-yellow-400/50 hover:border-yellow-400 hover:bg-yellow-400/5'
+                    ? 'dark:border-yellow-400 dark:bg-yellow-400/10 border-blue-500 bg-blue-500/10'
+                    : 'dark:border-yellow-400/50 dark:hover:border-yellow-400 dark:hover:bg-yellow-400/5 border-blue-500/50 hover:border-blue-500 hover:bg-blue-500/5'
                 }`}
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onClick={handleClick}
               >
-                <Upload className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-white mb-2">Drag & Drop or Click to Upload</h3>
-                <p className="text-yellow-400 mb-2">
+                <Upload className="w-16 h-16 dark:text-yellow-400 text-blue-600 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold dark:text-white text-gray-800 mb-2">Drag & Drop or Click to Upload</h3>
+                <p className="dark:text-yellow-400 text-blue-600 mb-2">
                   Up to {maxFiles} images ({uploadedFiles.length}/{maxFiles} selected)
                 </p>
-                <p className="text-gray-400 text-sm">JPG, PNG only</p>
+                <p className="dark:text-gray-400 text-gray-600 text-sm">JPG, PNG only</p>
                 
                 <input
                   ref={fileInputRef}
@@ -594,15 +594,15 @@ const PhotoUploadPage = () => {
               </div>
 
               {formErrors.files && <p className="text-red-400 text-sm mt-2">{formErrors.files}</p>}
-              {uploadMessage && <p className="text-yellow-400 text-sm mt-2">{uploadMessage}</p>}
+              {uploadMessage && <p className="dark:text-yellow-400 text-blue-600 text-sm mt-2">{uploadMessage}</p>}
 
               {/* Uploaded Files */}
               {uploadedFiles.length > 0 && (
                 <div className="mt-6">
-                  <h4 className="text-lg font-semibold text-white mb-4">Uploaded Images ({uploadedFiles.length})</h4>
+                  <h4 className="text-lg font-semibold dark:text-white text-gray-800 mb-4">Uploaded Images ({uploadedFiles.length})</h4>
                   <div className="grid grid-cols-2 gap-4">
                     {uploadedFiles.map((file) => (
-                      <div key={file.id} className="relative bg-slate-700/50 rounded-lg p-3 group">
+                      <div key={file.id} className="relative dark:bg-slate-700/50 bg-gray-100/70 rounded-lg p-3 group">
                         <div className="flex items-center space-x-3">
                           <img 
                             src={file.preview} 
@@ -610,8 +610,8 @@ const PhotoUploadPage = () => {
                             className="w-12 h-12 object-cover rounded"
                           />
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-white truncate">{file.name}</p>
-                            <p className="text-xs text-gray-400">{formatFileSize(file.size)}</p>
+                            <p className="text-sm font-medium dark:text-white text-gray-800 truncate">{file.name}</p>
+                            <p className="text-xs dark:text-gray-400 text-gray-600">{formatFileSize(file.size)}</p>
                           </div>
                           <button
                             onClick={() => removeFile(file.id)}
@@ -628,13 +628,13 @@ const PhotoUploadPage = () => {
                   {/* Progress Bar */}
                   {isLoading && (
                     <div className="mt-4">
-                      <div className="w-full bg-slate-700 rounded-full h-2">
+                      <div className="w-full dark:bg-slate-700 bg-gray-200 rounded-full h-2">
                         <div
-                          className="bg-yellow-400 h-2 rounded-full transition-all duration-300"
+                          className="dark:bg-yellow-400 bg-blue-500 h-2 rounded-full transition-all duration-300"
                           style={{ width: `${uploadProgress}%` }}
                         ></div>
                       </div>
-                      <p className="text-yellow-400 text-sm mt-2 text-center">
+                      <p className="dark:text-yellow-400 text-blue-600 text-sm mt-2 text-center">
                         Upload Progress: {uploadProgress}%
                       </p>
                     </div>
@@ -644,7 +644,7 @@ const PhotoUploadPage = () => {
                   <button
                     onClick={handleUpload}
                     disabled={isLoading}
-                    className="w-full mt-6 bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-600 text-black disabled:text-gray-400 font-bold py-3 px-6 rounded-lg transition-colors duration-200"
+                    className="w-full mt-6 dark:bg-yellow-500 dark:hover:bg-yellow-600 dark:disabled:bg-gray-600 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 dark:text-black dark:disabled:text-gray-400 text-white disabled:text-gray-600 font-bold py-3 px-6 rounded-lg transition-colors duration-200"
                   >
                     {isLoading ? 'Uploading...' : 'Upload Student Media'}
                   </button>

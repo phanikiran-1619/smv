@@ -583,11 +583,11 @@ const StudentMap = () => {
     }
   };
 
-  if (!isLoaded) return <div className="p-4 text-white bg-gray-900">Loading Map...</div>;
-  if (loadError) return <div className="p-4 text-red-500 bg-gray-900">Error loading maps: {loadError.message}</div>;
-  if (error) return <div className="p-4 text-red-500 bg-gray-900">{error}</div>;
+  if (!isLoaded) return <div className="p-4 dark:text-white dark:bg-gray-900 text-gray-800 bg-gray-100">Loading Map...</div>;
+  if (loadError) return <div className="p-4 text-red-500 dark:bg-gray-900 bg-gray-100">Error loading maps: {loadError.message}</div>;
+  if (error) return <div className="p-4 text-red-500 dark:bg-gray-900 bg-gray-100">{error}</div>;
   if (!routeData || routeData.routePoints.length === 0) {
-    return <div className="p-4 text-white bg-gray-900">No valid route data found</div>;
+    return <div className="p-4 dark:text-white dark:bg-gray-900 text-gray-800 bg-gray-100">No valid route data found</div>;
   }
 
   const formattedDate = currentTime.toLocaleDateString('en-US', {
@@ -611,25 +611,25 @@ const StudentMap = () => {
       })).reverse();
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-gray-900">
-      <div className="p-4 bg-gradient-to-r from-gray-800 to-gray-700 border-b border-yellow-500 flex justify-between items-center shadow-xl flex-wrap md:flex-nowrap">
+    <div className="h-screen w-screen flex flex-col dark:bg-gray-900 bg-gray-100">
+      <div className="p-4 bg-gradient-to-r dark:from-gray-800 dark:to-gray-700 from-gray-200 to-gray-300 dark:border-yellow-500 border-blue-500 border-b flex justify-between items-center shadow-xl flex-wrap md:flex-nowrap">
         <div className="flex items-center mb-2 md:mb-0">
           <Button
             onClick={() => navigate(-1)}
-            className="bg-yellow-500 text-black hover:bg-yellow-600 font-semibold rounded-full px-6 py-2 transition-all duration-300 shadow-md"
+            className="dark:bg-yellow-500 dark:text-black dark:hover:bg-yellow-600 bg-blue-500 text-white hover:bg-blue-600 font-semibold rounded-full px-6 py-2 transition-all duration-300 shadow-md"
           >
             ← Back
           </Button>
           <div className="ml-4">
-            <h1 className="text-white text-2xl font-extrabold tracking-tight">{routeData.routeName} Route - {studentName}</h1>
-            <p className="text-gray-300 text-sm font-medium">{routeData.title}</p>
+            <h1 className="dark:text-white text-gray-800 text-2xl font-extrabold tracking-tight">{routeData.routeName} Route - {studentName}</h1>
+            <p className="dark:text-gray-300 text-gray-600 text-sm font-medium">{routeData.title}</p>
           </div>
         </div>
 
         <div className="flex gap-3 flex-wrap md:flex-nowrap">
           <Button
             onClick={fitRouteToView}
-            className="bg-gray-700 text-white hover:bg-gray-600 font-medium rounded-full px-6 py-2 transition-all duration-300 shadow-md"
+            className="dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600 bg-gray-300 text-gray-800 hover:bg-gray-400 font-medium rounded-full px-6 py-2 transition-all duration-300 shadow-md"
           >
             Show Full Route
           </Button>
@@ -653,17 +653,17 @@ const StudentMap = () => {
         </div>
       </div>
 
-      <div className="absolute top-20 left-4 bg-gradient-to-br from-gray-800 to-gray-900 p-6 rounded-2xl shadow-2xl z-10 max-w-sm border border-gray-700/50 backdrop-blur-md bg-opacity-95 overflow-auto md:max-w-md lg:max-w-lg">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-2xl blur-md"></div>
+      <div className="absolute top-20 left-4 bg-gradient-to-br dark:from-gray-800 dark:to-gray-900 from-white to-gray-50 p-6 rounded-2xl shadow-2xl z-10 max-w-sm dark:border-gray-700/50 border-gray-300/50 border backdrop-blur-md bg-opacity-95 overflow-auto md:max-w-md lg:max-w-lg">
+        <div className="absolute inset-0 dark:bg-gradient-to-r dark:from-blue-500/10 dark:to-purple-500/10 bg-gradient-to-r from-blue-500/5 to-purple-500/5 rounded-2xl blur-md"></div>
         <div className="relative">
           <div className="flex justify-between items-start mb-5">
             <div>
-              <h2 className="font-extrabold text-2xl text-white tracking-tight">{routeData.routeName}</h2>
-              <p className="text-sm text-gray-300 font-medium">{formattedDate} • {formattedTime}</p>
+              <h2 className="font-extrabold text-2xl dark:text-white text-gray-800 tracking-tight">{routeData.routeName}</h2>
+              <p className="text-sm dark:text-gray-300 text-gray-600 font-medium">{formattedDate} • {formattedTime}</p>
             </div>
             <div
               className={`${
-                isMorningShift ? 'bg-yellow-500/20 text-yellow-300' : 'bg-purple-500/20 text-purple-300'
+                isMorningShift ? 'dark:bg-yellow-500/20 dark:text-yellow-300 bg-yellow-400/20 text-yellow-700' : 'dark:bg-purple-500/20 dark:text-purple-300 bg-purple-400/20 text-purple-700'
               } px-3 py-1 rounded-full text-xs font-semibold border border-current shadow-sm animate-pulse`}
             >
               {isMorningShift ? 'Morning Shift' : 'Evening Shift'}
@@ -671,17 +671,17 @@ const StudentMap = () => {
           </div>
 
           {busStatusMessage && (
-            <div className="mb-4 p-3 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
-              <p className="text-yellow-300 text-sm font-medium text-center">{busStatusMessage}</p>
+            <div className="mb-4 p-3 dark:bg-yellow-500/20 dark:border-yellow-500/30 bg-yellow-400/20 border-yellow-500/30 border rounded-lg">
+              <p className="dark:text-yellow-300 text-yellow-700 text-sm font-medium text-center">{busStatusMessage}</p>
             </div>
           )}
 
           <div className="mb-6">
-            <div className="flex justify-between text-sm text-gray-300 mb-2">
+            <div className="flex justify-between text-sm dark:text-gray-300 text-gray-600 mb-2">
               <span className="font-medium">Route Progress</span>
               <span className="font-bold">{progressPercentage}%</span>
             </div>
-            <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+            <div className="w-full dark:bg-gray-700 bg-gray-300 rounded-full h-3 overflow-hidden">
               <div
                 className="bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full transition-all duration-500 ease-out shadow-lg animate-pulse"
                 style={{ width: `${progressPercentage}%` }}
@@ -702,18 +702,18 @@ const StudentMap = () => {
                   {index < displayPoints.length - 1 && (
                     <div
                       className={`absolute left-8 top-12 w-0.5 h-12 z-0 ${
-                        isCompleted ? 'bg-gradient-to-b from-blue-500 to-purple-500' : 'bg-gray-600'
+                        isCompleted ? 'bg-gradient-to-b from-blue-500 to-purple-500' : 'dark:bg-gray-600 bg-gray-400'
                       }`}
                     ></div>
                   )}
                   <div
                     className={`flex items-start p-3 rounded-xl relative z-10 w-full transition-all duration-300 ${
                       isCurrent
-                        ? 'bg-blue-900/30 border border-blue-500/50 shadow-lg shadow-blue-500/20'
+                        ? 'dark:bg-blue-900/30 dark:border-blue-500/50 bg-blue-100/50 border-blue-500/50 border shadow-lg dark:shadow-blue-500/20 shadow-blue-500/10'
                         : isCompleted
-                        ? 'bg-gray-700/30'
-                        : 'bg-gray-800/30'
-                    } hover:bg-gray-700/50 hover:shadow-lg hover:shadow-blue-500/10`}
+                        ? 'dark:bg-gray-700/30 bg-gray-200/30'
+                        : 'dark:bg-gray-800/30 bg-gray-100/30'
+                    } dark:hover:bg-gray-700/50 hover:bg-gray-200/50 hover:shadow-lg dark:hover:shadow-blue-500/10 hover:shadow-blue-500/10`}
                   >
                     <div
                       className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center mt-0.5 ${
@@ -739,18 +739,18 @@ const StudentMap = () => {
                     <div className="ml-4 flex-1 min-w-0">
                       <p
                         className={`text-sm font-medium truncate ${
-                          isCurrent ? 'text-blue-300 font-semibold' : isCompleted ? 'text-gray-400' : 'text-white'
+                          isCurrent ? 'dark:text-blue-300 text-blue-600 font-semibold' : isCompleted ? 'dark:text-gray-400 text-gray-500' : 'dark:text-white text-gray-800'
                         }`}
                       >
                         {point.routePointName}
                         {isBoardingPoint && (
-                          <span className="ml-2 bg-purple-500/20 text-purple-300 text-xs px-2 py-0.5 rounded-full border border-purple-400/30">
+                          <span className="ml-2 dark:bg-purple-500/20 dark:text-purple-300 dark:border-purple-400/30 bg-purple-400/20 text-purple-700 border-purple-500/30 text-xs px-2 py-0.5 rounded-full border">
                             {isMorningShift ? 'Boarding' : 'Destination'}
                           </span>
                         )}
                       </p>
                       {isCurrent && currentPosition && (
-                        <p className="text-xs text-blue-300 mt-1 flex items-center">
+                        <p className="text-xs dark:text-blue-300 text-blue-600 mt-1 flex items-center">
                           <svg className="w-4 h-4 mr-1 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
                             <path
                               fillRule="evenodd"
@@ -783,14 +783,14 @@ const StudentMap = () => {
           </div>
 
           {currentPosition && (
-            <div className="mt-6 p-4 bg-gradient-to-r from-blue-900/30 to-purple-900/30 rounded-xl border border-blue-500/20 shadow-lg shadow-blue-500/10">
+            <div className="mt-6 p-4 bg-gradient-to-r dark:from-blue-900/30 dark:to-purple-900/30 from-blue-100/50 to-purple-100/50 rounded-xl dark:border-blue-500/20 border-blue-500/30 border shadow-lg dark:shadow-blue-500/10 shadow-blue-500/10">
               <div className="flex items-center">
-                <div className="bg-blue-500/20 p-2 rounded-full border border-blue-400/30 shadow-md">
+                <div className="dark:bg-blue-500/20 dark:border-blue-400/30 bg-blue-400/20 border-blue-500/30 p-2 rounded-full border shadow-md">
                   <img src="/assets/bus.png" alt="Bus" width={24} height={24} />
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm font-medium text-white">Bus Status</p>
-                  <p className="text-xs text-gray-300">Next: {busInfo.nextStop || 'Calculating...'}</p>
+                  <p className="text-sm font-medium dark:text-white text-gray-800">Bus Status</p>
+                  <p className="text-xs dark:text-gray-300 text-gray-600">Next: {busInfo.nextStop || 'Calculating...'}</p>
                 </div>
               </div>
             </div>
@@ -799,16 +799,16 @@ const StudentMap = () => {
       </div>
 
       {currentPosition && (
-        <div className="absolute top-20 right-4 bg-gradient-to-br from-gray-800 to-gray-900 p-6 rounded-2xl shadow-2xl z-10 max-w-xs border border-gray-700/50 backdrop-blur-md bg-opacity-95 md:max-w-sm">
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-2xl blur-md"></div>
+        <div className="absolute top-20 right-4 bg-gradient-to-br dark:from-gray-800 dark:to-gray-900 from-white to-gray-50 p-6 rounded-2xl shadow-2xl z-10 max-w-xs dark:border-gray-700/50 border-gray-300/50 border backdrop-blur-md bg-opacity-95 md:max-w-sm">
+          <div className="absolute inset-0 dark:bg-gradient-to-r dark:from-blue-500/10 dark:to-purple-500/10 bg-gradient-to-r from-blue-500/5 to-purple-500/5 rounded-2xl blur-md"></div>
           <div className="relative">
-            <h3 className="font-extrabold text-lg text-white mb-4 tracking-tight">Bus Information</h3>
+            <h3 className="font-extrabold text-lg dark:text-white text-gray-800 mb-4 tracking-tight">Bus Information</h3>
             <div className="grid grid-cols-2 gap-3">
-              <div className="text-sm text-gray-300 font-medium">Next Stop:</div>
-              <div className="text-sm font-semibold text-white">{busInfo.nextStop || 'Calculating...'}</div>
+              <div className="text-sm dark:text-gray-300 text-gray-600 font-medium">Next Stop:</div>
+              <div className="text-sm font-semibold dark:text-white text-gray-800">{busInfo.nextStop || 'Calculating...'}</div>
 
-              <div className="text-sm text-gray-300 font-medium">ETA:</div>
-              <div className="text-sm font-semibold text-white">{etaToNextStop || 'Calculating...'}</div>
+              <div className="text-sm dark:text-gray-300 text-gray-600 font-medium">ETA:</div>
+              <div className="text-sm font-semibold dark:text-white text-gray-800">{etaToNextStop || 'Calculating...'}</div>
             </div>
           </div>
         </div>
