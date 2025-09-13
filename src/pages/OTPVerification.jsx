@@ -156,7 +156,7 @@ const OTPVerification = () => {
             {/* Children Illustration */}
             <div className="flex justify-center lg:justify-start">
               <img
-                src="https://customer-assets.emergentagent.com/job_d7f673d1-d3ab-4760-991c-4cd04006d342/artifacts/o7lxx1rl_image.png"
+                src="students.png"
                 alt="Happy school children"
                 className="max-w-full w-full sm:max-w-md lg:max-w-lg h-auto transform hover:scale-105 transition-transform duration-300"
               />

@@ -4,7 +4,7 @@ import LoginTypeSelector from '../components/LoginTypeSelector';
 
 const HomePage = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/50 to-background">
+    <div className="min-h-screen bg-gradient-to-br dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 from-gray-50 via-gray-100 to-gray-200">
       <Navbar />
       
       {/* Main Content */}
@@ -15,9 +15,9 @@ const HomePage = () => {
             {/* Header */}
             <div className="text-center lg:text-left space-y-3">
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight">
-                <span className="text-foreground">SCHOOL</span>
+                <span className="dark:text-white text-gray-800">SCHOOL</span>
               </h1>
-              <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-yellow-500 leading-tight">
+              <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold dark:text-yellow-500 text-blue-600 leading-tight">
                 MANAGEMENT
               </h2>
             </div>

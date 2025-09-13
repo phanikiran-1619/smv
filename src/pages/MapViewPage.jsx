@@ -30,27 +30,27 @@ const ROUTE_COLORS = [
 // Skeleton components
 const SkeletonCard = ({ className }) => (
   <div className={`animate-pulse ${className}`}>
-    <div className="bg-slate-700 rounded h-4 w-3/4 mb-2"></div>
-    <div className="bg-slate-600 rounded h-3 w-1/2"></div>
+    <div className="dark:bg-slate-700 bg-gray-300 rounded h-4 w-3/4 mb-2"></div>
+    <div className="dark:bg-slate-600 bg-gray-200 rounded h-3 w-1/2"></div>
   </div>
 );
 
 const SkeletonPreviewCard = () => (
-  <Card className="bg-slate-800 border-slate-600 p-4 animate-pulse">
+  <Card className="dark:bg-slate-800 dark:border-slate-600 bg-white/80 border-gray-200 p-4 animate-pulse">
     <div className="text-center mb-3">
-      <div className="bg-slate-700 rounded h-4 w-48 mx-auto mb-2"></div>
-      <div className="bg-slate-600 rounded h-5 w-64 mx-auto mb-2"></div>
-      <div className="bg-slate-600 rounded h-3 w-32 ml-auto"></div>
+      <div className="dark:bg-slate-700 bg-gray-300 rounded h-4 w-48 mx-auto mb-2"></div>
+      <div className="dark:bg-slate-600 bg-gray-200 rounded h-5 w-64 mx-auto mb-2"></div>
+      <div className="dark:bg-slate-600 bg-gray-200 rounded h-3 w-32 ml-auto"></div>
     </div>
     <div className="flex justify-between items-center mb-3">
       {[1, 2, 3, 4].map(i => (
         <div key={i} className="flex flex-col items-center">
-          <div className="w-8 h-8 rounded-full bg-slate-700 mb-1"></div>
-          <div className="bg-slate-600 rounded h-2 w-12"></div>
+          <div className="w-8 h-8 rounded-full dark:bg-slate-700 bg-gray-300 mb-1"></div>
+          <div className="dark:bg-slate-600 bg-gray-200 rounded h-2 w-12"></div>
         </div>
       ))}
     </div>
-    <div className="bg-slate-700 rounded h-0.5 mb-3"></div>
+    <div className="dark:bg-slate-700 bg-gray-300 rounded h-0.5 mb-3"></div>
   </Card>
 );
 
@@ -115,6 +115,13 @@ const MapViewPage = () => {
     return hour < 12 ? 'morning' : 'evening';
   }
 
+  // Get authentication token
+  const getAuthToken = () => {
+    return localStorage.getItem('superadmintoken') || 
+           localStorage.getItem('admintoken') || 
+           localStorage.getItem('parenttoken') || '';
+  };
+
   // Real-time clock update
   useEffect(() => {
     const updateTime = () => {
@@ -167,690 +174,334 @@ const MapViewPage = () => {
     };
   }, []);
 
-  // Helper functions
-  const getAuthToken = () => {
-    try {
-      return localStorage.getItem('admintoken');
-    } catch (error) {
-      console.error('Error accessing localStorage:', error);
-      return null;
-    }
-  };
-
-  const isValidCoordinate = (value) => {
-    const num = parseFloat(value);
-    return !isNaN(num) && isFinite(num);
-  };
-
-  const parseCoordinate = (value) => {
-    return parseFloat(value);
-  };
-
-  // Calculate distance between two points using Haversine formula
-  const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371; // Radius of the Earth in kilometers
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-        Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c; // Distance in kilometers
-  };
-
-  // Calculate route distances and timings
-  const calculateRouteMetrics = (routePoints) => {
-    if (!routePoints || routePoints.length < 2) return { distances: [], timings: [] };
-
-    const sortedPoints = [...routePoints].sort((a, b) => a.seqOrder - b.seqOrder);
-    const distances = [];
-    const timings = [];
-    let cumulativeTime = 8.5 * 60; // Start at 8:30 AM in minutes
-
-    for (let i = 0; i < sortedPoints.length - 1; i++) {
-      const current = sortedPoints[i];
-      const next = sortedPoints[i + 1];
-      
-      const distance = calculateDistance(
-        parseCoordinate(current.latitude),
-        parseCoordinate(current.longitude),
-        parseCoordinate(next.latitude),
-        parseCoordinate(next.longitude)
-      );
-      
-      distances.push(distance);
-      
-      // Calculate travel time based on distance (assuming avg speed of 20 km/h in city traffic)
-      const travelTimeMinutes = Math.round((distance / 20) * 60);
-      const stopTime = i === 0 ? 0 : 2; // 2 minutes stop at each point except start
-      const totalSegmentTime = travelTimeMinutes + stopTime;
-      
-      cumulativeTime += totalSegmentTime;
-      timings.push({
-        segmentTime: totalSegmentTime,
-        arrivalTime: cumulativeTime,
-        distance: distance
-      });
-    }
-
-    return { distances, timings };
-  };
-
-  // Format time from minutes to AM/PM format
-  const formatTime = (minutes) => {
-    const hours = Math.floor(minutes / 60);
-    const mins = Math.round(minutes % 60);
-    const period = hours >= 12 ? 'PM' : 'AM';
-    const displayHours = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
-    return `${displayHours}:${mins.toString().padStart(2, '0')} ${period}`;
-  };
-
-  // Format time to display format
-  const formatDisplayTime = (date) => {
-    return format(date, 'HH:mm:ss');
-  };
-
-  // Get reached time based on bus position - use actual GPS eventTime
-  const getReachedTimeFromPosition = (position) => {
-    if (!isLiveMode && historicalData.length > 0) {
-      // For historical mode, use actual GPS eventTime
-      const gpsData = findGPSDataFromPosition(position);
-      if (gpsData && gpsData.eventTime) {
-        return format(new Date(gpsData.eventTime), 'HH:mm:ss');
-      }
-    }
-    
-    // For live mode, use current device time
-    return formatDisplayTime(deviceTime);
-  };
-
-  // Get reached date based on bus position - use actual GPS eventTime
-  const getReachedDateFromPosition = (position) => {
-    if (!isLiveMode && historicalData.length > 0) {
-      // For historical mode, use actual GPS eventTime
-      const gpsData = findGPSDataFromPosition(position);
-      if (gpsData && gpsData.eventTime) {
-        return format(new Date(gpsData.eventTime), 'EEE, MMM d');
-      }
-    }
-    
-    // For live mode, use current device time
-    return format(deviceTime, 'EEE, MMM d');
-  };
-
-  // Calculate interpolated position between two points
-  const interpolatePosition = (point1, point2, ratio) => {
-    const lat = point1.lat + (point2.lat - point1.lat) * ratio;
-    const lng = point1.lng + (point2.lng - point1.lng) * ratio;
-    return { lat, lng };
-  };
-
-  // Calculate bus position on map based on route progress and actual movement direction
-  const calculateBusMapPosition = (progressPercent, routePoints, historicalGPSData = null) => {
-    if (!routePoints || routePoints.length < 2) return null;
-
-    // If we have historical GPS data, use actual coordinates
-    if (historicalGPSData && historicalGPSData.length > 0) {
-      const progress = progressPercent / 100;
-      const dataIndex = Math.min(
-        Math.floor(progress * historicalGPSData.length), 
-        historicalGPSData.length - 1
-      );
-      const gpsPoint = historicalGPSData[dataIndex];
-      return {
-        lat: parseCoordinate(gpsPoint.latitude),
-        lng: parseCoordinate(gpsPoint.longitude)
-      };
-    }
-
-    // For live mode, determine starting position based on shift
-    const sortedPoints = [...routePoints].sort((a, b) => a.seqOrder - b.seqOrder);
-    let actualRouteOrder = sortedPoints;
-    
-    // For live mode, position bus at appropriate starting point based on shift
-    if (isLiveMode) {
-      if (selectedShift === 'evening') {
-        // Evening: start from school (last point in morning order)
-        actualRouteOrder = [...sortedPoints].reverse();
-      }
-      // Morning: use normal order (start from first point)
-    } else {
-      // For historical mode, determine direction based on GPS data
-      if (historicalGPSData && historicalGPSData.length > 1) {
-        const firstGPS = historicalGPSData[0];
-        const lastGPS = historicalGPSData[historicalGPSData.length - 1];
-        
-        // Find which route point is closest to first GPS position
-        const firstDistances = sortedPoints.map(point => 
-          calculateDistance(
-            parseCoordinate(firstGPS.latitude),
-            parseCoordinate(firstGPS.longitude),
-            parseCoordinate(point.latitude),
-            parseCoordinate(point.longitude)
-          )
-        );
-        
-        const closestToFirst = firstDistances.indexOf(Math.min(...firstDistances));
-        
-        // Find which route point is closest to last GPS position
-        const lastDistances = sortedPoints.map(point => 
-          calculateDistance(
-            parseCoordinate(lastGPS.latitude),
-            parseCoordinate(lastGPS.longitude),
-            parseCoordinate(point.latitude),
-            parseCoordinate(point.longitude)
-          )
-        );
-        
-        const closestToLast = lastDistances.indexOf(Math.min(...lastDistances));
-        
-        // If the journey goes from higher index to lower index, reverse the route
-        if (closestToFirst > closestToLast) {
-          actualRouteOrder = [...sortedPoints].reverse();
-        }
-      } else {
-        // Fallback to session-based logic only if no GPS data
-        if (selectedShift === 'evening') {
-          actualRouteOrder = [...sortedPoints].reverse();
-        }
-      }
-    }
-
-    const progress = progressPercent / 100;
-    const totalSegments = actualRouteOrder.length - 1;
-    const segmentIndex = Math.floor(progress * totalSegments);
-    const segmentProgress = (progress * totalSegments) - segmentIndex;
-
-    if (segmentIndex >= totalSegments) {
-      const lastPoint = actualRouteOrder[actualRouteOrder.length - 1];
-      return {
-        lat: parseCoordinate(lastPoint.latitude),
-        lng: parseCoordinate(lastPoint.longitude)
-      };
-    }
-
-    const currentPoint = actualRouteOrder[segmentIndex];
-    const nextPoint = actualRouteOrder[segmentIndex + 1];
-
-    const point1 = {
-      lat: parseCoordinate(currentPoint.latitude),
-      lng: parseCoordinate(currentPoint.longitude)
-    };
-
-    const point2 = {
-      lat: parseCoordinate(nextPoint.latitude),
-      lng: parseCoordinate(nextPoint.longitude)
-    };
-
-    return interpolatePosition(point1, point2, segmentProgress);
-  };
-
-  // Fetch routes from API and auto-select all routes
+  // Fetch routes
   const fetchRoutes = useCallback(async () => {
-    setLoading(true);
-    const token = getAuthToken();
-
     try {
-      const schoolId = localStorage.getItem('adminSchoolId') || 'SC2F0001';
+      setLoading(true);
       const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
+      
       if (!API_BASE_URL) {
-        throw new Error('API base URL is not configured');
+        throw new Error('API base URL not configured');
       }
 
-      const response = await fetch(`${API_BASE_URL}/route/school/${schoolId}`, {
+      const token = getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/routes`, {
         headers: {
-          Authorization: token ? `Bearer ${token}` : '',
-          'Content-Type': 'application/json',
-        },
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch routes: ${response.statusText}`);
+        throw new Error('Failed to fetch routes');
       }
 
       const data = await response.json();
-      const validRoutes = data.filter((route) =>
-        route.routePoints && route.routePoints.some(
-          (point) => isValidCoordinate(point.latitude) && isValidCoordinate(point.longitude)
-        )
-      );
-
-      setRoutes(validRoutes);
-      setFilteredRoutes(validRoutes);
+      const routesData = Array.isArray(data) ? data : data.routes || [];
       
-      // Auto-calculate directions for all routes on load and set map center
-      if (validRoutes.length > 0 && isLoaded) {
-        calculateAllDirections(validRoutes);
-        // Set map center to first route's first point
-        const firstRoute = validRoutes[0];
-        if (firstRoute && firstRoute.routePoints && firstRoute.routePoints.length > 0) {
-          const firstPoint = firstRoute.routePoints[0];
-          setMapCenter({
-            lat: parseCoordinate(firstPoint.latitude),
-            lng: parseCoordinate(firstPoint.longitude)
-          });
-        }
-        setShowAllRoutes(true);
-        setSelectedRouteId('all');
+      setRoutes(routesData);
+      setFilteredRoutes(routesData);
+      
+      if (routesData.length > 0) {
+        setMapCenter(DEFAULT_CENTER);
       }
     } catch (error) {
-      console.error('Route fetch error:', error);
+      console.error('Error fetching routes:', error);
       setError(error.message);
       setRoutes([]);
       setFilteredRoutes([]);
     } finally {
       setLoading(false);
     }
-  }, [isLoaded]);
+  }, []);
 
-  // Filter routes based on search term
-  useEffect(() => {
-    if (searchTerm.trim() === '') {
-      setFilteredRoutes(routes);
-    } else {
-      const filtered = routes.filter(route =>
-        route.routeName.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      setFilteredRoutes(filtered);
-    }
-  }, [searchTerm, routes]);
-
-  // Refresh map center based on new data
-  const refreshMapCenter = (newHistoricalData, route) => {
-    if (newHistoricalData && newHistoricalData.length > 0) {
-      // Center map on the starting position of the historical data
-      const startingPoint = newHistoricalData[0];
-      setMapCenter({
-        lat: parseCoordinate(startingPoint.latitude),
-        lng: parseCoordinate(startingPoint.longitude)
-      });
-      
-      // Fit map bounds to show the entire journey
-      if (mapRef.current && newHistoricalData.length > 1) {
-        const bounds = new window.google.maps.LatLngBounds();
-        newHistoricalData.forEach(point => {
-          bounds.extend(new window.google.maps.LatLng(
-            parseCoordinate(point.latitude),
-            parseCoordinate(point.longitude)
-          ));
-        });
-        mapRef.current.fitBounds(bounds, { padding: 50 });
-      }
-    } else if (route && route.routePoints && route.routePoints.length > 0) {
-      // Fallback to route points
-      const firstPoint = route.routePoints[0];
-      setMapCenter({
-        lat: parseCoordinate(firstPoint.latitude),
-        lng: parseCoordinate(firstPoint.longitude)
-      });
-    }
-  };
-
-  // Fetch historical data with completed trip first
+  // Fetch historical data
   const fetchHistoricalData = async () => {
     if (!selectedRoute || selectedRouteId === 'all') {
-      alert('Please select a specific route for historical data');
+      alert('Please select a specific route first');
       return;
     }
 
-    setHistoricalLoading(true);
-    setDirectionsRequested(true);
-    const token = getAuthToken();
-    
     try {
-      const schoolId = localStorage.getItem('adminSchoolId') || 'SC2F0001';
+      setHistoricalLoading(true);
+      setDirectionsRequested(true);
+
       const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
-      const formattedDate = format(selectedDate, 'yyyy-MM-dd');
+      const token = getAuthToken();
       
+      if (!API_BASE_URL) {
+        throw new Error('API base URL not configured');
+      }
+
+      const dateStr = format(selectedDate, 'yyyy-MM-dd');
       const response = await fetch(
-        `${API_BASE_URL}/api/v1/device-locations?schoolId=${schoolId}&routeId=${selectedRouteId}&date=${formattedDate}&period=${selectedShift}`,
+        `${API_BASE_URL}/gps/historical/${selectedRouteId}?date=${dateStr}&shift=${selectedShift}`,
         {
           headers: {
-            Authorization: token ? `Bearer ${token}` : '',
-            'Content-Type': 'application/json',
-          },
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
         }
       );
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch historical data: ${response.statusText}`);
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch historical data');
       }
 
-      const data = await response.json();
+      const gpsData = await response.json();
       
-      // Sort historical data by eventTime
-      const sortedData = data.sort((a, b) => new Date(a.eventTime) - new Date(b.eventTime));
-      setHistoricalData(sortedData);
-      
-      // Calculate total journey time from historical data
-      if (sortedData.length > 1) {
-        const startTime = new Date(sortedData[0].eventTime);
-        const endTime = new Date(sortedData[sortedData.length - 1].eventTime);
-        const totalMinutes = Math.round((endTime - startTime) / (1000 * 60));
-        setTotalJourneyTime(totalMinutes);
+      if (!gpsData || gpsData.length === 0) {
+        alert('No GPS data found for the selected date and route');
+        setHistoricalData([]);
+        return;
       }
-      
-      // Start with completed trip first (100% position)
-      setBusPosition(100);
-      setRouteCompleted(true);
+
+      setHistoricalData(gpsData);
+      setBusPosition(0);
+      setRouteCompleted(false);
       setShowHistoricalPreview(true);
       
-      // Set bus position to last GPS coordinate (completed position)
-      if (sortedData.length > 0) {
-        const lastData = sortedData[sortedData.length - 1];
-        setBusMapPosition({
-          lat: parseCoordinate(lastData.latitude),
-          lng: parseCoordinate(lastData.longitude)
-        });
-      }
-      
-      // Refresh map center and bounds
-      refreshMapCenter(sortedData, selectedRoute);
-      
+      // Calculate route timings
+      calculateRouteTimings(gpsData);
+
     } catch (error) {
-      console.error('Historical data fetch error:', error);
-      // Enhanced mock historical data for demonstration with realistic timeline
-      const baseDate = format(selectedDate, 'yyyy-MM-dd');
-      const startHour = selectedShift === 'morning' ? '08' : '15';
-      const mockHistoricalData = [
-        { id: 1, latitude: 12.9716, longitude: 77.5946, eventTime: `${baseDate}T${startHour}:30:00`, deviceId: 'BNG200001' },
-        { id: 2, latitude: 12.9591, longitude: 77.7017, eventTime: `${baseDate}T${startHour}:35:00`, deviceId: 'BNG200001' },
-        { id: 3, latitude: 12.9611, longitude: 77.7172, eventTime: `${baseDate}T${startHour}:42:00`, deviceId: 'BNG200001' },
-        { id: 4, latitude: 12.9698, longitude: 77.7499, eventTime: `${baseDate}T${startHour}:48:00`, deviceId: 'BNG200001' },
-        { id: 5, latitude: 12.9750, longitude: 77.7800, eventTime: `${baseDate}T${startHour}:55:00`, deviceId: 'BNG200001' },
-      ];
-      
-      setHistoricalData(mockHistoricalData);
-      
-      // Calculate total journey time for mock data
-      const startTime = new Date(mockHistoricalData[0].eventTime);
-      const endTime = new Date(mockHistoricalData[mockHistoricalData.length - 1].eventTime);
-      const totalMinutes = Math.round((endTime - startTime) / (1000 * 60));
-      setTotalJourneyTime(totalMinutes);
-      
-      // Start with completed trip first
-      setBusPosition(100);
-      setRouteCompleted(true);
-      setShowHistoricalPreview(true);
-      
-      // Set bus position to last position
-      setBusMapPosition({
-        lat: parseCoordinate(mockHistoricalData[mockHistoricalData.length - 1].latitude),
-        lng: parseCoordinate(mockHistoricalData[mockHistoricalData.length - 1].longitude)
-      });
-
-      // Refresh map center
-      refreshMapCenter(mockHistoricalData, selectedRoute);
+      console.error('Error fetching historical data:', error);
+      alert(error.message || 'Failed to fetch historical data');
     } finally {
       setHistoricalLoading(false);
     }
   };
 
-  // Handle route selection
-  const handleRouteSelect = (routeId) => {
-    // Hide historical preview card when route changes
-    setShowHistoricalPreview(false);
-    setDirectionsRequested(false);
-    
-    if (routeId === 'all') {
-      setSelectedRoute(null);
-      setSelectedRouteId('all');
-      setShowAllRoutes(true);
-      setBusPosition(0);
-      setBusMapPosition(null);
-      setRouteDistances([]);
-      setRouteTimings([]);
-      setRouteCompleted(false);
-      calculateAllDirections(routes);
-    } else {
-      const route = routes.find(r => (r.smRouteId || r.id) === routeId);
-      if (route) {
-        setSelectedRoute(route);
-        setSelectedRouteId(routeId);
-        setShowAllRoutes(false);
-        setBusPosition(0);
-        setRouteCompleted(false);
-        calculateDirections(route);
-        updateMapCenter(route);
-        
-        // Calculate route metrics
-        const metrics = calculateRouteMetrics(route.routePoints);
-        setRouteDistances(metrics.distances);
-        setRouteTimings(metrics.timings);
-        setTotalJourneyTime(metrics.timings.length > 0 ? metrics.timings[metrics.timings.length - 1].arrivalTime - (8.5 * 60) : 0);
-        
-        // Set initial bus position based on shift and mode
-        if (route.routePoints && route.routePoints.length > 0) {
-          if (isLiveMode) {
-            // For live mode, start position depends on shift
-            let startPoint;
-            if (selectedShift === 'morning') {
-              // Morning: start from first pickup point
-              startPoint = route.routePoints.find(p => p.seqOrder === 1) || route.routePoints[0];
-            } else {
-              // Evening: start from school (last point in morning order)
-              const sortedPoints = [...route.routePoints].sort((a, b) => a.seqOrder - b.seqOrder);
-              startPoint = sortedPoints[sortedPoints.length - 1];
-            }
-            setBusMapPosition({
-              lat: parseCoordinate(startPoint.latitude),
-              lng: parseCoordinate(startPoint.longitude)
-            });
-          }
-        }
-      }
-    }
-  };
-
-  // Handle date change - hide preview card when date changes
-  const handleDateChange = (event) => {
-    const selectedDateValue = new Date(event.target.value);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    selectedDateValue.setHours(0, 0, 0, 0);
-
-    // Hide historical preview when date changes
-    setShowHistoricalPreview(false);
-    setDirectionsRequested(false);
-
-    // Only allow past dates and today
-    if (selectedDateValue <= today) {
-      setSelectedDate(selectedDateValue);
-      if (isLiveMode && selectedDateValue.getTime() !== today.getTime()) {
-        setIsLiveMode(false);
-      }
-    }
-  };
-
-  // Update map center based on selected route
-  const updateMapCenter = (route) => {
-    if (route && route.routePoints && route.routePoints.length > 0) {
-      const firstPoint = route.routePoints[0];
-      if (isValidCoordinate(firstPoint.latitude) && isValidCoordinate(firstPoint.longitude)) {
-        setMapCenter({
-          lat: parseCoordinate(firstPoint.latitude),
-          lng: parseCoordinate(firstPoint.longitude),
-        });
-      }
-    }
-  };
-
-  // Calculate directions for selected route
-  const calculateDirections = async (route) => {
-    if (!isLoaded || !route || !route.routePoints) return;
+  // Calculate directions for single route
+  const calculateDirections = (route) => {
+    if (!window.google || !route || !route.routePoints) return;
 
     const validPoints = route.routePoints
-      .filter((point) => isValidCoordinate(point.latitude) && isValidCoordinate(point.longitude))
+      .filter(point => isValidCoordinate(point.latitude) && isValidCoordinate(point.longitude))
       .sort((a, b) => a.seqOrder - b.seqOrder);
 
-    if (validPoints.length < 2) {
-      setRouteDirections([]);
-      return;
-    }
+    if (validPoints.length < 2) return;
 
-    try {
-      const directionsService = new window.google.maps.DirectionsService();
-      const waypoints = validPoints.slice(1, -1).map((point) => ({
+    const waypoints = validPoints.slice(1, -1).map(point => ({
+      location: new window.google.maps.LatLng(
+        parseCoordinate(point.latitude),
+        parseCoordinate(point.longitude)
+      ),
+      stopover: true
+    }));
+
+    const directionsService = new window.google.maps.DirectionsService();
+    
+    directionsService.route({
+      origin: new window.google.maps.LatLng(
+        parseCoordinate(validPoints[0].latitude),
+        parseCoordinate(validPoints[0].longitude)
+      ),
+      destination: new window.google.maps.LatLng(
+        parseCoordinate(validPoints[validPoints.length - 1].latitude),
+        parseCoordinate(validPoints[validPoints.length - 1].longitude)
+      ),
+      waypoints: waypoints,
+      travelMode: window.google.maps.TravelMode.DRIVING,
+      optimizeWaypoints: false
+    }, (result, status) => {
+      if (status === window.google.maps.DirectionsStatus.OK) {
+        setRouteDirections([{
+          routeId: route.smRouteId || route.id,
+          directions: result,
+          color: '#3B82F6'
+        }]);
+        
+        // Calculate distances
+        if (result.routes[0] && result.routes[0].legs) {
+          const distances = result.routes[0].legs.map(leg => leg.distance.value / 1000);
+          setRouteDistances(distances);
+        }
+      }
+    });
+  };
+
+  // Calculate directions for all routes
+  const calculateAllDirections = () => {
+    if (!window.google || routes.length === 0) return;
+
+    const allDirections = [];
+    let completedRequests = 0;
+
+    routes.forEach((route, index) => {
+      if (!route.routePoints) return;
+
+      const validPoints = route.routePoints
+        .filter(point => isValidCoordinate(point.latitude) && isValidCoordinate(point.longitude))
+        .sort((a, b) => a.seqOrder - b.seqOrder);
+
+      if (validPoints.length < 2) return;
+
+      const waypoints = validPoints.slice(1, -1).map(point => ({
         location: new window.google.maps.LatLng(
           parseCoordinate(point.latitude),
           parseCoordinate(point.longitude)
         ),
-        stopover: true,
+        stopover: true
       }));
 
-      const result = await new Promise((resolve, reject) => {
-        directionsService.route(
-          {
-            origin: new window.google.maps.LatLng(
-              parseCoordinate(validPoints[0].latitude),
-              parseCoordinate(validPoints[0].longitude)
-            ),
-            destination: new window.google.maps.LatLng(
-              parseCoordinate(validPoints[validPoints.length - 1].latitude),
-              parseCoordinate(validPoints[validPoints.length - 1].longitude)
-            ),
-            waypoints,
-            travelMode: window.google.maps.TravelMode.DRIVING,
-            optimizeWaypoints: false,
-          },
-          (result, status) => {
-            if (status === window.google.maps.DirectionsStatus.OK && result) {
-              resolve(result);
-            } else {
-              reject(new Error(`Directions request failed: ${status}`));
-            }
+      const directionsService = new window.google.maps.DirectionsService();
+      
+      setTimeout(() => {
+        directionsService.route({
+          origin: new window.google.maps.LatLng(
+            parseCoordinate(validPoints[0].latitude),
+            parseCoordinate(validPoints[0].longitude)
+          ),
+          destination: new window.google.maps.LatLng(
+            parseCoordinate(validPoints[validPoints.length - 1].latitude),
+            parseCoordinate(validPoints[validPoints.length - 1].longitude)
+          ),
+          waypoints: waypoints,
+          travelMode: window.google.maps.TravelMode.DRIVING,
+          optimizeWaypoints: false
+        }, (result, status) => {
+          if (status === window.google.maps.DirectionsStatus.OK) {
+            allDirections.push({
+              routeId: route.smRouteId || route.id,
+              directions: result,
+              color: ROUTE_COLORS[index % ROUTE_COLORS.length]
+            });
           }
-        );
-      });
+          
+          completedRequests++;
+          if (completedRequests === routes.length) {
+            setRouteDirections(allDirections);
+          }
+        });
+      }, index * 200); // Delay to avoid API rate limits
+    });
+  };
 
-      setRouteDirections([{ routeId: route.smRouteId || route.id, directions: result }]);
-    } catch (error) {
-      console.error('Error calculating directions:', error);
+  // Handle route selection
+  const handleRouteSelect = (routeId) => {
+    setSelectedRouteId(routeId);
+    
+    if (routeId === 'all') {
+      setSelectedRoute(null);
+      setShowAllRoutes(true);
+      setShowHistoricalPreview(false);
+      setBusPosition(0);
+      setHistoricalData([]);
+      setRouteDirections([]);
+    } else {
+      const route = routes.find(r => (r.smRouteId || r.id) === routeId);
+      setSelectedRoute(route);
+      setShowAllRoutes(false);
+      setShowHistoricalPreview(false);
+      setBusPosition(0);
+      setHistoricalData([]);
       setRouteDirections([]);
     }
   };
 
-  // Calculate directions for all routes
-  const calculateAllDirections = async (routesToProcess = routes) => {
-    if (!isLoaded || routesToProcess.length === 0) return;
+  // Handle search term change
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      setFilteredRoutes(routes);
+    } else {
+      const filtered = routes.filter(route =>
+        route.routeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (route.smRouteId || route.id).toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredRoutes(filtered);
+    }
+  }, [searchTerm, routes]);
 
-    const directionsPromises = routesToProcess.map(async (route, index) => {
-      const validPoints = route.routePoints
-        .filter((point) => isValidCoordinate(point.latitude) && isValidCoordinate(point.longitude))
-        .sort((a, b) => a.seqOrder - b.seqOrder);
+  // Handle date change
+  const handleDateChange = (e) => {
+    const newDate = new Date(e.target.value);
+    setSelectedDate(newDate);
+    
+    // Reset historical data when date changes
+    if (!isLiveMode) {
+      setHistoricalData([]);
+      setBusPosition(0);
+      setRouteCompleted(false);
+      setShowHistoricalPreview(false);
+      setDirectionsRequested(false);
+    }
+  };
 
-      if (validPoints.length < 2) {
-        return { routeId: route.smRouteId || route.id, directions: null, color: ROUTE_COLORS[index % ROUTE_COLORS.length] };
-      }
+  // Utility functions
+  const isValidCoordinate = (coord) => {
+    const num = parseFloat(coord);
+    return !isNaN(num) && isFinite(num) && Math.abs(num) > 0.001;
+  };
 
-      try {
-        const directionsService = new window.google.maps.DirectionsService();
-        const waypoints = validPoints.slice(1, -1).map((point) => ({
-          location: new window.google.maps.LatLng(
-            parseCoordinate(point.latitude),
-            parseCoordinate(point.longitude)
-          ),
-          stopover: true,
-        }));
+  const parseCoordinate = (coord) => {
+    return parseFloat(coord) || 0;
+  };
 
-        const result = await new Promise((resolve, reject) => {
-          directionsService.route(
-            {
-              origin: new window.google.maps.LatLng(
-                parseCoordinate(validPoints[0].latitude),
-                parseCoordinate(validPoints[0].longitude)
-              ),
-              destination: new window.google.maps.LatLng(
-                parseCoordinate(validPoints[validPoints.length - 1].latitude),
-                parseCoordinate(validPoints[validPoints.length - 1].longitude)
-              ),
-              waypoints,
-              travelMode: window.google.maps.TravelMode.DRIVING,
-              optimizeWaypoints: false,
-            },
-            (result, status) => {
-              if (status === window.google.maps.DirectionsStatus.OK && result) {
-                resolve(result);
-              } else {
-                reject(new Error(`Directions request failed: ${status}`));
-              }
-            }
-          );
-        });
+  // Calculate distance between two points
+  const calculateDistance = (lat1, lng1, lat2, lng2) => {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLng/2) * Math.sin(dLng/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
 
-        return { routeId: route.smRouteId || route.id, directions: result, color: ROUTE_COLORS[index % ROUTE_COLORS.length] };
-      } catch (error) {
-        console.error(`Error calculating directions for route ${route.routeName}:`, error);
-        return { routeId: route.smRouteId || route.id, directions: null, color: ROUTE_COLORS[index % ROUTE_COLORS.length] };
-      }
+  // Calculate route timings
+  const calculateRouteTimings = (gpsData) => {
+    if (!gpsData || gpsData.length === 0) return;
+
+    const timings = [];
+    const startTime = new Date(gpsData[0].eventTime);
+
+    gpsData.forEach((point, index) => {
+      const currentTime = new Date(point.eventTime);
+      const elapsedMinutes = Math.floor((currentTime - startTime) / (1000 * 60));
+      timings.push(elapsedMinutes);
     });
 
-    try {
-      const results = await Promise.all(directionsPromises);
-      setRouteDirections(results);
-    } catch (error) {
-      console.error('Error calculating all directions:', error);
-    }
+    setRouteTimings(timings);
+    setTotalJourneyTime(Math.max(...timings));
   };
 
-  // Handle historical bus movement with proper direction
-  const handleBusPositionChange = (newPosition) => {
-    setBusPosition(newPosition);
-    
-    // Check if route is completed
-    if (newPosition >= 100) {
-      setRouteCompleted(true);
-    } else {
-      setRouteCompleted(false);
-    }
-    
-    // Find GPS data for current position from historical data
-    const gpsData = findGPSDataFromPosition(newPosition);
-    setCurrentGPSData(gpsData);
-    
-    // Calculate bus position using improved direction logic
-    if (selectedRoute && selectedRoute.routePoints) {
-      const mapPosition = calculateBusMapPosition(newPosition, selectedRoute.routePoints, historicalData);
-      if (mapPosition) {
-        setBusMapPosition(mapPosition);
-      }
-    }
+  // Format time for display
+  const formatDisplayTime = (time) => {
+    return format(time, 'HH:mm:ss');
   };
 
-  // Sync bus position between preview card and map
+  // Sync bus position with map
   const syncBusPosition = (position) => {
-    // Update bus position in preview card
-    setBusPosition(position);
-    
-    // Update bus position on map
-    if (selectedRoute && selectedRoute.routePoints) {
-      const mapPosition = calculateBusMapPosition(position, selectedRoute.routePoints, historicalData);
-      if (mapPosition) {
-        setBusMapPosition(mapPosition);
+    if (!selectedRoute || !selectedRoute.routePoints || !historicalData.length) return;
+
+    const gpsData = findGPSDataFromPosition(position);
+    if (gpsData) {
+      setBusMapPosition({
+        lat: parseCoordinate(gpsData.latitude),
+        lng: parseCoordinate(gpsData.longitude)
+      });
+      setCurrentGPSData(gpsData);
+      
+      // Check if route is completed
+      if (position >= 100) {
+        setRouteCompleted(true);
+        setIsHistoricalPlaying(false);
       }
     }
-    
-    // Update current GPS data
-    const gpsData = findGPSDataFromPosition(position);
-    setCurrentGPSData(gpsData);
-    
-    // Check if route is completed
-    setRouteCompleted(position >= 100);
   };
 
-  // Find GPS data based on current position with improved accuracy
+  // Find GPS data from position percentage
   const findGPSDataFromPosition = (position) => {
     if (!historicalData.length) return null;
     
-    const progress = position / 100;
-    const dataIndex = Math.min(
-      Math.floor(progress * historicalData.length), 
-      historicalData.length - 1
-    );
-    return historicalData[dataIndex] || null;
+    const index = Math.floor((position / 100) * (historicalData.length - 1));
+    return historicalData[Math.min(index, historicalData.length - 1)];
   };
 
-  // Get reached time from historical GPS data
+  // Get reached time from historical data
   const getReachedTimeFromHistoricalData = (position) => {
     const gpsData = findGPSDataFromPosition(position);
     if (gpsData && gpsData.eventTime) {
@@ -1108,12 +759,12 @@ const MapViewPage = () => {
 
   if (loadError) {
     return (
-      <div className="min-h-screen bg-slate-900 text-white">
+      <div className="min-h-screen dark:bg-gradient-to-br dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200 dark:text-white text-gray-800">
         <Navbar showBackButton={true} />
         <div className="pt-24 flex items-center justify-center h-full">
-          <div className="text-center p-6 bg-slate-800 rounded-lg shadow-md">
+          <div className="text-center p-6 dark:bg-slate-800/60 dark:border-slate-600 bg-white/80 border-gray-200 rounded-lg shadow-md">
             <p className="text-red-400 font-semibold">Google Maps API Error</p>
-            <p className="text-gray-300">{loadError.message}</p>
+            <p className="dark:text-gray-300 text-gray-600">{loadError.message}</p>
           </div>
         </div>
       </div>
@@ -1125,11 +776,11 @@ const MapViewPage = () => {
   const cardClasses = getCardSizeClasses();
 
   return (
-    <div className="h-screen w-screen flex bg-slate-900 text-white overflow-hidden">
+    <div className="h-screen w-screen flex dark:bg-slate-900 dark:text-white bg-gray-100 text-gray-800 overflow-hidden">
       {/* Mobile Menu Button */}
       <button
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-slate-800 border border-slate-600 rounded-lg text-white hover:bg-slate-700 transition-colors"
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 dark:bg-slate-800 dark:border-slate-600 bg-white/80 border-gray-200 rounded-lg dark:text-white text-gray-800 dark:hover:bg-slate-700 hover:bg-gray-100 transition-colors"
       >
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -1138,41 +789,41 @@ const MapViewPage = () => {
 
       {/* Left Sidebar - Responsive */}
       <div className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:relative z-40 
-        w-80 sm:w-72 md:w-80 lg:w-80 xl:w-96 bg-slate-800 flex flex-col border-r border-slate-700 
+        w-80 sm:w-72 md:w-80 lg:w-80 xl:w-96 dark:bg-slate-800 bg-white/95 flex flex-col dark:border-slate-700 border-gray-200 border-r 
         transition-transform duration-300 ease-in-out h-full`}>
         
         {/* Close button for mobile */}
         <button
           onClick={() => setIsSidebarOpen(false)}
-          className="lg:hidden absolute top-4 right-4 p-2 text-gray-400 hover:text-white"
+          className="lg:hidden absolute top-4 right-4 p-2 dark:text-gray-400 dark:hover:text-white text-gray-500 hover:text-gray-700"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
 
-        <div className="p-4 border-b border-slate-700">
+        <div className="p-4 dark:border-slate-700 border-gray-200 border-b">
           <Button
             onClick={() => navigate(-1)}
-            className="w-full mb-4 bg-yellow-500 text-black hover:bg-yellow-600 text-sm sm:text-base"
+            className="w-full mb-4 dark:bg-yellow-500 dark:text-black dark:hover:bg-yellow-600 bg-blue-500 text-white hover:bg-blue-600 text-sm sm:text-base"
           >
             ← Back to Dashboard
           </Button>
           
           {/* Routes Dropdown with integrated search */}
           <Select value={selectedRouteId} onValueChange={handleRouteSelect}>
-            <SelectTrigger className="w-full bg-slate-700 border-slate-600 text-white mb-4 text-sm">
+            <SelectTrigger className="w-full dark:bg-slate-700 dark:border-slate-600 dark:text-white bg-gray-100 border-gray-300 text-gray-800 mb-4 text-sm">
               <SelectValue placeholder="Select Route" />
             </SelectTrigger>
-            <SelectContent className="bg-slate-700 border-slate-600">
+            <SelectContent className="dark:bg-slate-700 dark:border-slate-600 bg-white border-gray-200">
               <div className="p-2">
                 <div className="relative mb-2">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 dark:text-gray-400 text-gray-500 w-4 h-4" />
                   <Input
                     placeholder="Search routes..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 bg-slate-600 border-slate-500 text-white placeholder-gray-400 text-sm"
+                    className="pl-10 dark:bg-slate-600 dark:border-slate-500 dark:text-white dark:placeholder-gray-400 bg-gray-100 border-gray-300 text-gray-800 placeholder-gray-500 text-sm"
                     onClick={(e) => e.stopPropagation()}
                   />
                 </div>
@@ -1191,7 +842,7 @@ const MapViewPage = () => {
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* Date Selection with Basic Calendar */}
           <div>
-            <label className="text-sm font-medium text-gray-300 block mb-2">Select Date</label>
+            <label className="text-sm font-medium dark:text-gray-300 text-gray-600 block mb-2">Select Date</label>
             <div className="relative">
               <input
                 ref={dateInputRef}
@@ -1199,9 +850,9 @@ const MapViewPage = () => {
                 value={format(selectedDate, 'yyyy-MM-dd')}
                 max={getTodayDateString()}
                 onChange={handleDateChange}
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent pl-10 text-sm"
+                className="w-full px-3 py-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white bg-gray-100 border-gray-300 text-gray-800 rounded-md focus:outline-none dark:focus:ring-yellow-500 dark:focus:border-transparent focus:ring-blue-500 focus:border-transparent pl-10 text-sm"
               />
-              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 dark:text-gray-400 text-gray-500 w-4 h-4" />
             </div>
           </div>
 
@@ -1210,14 +861,14 @@ const MapViewPage = () => {
             <>
               {/* Session Selection */}
               <div>
-                <label className="text-sm font-medium text-gray-300 block mb-2">Session</label>
+                <label className="text-sm font-medium dark:text-gray-300 text-gray-600 block mb-2">Session</label>
                 <div className="flex space-x-2">
                   <Button
                     onClick={() => setSelectedShift('morning')}
                     className={`flex-1 text-xs sm:text-sm ${
                       selectedShift === 'morning' 
-                        ? 'bg-yellow-500 text-black' 
-                        : 'bg-slate-600 text-white hover:bg-slate-500'
+                        ? 'dark:bg-yellow-500 dark:text-black bg-blue-500 text-white' 
+                        : 'dark:bg-slate-600 dark:text-white dark:hover:bg-slate-500 bg-gray-200 text-gray-700 hover:bg-gray-300'
                     }`}
                   >
                     Morning
@@ -1226,8 +877,8 @@ const MapViewPage = () => {
                     onClick={() => setSelectedShift('evening')}
                     className={`flex-1 text-xs sm:text-sm ${
                       selectedShift === 'evening' 
-                        ? 'bg-slate-300 text-black' 
-                        : 'bg-slate-600 text-white hover:bg-slate-500'
+                        ? 'dark:bg-slate-300 dark:text-black bg-blue-500 text-white' 
+                        : 'dark:bg-slate-600 dark:text-white dark:hover:bg-slate-500 bg-gray-200 text-gray-700 hover:bg-gray-300'
                     }`}
                   >
                     Evening
@@ -1239,7 +890,7 @@ const MapViewPage = () => {
               <Button
                 onClick={fetchHistoricalData}
                 disabled={historicalLoading || selectedRouteId === 'all'}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center space-x-2 text-sm"
+                className="w-full dark:bg-blue-600 dark:hover:bg-blue-700 bg-blue-500 hover:bg-blue-600 text-white disabled:opacity-50 flex items-center justify-center space-x-2 text-sm"
               >
                 <Route className="w-4 h-4" />
                 <span>{historicalLoading ? 'Loading...' : 'Get Directions'}</span>
@@ -1249,44 +900,44 @@ const MapViewPage = () => {
 
           {/* Fleet Overview */}
           {loading ? (
-            <Card className="p-4 bg-slate-700 border-slate-600">
-              <div className="bg-slate-600 rounded h-4 w-32 mb-3"></div>
+            <Card className="p-4 dark:bg-slate-700 dark:border-slate-600 bg-white/80 border-gray-200">
+              <div className="dark:bg-slate-600 bg-gray-300 rounded h-4 w-32 mb-3"></div>
               <div className="space-y-2">
                 {[1, 2].map(i => (
                   <div key={i} className="flex justify-between">
-                    <div className="bg-slate-600 rounded h-3 w-20"></div>
-                    <div className="bg-slate-600 rounded h-3 w-8"></div>
+                    <div className="dark:bg-slate-600 bg-gray-300 rounded h-3 w-20"></div>
+                    <div className="dark:bg-slate-600 bg-gray-300 rounded h-3 w-8"></div>
                   </div>
                 ))}
               </div>
             </Card>
           ) : (
-            <Card className="p-4 bg-slate-700 border-slate-600">
-              <h3 className="text-yellow-400 font-semibold mb-3 text-sm">Fleet Overview</h3>
+            <Card className="p-4 dark:bg-slate-700 dark:border-slate-600 bg-white/80 border-gray-200">
+              <h3 className="dark:text-yellow-400 text-blue-600 font-semibold mb-3 text-sm">Fleet Overview</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-300">Total Routes:</span>
-                  <span className="text-white font-medium">{routes.length}</span>
+                  <span className="dark:text-gray-300 text-gray-600">Total Routes:</span>
+                  <span className="dark:text-white text-gray-800 font-medium">{routes.length}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-300">Buses:</span>
-                  <span className="text-white font-medium">{routes.length}</span>
+                  <span className="dark:text-gray-300 text-gray-600">Buses:</span>
+                  <span className="dark:text-white text-gray-800 font-medium">{routes.length}</span>
                 </div>
               </div>
             </Card>
           )}
 
           {/* Current Time Display */}
-          <Card className="p-4 bg-slate-700 border-slate-600">
+          <Card className="p-4 dark:bg-slate-700 dark:border-slate-600 bg-white/80 border-gray-200">
             <div className="flex items-center justify-between">
-              <span className="text-gray-300 text-sm">Current Time:</span>
-              <span className="text-yellow-400 font-mono text-sm">
+              <span className="dark:text-gray-300 text-gray-600 text-sm">Current Time:</span>
+              <span className="dark:text-yellow-400 text-blue-600 font-mono text-sm">
                 {formatDisplayTime(deviceTime)}
               </span>
             </div>
             <div className="flex items-center justify-between mt-2">
-              <span className="text-gray-300 text-sm">Date:</span>
-              <span className="text-white text-sm">
+              <span className="dark:text-gray-300 text-gray-600 text-sm">Date:</span>
+              <span className="dark:text-white text-gray-800 text-sm">
                 {format(deviceTime, 'dd MMM yyyy')}
               </span>
             </div>
@@ -1305,14 +956,14 @@ const MapViewPage = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Controls */}
-        <div className="bg-slate-800 p-3 lg:p-4 flex items-center justify-between border-b border-slate-700 flex-wrap gap-2 lg:gap-4">
+        <div className="dark:bg-slate-800 bg-white/95 p-3 lg:p-4 flex items-center justify-between dark:border-slate-700 border-gray-200 border-b flex-wrap gap-2 lg:gap-4">
           <div className="flex items-center space-x-2 lg:space-x-4 min-w-0 ml-12 lg:ml-0">
-            <div className="text-lg lg:text-2xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent truncate">
+            <div className="text-lg lg:text-2xl font-bold bg-gradient-to-r dark:from-yellow-400 dark:to-orange-500 from-blue-500 to-blue-600 bg-clip-text text-transparent truncate">
               {showAllRoutes ? 'ALL ROUTES' : selectedRoute?.routeName || 'Route View'}
             </div>
             {loading && (
-              <div className="text-xs lg:text-sm text-gray-400 flex items-center">
-                <div className="animate-spin rounded-full h-3 w-3 lg:h-4 lg:w-4 border-b-2 border-yellow-400 mr-2"></div>
+              <div className="text-xs lg:text-sm dark:text-gray-400 text-gray-500 flex items-center">
+                <div className="animate-spin rounded-full h-3 w-3 lg:h-4 lg:w-4 border-b-2 dark:border-yellow-400 border-blue-500 mr-2"></div>
                 Loading routes...
               </div>
             )}
@@ -1323,8 +974,8 @@ const MapViewPage = () => {
               onClick={() => setIsLiveMode(true)}
               className={`px-3 lg:px-6 py-2 rounded-full text-xs lg:text-sm ${
                 isLiveMode 
-                  ? 'bg-yellow-500 text-black' 
-                  : 'bg-slate-600 text-white hover:bg-slate-500'
+                  ? 'dark:bg-yellow-500 dark:text-black bg-blue-500 text-white' 
+                  : 'dark:bg-slate-600 dark:text-white dark:hover:bg-slate-500 bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
             >
               Live Map
@@ -1333,8 +984,8 @@ const MapViewPage = () => {
               onClick={() => setIsLiveMode(false)}
               className={`px-3 lg:px-6 py-2 rounded-full text-xs lg:text-sm ${
                 !isLiveMode 
-                  ? 'bg-slate-300 text-black' 
-                  : 'bg-slate-600 text-white hover:bg-slate-500'
+                  ? 'dark:bg-slate-300 dark:text-black bg-blue-500 text-white' 
+                  : 'dark:bg-slate-600 dark:text-white dark:hover:bg-slate-500 bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
             >
               Historical
@@ -1433,15 +1084,15 @@ const MapViewPage = () => {
           {/* Live Mode Preview Card - Always show when route is selected */}
           {isLiveMode && !showAllRoutes && selectedRoute && routeDisplayInfo && (
             <div className={`absolute bottom-2 sm:bottom-4 left-1/2 transform -translate-x-1/2 ${cardClasses.container} max-w-[95vw]`}>
-              <Card className="bg-white shadow-2xl rounded-lg border">
+              <Card className="dark:bg-slate-800/90 dark:border-slate-600 bg-white shadow-2xl rounded-lg border border-gray-200">
                 <div className={cardClasses.padding}>
                   {/* Header with resize controls */}
                   <div className="flex items-center justify-between mb-4 lg:mb-6">
                     <div className="flex items-center space-x-2 lg:space-x-3">
-                      <Clock className={`${cardClasses.icon} text-blue-600`} />
-                      <div className={`${cardClasses.text} text-gray-600`}>
+                      <Clock className={`${cardClasses.icon} dark:text-yellow-400 text-blue-600`} />
+                      <div className={`${cardClasses.text} dark:text-gray-300 text-gray-600`}>
                         {format(deviceTime, 'EEE, MMM d')} • 
-                        <span className="text-blue-600 font-medium ml-1">
+                        <span className="dark:text-yellow-400 text-blue-600 font-medium ml-1">
                           {formatDisplayTime(deviceTime)}
                         </span>
                       </div>
@@ -1451,27 +1102,27 @@ const MapViewPage = () => {
                       <div className="flex items-center space-x-1">
                         <button
                           onClick={() => setCardSize('small')}
-                          className={`p-1 rounded ${cardSize === 'small' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}
+                          className={`p-1 rounded ${cardSize === 'small' ? 'dark:bg-yellow-500 dark:text-black bg-blue-500 text-white' : 'dark:bg-gray-600 dark:text-gray-300 bg-gray-200 text-gray-600'}`}
                           title="Small"
                         >
                           <Minimize2 className="w-3 h-3" />
                         </button>
                         <button
                           onClick={() => setCardSize('normal')}
-                          className={`p-1 rounded ${cardSize === 'normal' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}
+                          className={`p-1 rounded ${cardSize === 'normal' ? 'dark:bg-yellow-500 dark:text-black bg-blue-500 text-white' : 'dark:bg-gray-600 dark:text-gray-300 bg-gray-200 text-gray-600'}`}
                           title="Normal"
                         >
                           <div className="w-3 h-3 border border-current"></div>
                         </button>
                         <button
                           onClick={() => setCardSize('large')}
-                          className={`p-1 rounded ${cardSize === 'large' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}
+                          className={`p-1 rounded ${cardSize === 'large' ? 'dark:bg-yellow-500 dark:text-black bg-blue-500 text-white' : 'dark:bg-gray-600 dark:text-gray-300 bg-gray-200 text-gray-600'}`}
                           title="Large"
                         >
                           <Maximize2 className="w-3 h-3" />
                         </button>
                       </div>
-                      <div className={`px-2 lg:px-3 py-1 rounded-full ${cardClasses.text} font-semibold bg-yellow-100 text-yellow-800 border border-yellow-200`}>
+                      <div className={`px-2 lg:px-3 py-1 rounded-full ${cardClasses.text} font-semibold dark:bg-yellow-100 dark:text-yellow-800 dark:border-yellow-200 bg-blue-100 text-blue-800 border border-blue-200`}>
                         {selectedShift === 'morning' ? 'Morning Shift' : 'Evening Shift'}
                       </div>
                     </div>
@@ -1479,8 +1130,8 @@ const MapViewPage = () => {
 
                   {/* Route Title */}
                   <div className="text-center mb-4 lg:mb-6">
-                    <div className={`${cardClasses.title} font-bold text-gray-800 flex items-center justify-center`}>
-                      <MapPin className={`${cardClasses.icon} mr-2 text-blue-600`} />
+                    <div className={`${cardClasses.title} font-bold dark:text-white text-gray-800 flex items-center justify-center`}>
+                      <MapPin className={`${cardClasses.icon} mr-2 dark:text-yellow-400 text-blue-600`} />
                       <span className="truncate">
                         {routeDisplayInfo.start} → {routeDisplayInfo.end}
                       </span>
@@ -1490,8 +1141,8 @@ const MapViewPage = () => {
                   {/* Route Progress - Static for Live Mode */}
                   <div className="relative mb-4 lg:mb-6">
                     {/* Progress Line - Always at 0% for live mode */}
-                    <div className="absolute top-6 left-0 right-0 h-1 bg-gray-200 rounded-full mx-4 sm:mx-8">
-                      <div className="h-full rounded-full transition-all duration-300 bg-gray-300" style={{ width: '0%' }}></div>
+                    <div className="absolute top-6 left-0 right-0 h-1 dark:bg-gray-600 bg-gray-300 rounded-full mx-4 sm:mx-8">
+                      <div className="h-full rounded-full transition-all duration-300 dark:bg-gray-500 bg-gray-400" style={{ width: '0%' }}></div>
                     </div>
 
                     {/* Route Points */}
@@ -1515,7 +1166,7 @@ const MapViewPage = () => {
                                 ? 'bg-green-500 text-white border-green-400'
                                 : isLast && selectedShift === 'morning'
                                 ? 'bg-red-500 text-white border-red-400'
-                                : 'bg-gray-300 text-gray-600 border-gray-400'
+                                : 'dark:bg-gray-600 dark:text-gray-300 dark:border-gray-500 bg-gray-300 text-gray-600 border-gray-400'
                             }`}>
                               {isFirst && selectedShift === 'morning' ? (
                                 <div className={`${cardSize === 'small' ? 'w-2 h-2' : cardSize === 'large' ? 'w-6 h-6' : 'w-4 h-4'} rounded-full bg-white`}></div>
@@ -1527,7 +1178,7 @@ const MapViewPage = () => {
                             </div>
 
                             {/* Point Name */}
-                            <div className={`${cardClasses.text} text-gray-600 text-center max-w-16 lg:max-w-20 leading-tight font-medium`}>
+                            <div className={`${cardClasses.text} dark:text-gray-300 text-gray-600 text-center max-w-16 lg:max-w-20 leading-tight font-medium`}>
                               {point.routePointName.length > 8 ? 
                                 `${point.routePointName.substring(0, 8)}...` : 
                                 point.routePointName
@@ -1536,15 +1187,15 @@ const MapViewPage = () => {
 
                             {/* Hover Tooltip - Hidden on mobile */}
                             {hoveredPoint && hoveredPoint.id === point.id && window.innerWidth >= 768 && (
-                              <div className="absolute bottom-full mb-3 px-4 py-3 bg-gray-800 text-white text-xs rounded-lg shadow-xl whitespace-nowrap z-20 min-w-48">
-                                <div className="font-bold text-blue-400 mb-1">{point.routePointName}</div>
+                              <div className="absolute bottom-full mb-3 px-4 py-3 dark:bg-gray-800 bg-white dark:text-white text-gray-800 text-xs rounded-lg shadow-xl whitespace-nowrap z-20 min-w-48 border dark:border-gray-600 border-gray-200">
+                                <div className="font-bold dark:text-yellow-400 text-blue-600 mb-1">{point.routePointName}</div>
                                 <div className="text-green-400 mb-1">
                                   Reached Time: {formatDisplayTime(deviceTime)}
                                 </div>
-                                <div className="text-yellow-400">
+                                <div className="dark:text-yellow-400 text-blue-600">
                                   Status: Bus not started yet
                                 </div>
-                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent dark:border-t-gray-800 border-t-white"></div>
                               </div>
                             )}
                           </div>
@@ -1560,7 +1211,7 @@ const MapViewPage = () => {
                         transform: 'translateY(-50%)'
                       }}
                     >
-                      <div className={`${cardSize === 'small' ? 'p-1' : cardSize === 'large' ? 'p-4' : 'p-2'} lg:p-3 rounded-full shadow-xl transition-all border-2 border-white bg-gray-400`}>
+                      <div className={`${cardSize === 'small' ? 'p-1' : cardSize === 'large' ? 'p-4' : 'p-2'} lg:p-3 rounded-full shadow-xl transition-all border-2 border-white dark:bg-gray-600 bg-gray-400`}>
                         <Bus className={cardClasses.bus} />
                       </div>
                     </div>
@@ -1569,15 +1220,13 @@ const MapViewPage = () => {
                   {/* Live Mode Status */}
                   <div className="text-center">
                     <div className="flex items-center justify-center mb-2">
-                      <AlertCircle className={`${cardClasses.icon} text-yellow-500 mr-2`} />
-                      <span className={`${cardClasses.title} font-semibold text-gray-800`}>Bus not started yet</span>
+                      <AlertCircle className={`${cardClasses.icon} dark:text-yellow-400 text-blue-600 mr-2`} />
+                      <span className={`${cardClasses.text} dark:text-white text-gray-800 font-medium`}>
+                        Live Mode - Bus tracking not started
+                      </span>
                     </div>
-                    <div className={`${cardClasses.text} text-green-600 flex items-center justify-center`}>
-                      <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                      Live tracking mode • {formatDisplayTime(deviceTime)}
-                    </div>
-                    <div className={`${cardClasses.text} text-gray-500 mt-2`}>
-                      {selectedShift === 'morning' ? 'Bus ready to start from pickup point' : 'Bus ready to start from school'}
+                    <div className={`${cardClasses.text} dark:text-gray-400 text-gray-600`}>
+                      Switch to Historical mode to view past routes
                     </div>
                   </div>
                 </div>
@@ -1585,354 +1234,164 @@ const MapViewPage = () => {
             </div>
           )}
 
-          {/* Enhanced Historical Preview Card - Only shown when directions are requested */}
-          {!showAllRoutes && selectedRoute && routeDisplayInfo && !isLiveMode && showHistoricalPreview && directionsRequested && (
+          {/* Historical Preview Card */}
+          {!isLiveMode && showHistoricalPreview && selectedRoute && (
             <div className={`absolute bottom-2 sm:bottom-4 left-1/2 transform -translate-x-1/2 ${cardClasses.container} max-w-[95vw]`}>
-              {loading ? (
-                <SkeletonPreviewCard />
-              ) : (
-                <Card className="bg-white shadow-2xl rounded-lg border">
-                  <div className={cardClasses.padding}>
-                    {/* Header with resize controls */}
-                    <div className="flex items-center justify-between mb-4 lg:mb-6">
-                      <div className="flex items-center space-x-2 lg:space-x-3">
-                        <Clock className={`${cardClasses.icon} text-blue-600`} />
-                        <div className={`${cardClasses.text} text-gray-600`}>
-                          {getReachedDateFromPosition(busPosition)} • 
-                          <span className="text-blue-600 font-medium ml-1">
-                            {getReachedTimeFromPosition(busPosition)}
-                          </span>
-                        </div>
-                        <div className={`${cardClasses.text} text-gray-500 bg-gray-100 px-2 py-1 rounded`}>
-                          Device: {getDeviceId()}
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        {/* Resize Controls */}
-                        <div className="flex items-center space-x-1">
-                          <button
-                            onClick={() => setCardSize('small')}
-                            className={`p-1 rounded ${cardSize === 'small' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}
-                            title="Small"
-                          >
-                            <Minimize2 className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={() => setCardSize('normal')}
-                            className={`p-1 rounded ${cardSize === 'normal' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}
-                            title="Normal"
-                          >
-                            <div className="w-3 h-3 border border-current"></div>
-                          </button>
-                          <button
-                            onClick={() => setCardSize('large')}
-                            className={`p-1 rounded ${cardSize === 'large' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}
-                            title="Large"
-                          >
-                            <Maximize2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                        <div className={`px-2 lg:px-3 py-1 rounded-full ${cardClasses.text} font-semibold ${
-                          selectedShift === 'morning' 
-                            ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' 
-                            : 'bg-purple-100 text-purple-800 border border-purple-200'
-                        }`}>
-                          {selectedShift === 'morning' ? 'Morning Shift' : 'Evening Shift'}
-                          {routeCompleted && (
-                            <span className="ml-2 text-green-600">✓ Completed</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Route Title */}
-                    <div className="text-center mb-4 lg:mb-6">
-                      <div className={`${cardClasses.title} font-bold text-gray-800 flex items-center justify-center`}>
-                        <MapPin className={`${cardClasses.icon} mr-2 text-blue-600`} />
-                        <span className="truncate">
-                          {routeDisplayInfo.start} → {routeDisplayInfo.end}
+              <Card className="dark:bg-slate-800/90 dark:border-slate-600 bg-white shadow-2xl rounded-lg border border-gray-200">
+                <div className={cardClasses.padding}>
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-4 lg:mb-6">
+                    <div className="flex items-center space-x-2 lg:space-x-3">
+                      <Clock className={`${cardClasses.icon} dark:text-yellow-400 text-blue-600`} />
+                      <div className={`${cardClasses.text} dark:text-gray-300 text-gray-600`}>
+                        {getReachedDateFromHistoricalData(busPosition)} • 
+                        <span className="dark:text-yellow-400 text-blue-600 font-medium ml-1">
+                          {getReachedTimeFromHistoricalData(busPosition)}
                         </span>
                       </div>
                     </div>
+                    <div className={`px-2 lg:px-3 py-1 rounded-full ${cardClasses.text} font-semibold dark:bg-blue-100 dark:text-blue-800 dark:border-blue-200 bg-blue-100 text-blue-800 border border-blue-200`}>
+                      {selectedShift === 'morning' ? 'Morning Shift' : 'Evening Shift'}
+                    </div>
+                  </div>
 
-                    {/* Route Progress */}
-                    <div className="relative mb-4 lg:mb-6">
-                      {/* Progress Line */}
-                      <div className="absolute top-6 left-0 right-0 h-1 bg-gray-200 rounded-full mx-4 sm:mx-8">
-                        <div 
-                          className={`h-full rounded-full transition-all duration-300 ${
-                            routeCompleted ? 'bg-green-500' : 'bg-blue-500'
-                          }`}
-                          style={{ width: `${busPosition}%` }}
-                        ></div>
-                      </div>
+                  {/* Route Title */}
+                  <div className="text-center mb-4 lg:mb-6">
+                    <div className={`${cardClasses.title} font-bold dark:text-white text-gray-800 flex items-center justify-center`}>
+                      <MapPin className={`${cardClasses.icon} mr-2 dark:text-yellow-400 text-blue-600`} />
+                      <span className="truncate">
+                        {routeDisplayInfo?.start} → {routeDisplayInfo?.end}
+                      </span>
+                    </div>
+                    <div className={`${cardClasses.text} dark:text-gray-400 text-gray-600 mt-1`}>
+                      Device: {getDeviceId()} • Elapsed: {getElapsedTime(busPosition)}
+                    </div>
+                  </div>
 
-                      {/* Route Points */}
-                      <div className="flex justify-between items-center relative" style={{ minHeight: '80px' }}>
-                        {displayPoints.slice(0, window.innerWidth < 640 ? 4 : displayPoints.length).map((point, index) => {
-                          const progress = (busPosition / 100) * (displayPoints.length - 1);
-                          const isActive = index <= progress;
-                          const isCurrent = Math.floor(progress) === index;
-                          const isFirst = index === 0;
-                          const isLast = index === displayPoints.length - 1;
-                          
-                          const positionPercent = getDistanceBasedPosition(index, displayPoints.length);
+                  {/* Route Progress */}
+                  <div className="relative mb-4 lg:mb-6">
+                    {/* Progress Line */}
+                    <div className="absolute top-6 left-0 right-0 h-1 dark:bg-gray-600 bg-gray-300 rounded-full mx-4 sm:mx-8">
+                      <div 
+                        className="h-full dark:bg-yellow-400 bg-blue-500 rounded-full transition-all duration-300" 
+                        style={{ width: `${busPosition}%` }}
+                      ></div>
+                    </div>
 
-                          return (
-                            <div
-                              key={point.id}
-                              className="absolute flex flex-col items-center cursor-pointer group"
-                              style={{ left: `${positionPercent}%`, transform: 'translateX(-50%)' }}
-                              onMouseEnter={() => setHoveredPoint(point)}
-                              onMouseLeave={() => setHoveredPoint(null)}
-                            >
-                              {/* Circle Point */}
-                              <div className={`relative ${cardClasses.circle} rounded-full flex items-center justify-center ${cardClasses.text} font-bold border-2 mb-2 lg:mb-3 transition-all duration-200 shadow-lg ${
-                                isCurrent 
-                                  ? 'bg-blue-500 text-white border-blue-400 scale-110 animate-pulse' 
-                                  : routeCompleted
-                                  ? 'bg-green-500 text-white border-green-400'
-                                  : isActive 
-                                  ? 'bg-blue-500 text-white border-blue-400' 
-                                  : isFirst
+                    {/* Route Points */}
+                    <div className="flex justify-between items-center relative" style={{ minHeight: '80px' }}>
+                      {displayPoints.slice(0, window.innerWidth < 640 ? 4 : displayPoints.length).map((point, index) => {
+                        const isFirst = index === 0;
+                        const isLast = index === displayPoints.length - 1;
+                        const positionPercent = getDistanceBasedPosition(index, displayPoints.length);
+                        const isReached = busPosition >= positionPercent;
+                        const reachedTime = getRoutePointReachedTime(point);
+
+                        return (
+                          <div
+                            key={point.id}
+                            className="absolute flex flex-col items-center cursor-pointer group"
+                            style={{ left: `${positionPercent}%`, transform: 'translateX(-50%)' }}
+                            onMouseEnter={() => setHoveredPoint(point)}
+                            onMouseLeave={() => setHoveredPoint(null)}
+                          >
+                            {/* Circle Point */}
+                            <div className={`relative ${cardClasses.circle} rounded-full flex items-center justify-center ${cardClasses.text} font-bold border-2 mb-2 lg:mb-3 transition-all duration-200 shadow-lg ${
+                              isReached
+                                ? isFirst
                                   ? 'bg-green-500 text-white border-green-400'
                                   : isLast && selectedShift === 'morning'
                                   ? 'bg-red-500 text-white border-red-400'
-                                  : 'bg-gray-300 text-gray-600 border-gray-400'
-                              }`}>
-                                {isFirst && selectedShift === 'morning' ? (
-                                  <div className={`${cardSize === 'small' ? 'w-2 h-2' : cardSize === 'large' ? 'w-6 h-6' : 'w-4 h-4'} rounded-full bg-white`}></div>
-                                ) : (isLast && selectedShift === 'morning') || (isFirst && selectedShift === 'evening') ? (
-                                  <School className={cardClasses.bus} />
-                                ) : (
-                                  point.displayOrder
-                                )}
-                              </div>
-
-                              {/* Point Name */}
-                              <div className={`${cardClasses.text} text-gray-600 text-center max-w-16 lg:max-w-20 leading-tight font-medium`}>
-                                {point.routePointName.length > 8 ? 
-                                  `${point.routePointName.substring(0, 8)}...` : 
-                                  point.routePointName
-                                }
-                              </div>
-
-                              {/* Hover Tooltip - Hidden on mobile */}
-                              {hoveredPoint && hoveredPoint.id === point.id && window.innerWidth >= 768 && (
-                                <div className="absolute bottom-full mb-3 px-4 py-3 bg-gray-800 text-white text-xs rounded-lg shadow-xl whitespace-nowrap z-20 min-w-48">
-                                  <div className="font-bold text-blue-400 mb-1">{point.routePointName}</div>
-                                  
-                                  {/* Show actual reached time from GPS data */}
-                                  {getRoutePointReachedTime(point) ? (
-                                    <div className="text-green-400 mb-1">
-                                      Reached: {getRoutePointReachedTime(point)}
-                                    </div>
-                                  ) : (
-                                    <div className="text-gray-400 mb-1">
-                                      Not reached yet
-                                    </div>
-                                  )}
-                                  
-                                  {/* Show current position time */}
-                                  <div className="text-yellow-400 mb-1">
-                                    Current: {getReachedTimeFromHistoricalData(busPosition)}
-                                  </div>
-                                  
-                                  {routeCompleted && (
-                                    <div className="text-green-400">
-                                      Journey Completed ✓
-                                    </div>
-                                  )}
-                                  
-                                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
-                                </div>
+                                  : 'dark:bg-yellow-400 dark:text-black bg-blue-500 text-white border-blue-400'
+                                : 'dark:bg-gray-600 dark:text-gray-300 dark:border-gray-500 bg-gray-300 text-gray-600 border-gray-400'
+                            }`}>
+                              {isFirst && selectedShift === 'morning' ? (
+                                <div className={`${cardSize === 'small' ? 'w-2 h-2' : cardSize === 'large' ? 'w-6 h-6' : 'w-4 h-4'} rounded-full bg-white`}></div>
+                              ) : (isLast && selectedShift === 'morning') || (isFirst && selectedShift === 'evening') ? (
+                                <School className={cardClasses.bus} />
+                              ) : (
+                                point.displayOrder
                               )}
                             </div>
-                          );
-                        })}
-                      </div>
 
-                      {/* Bus Icon */}
-                      <div 
-                        className="absolute top-1 lg:top-2 transition-all duration-300 z-10"
-                        style={{ 
-                          left: `calc(${busPosition}% - 12px)`,
-                          transform: 'translateY(-50%)'
-                        }}
-                      >
-                        <div className={`${cardSize === 'small' ? 'p-1' : cardSize === 'large' ? 'p-4' : 'p-2'} lg:p-3 rounded-full shadow-xl transition-all border-2 border-white ${
-                          routeCompleted ? 'bg-green-500' : 'bg-blue-500 animate-bounce'
-                        }`}>
-                          <Bus className={cardClasses.bus} />
-                        </div>
-                      </div>
-                    </div>
+                            {/* Point Name */}
+                            <div className={`${cardClasses.text} dark:text-gray-300 text-gray-600 text-center max-w-16 lg:max-w-20 leading-tight font-medium`}>
+                              {point.routePointName.length > 8 ? 
+                                `${point.routePointName.substring(0, 8)}...` : 
+                                point.routePointName
+                              }
+                            </div>
 
-                    {/* Controls for Historical Mode */}
-                    <div className="space-y-3 lg:space-y-4">
-                      {/* Historical Data Information */}
-                      {historicalData.length > 0 && (
-                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 lg:p-5 rounded-xl border border-blue-200 shadow-sm">
-                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 text-xs lg:text-sm">
-                            <div className="text-center">
-                              <div className="text-gray-600 mb-1">Journey Time</div>
-                              <div className="font-bold text-blue-700 text-sm lg:text-base">
-                                {totalJourneyTime > 0 ? `${Math.floor(totalJourneyTime / 60)}h ${totalJourneyTime % 60}m` : '--'}
+                            {/* Hover Tooltip - Hidden on mobile */}
+                            {hoveredPoint && hoveredPoint.id === point.id && window.innerWidth >= 768 && (
+                              <div className="absolute bottom-full mb-3 px-4 py-3 dark:bg-gray-800 bg-white dark:text-white text-gray-800 text-xs rounded-lg shadow-xl whitespace-nowrap z-20 min-w-48 border dark:border-gray-600 border-gray-200">
+                                <div className="font-bold dark:text-yellow-400 text-blue-600 mb-1">{point.routePointName}</div>
+                                <div className="text-green-400 mb-1">
+                                  Reached Time: {reachedTime || 'Not reached yet'}
+                                </div>
+                                <div className={`${isReached ? 'text-green-400' : 'dark:text-yellow-400 text-orange-500'}`}>
+                                  Status: {isReached ? 'Reached' : 'Pending'}
+                                </div>
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent dark:border-t-gray-800 border-t-white"></div>
                               </div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-gray-600 mb-1">Elapsed</div>
-                              <div className="font-bold text-green-700 text-sm lg:text-base">{getElapsedTime(busPosition)}</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-gray-600 mb-1">Current Time</div>
-                              <div className="font-bold text-purple-700 text-sm lg:text-base">{getReachedTimeFromHistoricalData(busPosition)}</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-gray-600 mb-1">GPS Points</div>
-                              <div className="font-bold text-orange-700 text-sm lg:text-base">{historicalData.length}</div>
-                            </div>
+                            )}
                           </div>
-                          
-                          {currentGPSData && (
-                            <div className="mt-3 pt-3 border-t border-blue-200">
-                              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between text-xs text-gray-600 space-y-1 lg:space-y-0">
-                                <div className="flex items-center space-x-2">
-                                  <span className="font-medium">GPS:</span>
-                                  <span className="font-mono">{parseCoordinate(currentGPSData.latitude).toFixed(4)}, {parseCoordinate(currentGPSData.longitude).toFixed(4)}</span>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <span className="font-medium">Event Time:</span>
-                                  <span className="font-mono text-blue-600">{getReachedTimeFromHistoricalData(busPosition)}</span>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      
-                      <div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          value={busPosition}
-                          onChange={(e) => syncBusPosition(parseInt(e.target.value))}
-                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                        />
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2 lg:space-x-3">
-                          <Button
-                            onClick={() => setIsHistoricalPlaying(!isHistoricalPlaying)}
-                            size="sm"
-                            className="bg-blue-600 hover:bg-blue-700 flex items-center space-x-1 lg:space-x-2 px-3 lg:px-4 py-2 text-white text-xs lg:text-sm"
-                            disabled={historicalData.length === 0}
-                          >
-                            {isHistoricalPlaying ? <Pause className="w-3 h-3 lg:w-4 lg:h-4" /> : <Play className="w-3 h-3 lg:w-4 lg:h-4" />}
-                            <span>{isHistoricalPlaying ? 'Pause' : 'Play'}</span>
-                          </Button>
-                          <Button
-                            onClick={() => {
-                              syncBusPosition(0);
-                              setIsHistoricalPlaying(false);
-                            }}
-                            size="sm"
-                            variant="outline"
-                            className="border-gray-300 text-gray-700 hover:bg-gray-100 flex items-center space-x-1 lg:space-x-2 px-3 lg:px-4 py-2 text-xs lg:text-sm"
-                          >
-                            <RotateCcw className="w-3 h-3 lg:w-4 lg:h-4" />
-                            <span>Reset</span>
-                          </Button>
-                        </div>
-                        
-                        <div className="flex items-center space-x-2 lg:space-x-4 text-xs lg:text-sm text-gray-600">
-                          {historicalLoading && (
-                            <div className="text-blue-600 flex items-center">
-                              <div className="animate-spin rounded-full h-3 w-3 lg:h-4 lg:w-4 border-b border-blue-600 mr-2"></div>
-                              Loading...
-                            </div>
-                          )}
-                          {routeCompleted && (
-                            <div className="text-green-600 flex items-center">
-                              <span>✓ Route Completed</span>
-                            </div>
-                          )}
-                        </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Bus Icon */}
+                    <div 
+                      className="absolute top-1 lg:top-2 transition-all duration-300 z-10"
+                      style={{ 
+                        left: `calc(${busPosition}% - 12px)`,
+                        transform: 'translateY(-50%)'
+                      }}
+                    >
+                      <div className={`${cardSize === 'small' ? 'p-1' : cardSize === 'large' ? 'p-4' : 'p-2'} lg:p-3 rounded-full shadow-xl transition-all border-2 border-white ${routeCompleted ? 'bg-green-500' : 'dark:bg-yellow-400 bg-blue-500'}`}>
+                        <Bus className={`${cardClasses.bus} ${routeCompleted ? 'text-white' : 'dark:text-black text-white'}`} />
                       </div>
                     </div>
                   </div>
-                </Card>
-              )}
-            </div>
-          )}
 
-          {/* All Routes Message */}
-          {showAllRoutes && (
-            <div className="absolute bottom-2 sm:bottom-4 left-1/2 transform -translate-x-1/2">
-              <Card className="bg-white shadow-lg border p-4 lg:p-6">
-                <div className="text-center">
-                  <div className="text-base lg:text-lg font-semibold text-gray-800 mb-2">All Routes View</div>
-                  <div className="text-xs lg:text-sm text-gray-600 mb-2">
-                    Displaying all {routes.length} routes on the map.
+                  {/* Controls */}
+                  <div className="flex items-center justify-center space-x-3">
+                    <Button
+                      onClick={() => setIsHistoricalPlaying(!isHistoricalPlaying)}
+                      disabled={routeCompleted}
+                      className={`${cardClasses.text} px-3 lg:px-4 py-2 dark:bg-yellow-500 dark:hover:bg-yellow-600 dark:text-black bg-blue-500 hover:bg-blue-600 text-white disabled:opacity-50 rounded-lg flex items-center space-x-2`}
+                    >
+                      {isHistoricalPlaying ? <Pause className={cardClasses.icon} /> : <Play className={cardClasses.icon} />}
+                      <span>{isHistoricalPlaying ? 'Pause' : 'Play'}</span>
+                    </Button>
+                    
+                    <Button
+                      onClick={() => {
+                        setBusPosition(0);
+                        setRouteCompleted(false);
+                        setIsHistoricalPlaying(false);
+                        syncBusPosition(0);
+                      }}
+                      className={`${cardClasses.text} px-3 lg:px-4 py-2 dark:bg-slate-600 dark:hover:bg-slate-700 dark:text-white bg-gray-500 hover:bg-gray-600 text-white rounded-lg flex items-center space-x-2`}
+                    >
+                      <RotateCcw className={cardClasses.icon} />
+                      <span>Reset</span>
+                    </Button>
                   </div>
-                  <div className="text-xs text-blue-600">
-                    Select a specific route for detailed tracking and journey progress.
-                  </div>
-                </div>
-              </Card>
-            </div>
-          )}
 
-          {/* Error Message */}
-          {error && (
-            <div className="absolute top-16 lg:top-4 right-2 lg:right-4 max-w-sm lg:max-w-md">
-              <Card className="bg-red-100 border-red-300 p-3 lg:p-4">
-                <div className="text-red-800 text-xs lg:text-sm">
-                  <strong>Error:</strong> {error}
+                  {routeCompleted && (
+                    <div className="text-center mt-3">
+                      <div className={`${cardClasses.text} text-green-400 font-medium`}>
+                        🎉 Route completed successfully!
+                      </div>
+                    </div>
+                  )}
                 </div>
               </Card>
             </div>
           )}
         </div>
       </div>
-
-      {/* Custom Styles */}
-      <style>{`
-        .slider::-webkit-slider-thumb {
-          appearance: none;
-          width: 16px;
-          height: 16px;
-          border-radius: 50%;
-          background: linear-gradient(45deg, #3B82F6, #1E40AF);
-          cursor: pointer;
-          box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
-          border: 2px solid white;
-        }
-        
-        .slider::-moz-range-thumb {
-          width: 16px;
-          height: 16px;
-          border-radius: 50%;
-          background: linear-gradient(45deg, #3B82F6, #1E40AF);
-          cursor: pointer;
-          border: 2px solid white;
-          box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
-        }
-
-        @media (min-width: 1024px) {
-          .slider::-webkit-slider-thumb {
-            width: 20px;
-            height: 20px;
-          }
-          
-          .slider::-moz-range-thumb {
-            width: 20px;
-            height: 20px;
-          }
-        }
-      `}</style>
     </div>
   );
 };

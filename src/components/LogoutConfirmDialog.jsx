@@ -73,17 +73,17 @@ const LogoutConfirmDialog = ({ isOpen, onClose }) => {
 
   return (
     <AlertDialog open={isOpen} onOpenChange={onClose}>
-      <AlertDialogContent className="bg-slate-800 border-slate-600 text-white">
+      <AlertDialogContent className="dark:bg-slate-800/60 dark:border-slate-600 bg-white/80 border-gray-200 dark:text-white text-gray-800 backdrop-blur-sm">
         <AlertDialogHeader>
-          <AlertDialogTitle className="text-yellow-400">Confirm Logout</AlertDialogTitle>
-          <AlertDialogDescription className="text-gray-300">
+          <AlertDialogTitle className="dark:text-yellow-400 text-blue-600">Confirm Logout</AlertDialogTitle>
+          <AlertDialogDescription className="dark:text-gray-300 text-gray-600">
             Are you sure you want to logout? This will clear all your data and redirect you to the login page.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel 
             onClick={onClose}
-            className="bg-gray-600 text-white hover:bg-gray-700 border-gray-500"
+            className="dark:bg-slate-600 dark:text-white dark:hover:bg-slate-500 dark:border-slate-500 bg-gray-300 text-gray-700 hover:bg-gray-400 border-gray-400"
           >
             Cancel
           </AlertDialogCancel>

@@ -26,7 +26,7 @@ const Navbar = ({ showBackButton = false }) => {
 
   return (
     <>
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
+      <nav className="fixed top-0 left-0 right-0 z-50 dark:bg-slate-800/95 bg-white/95 backdrop-blur-sm border-b dark:border-slate-600 border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-4">
@@ -35,19 +35,19 @@ const Navbar = ({ showBackButton = false }) => {
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate(-1)}
-                  className="text-muted-foreground hover:text-foreground hover:bg-accent transition-colors duration-200"
+                  className="dark:text-gray-300 dark:hover:text-white dark:hover:bg-slate-700 text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition-colors duration-200"
                 >
                   <ArrowLeft size={18} className="mr-1" />
                   <span className="text-sm">Back</span>
                 </Button>
               )}
               <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-yellow-500/20 rounded-lg border border-yellow-500/30">
-                  <Bus className="w-5 h-5 text-yellow-500" />
+                <div className="p-1.5 dark:bg-yellow-500/20 bg-blue-500/20 rounded-lg border dark:border-yellow-500/30 border-blue-500/30">
+                  <Bus className="w-5 h-5 dark:text-yellow-500 text-blue-600" />
                 </div>
                 <h1 className="text-lg font-bold">
-                  <span className="text-yellow-500">School Bus</span>
-                  <span className="text-foreground ml-1">Tracker</span>
+                  <span className="dark:text-yellow-500 text-blue-600">School Bus</span>
+                  <span className="dark:text-white text-gray-800 ml-1">Tracker</span>
                 </h1>
               </div>
             </div>

@@ -18,42 +18,42 @@ import {
 
 // Skeleton Components
 const SkeletonCard = ({ className = "" }) => (
-  <Card className={`bg-slate-800/60 border-slate-700 p-6 text-center rounded-xl shadow-lg ${className}`}>
+  <Card className={`dark:bg-slate-800/60 dark:border-slate-700 bg-white/80 border-gray-200 p-6 text-center rounded-xl shadow-lg ${className}`}>
     <div className="animate-pulse">
-      <div className="w-8 h-8 bg-slate-700 rounded mx-auto mb-2"></div>
-      <div className="h-8 bg-slate-700 rounded mb-2"></div>
-      <div className="h-4 bg-slate-700 rounded w-3/4 mx-auto"></div>
+      <div className="w-8 h-8 dark:bg-slate-700 bg-gray-300 rounded mx-auto mb-2"></div>
+      <div className="h-8 dark:bg-slate-700 bg-gray-300 rounded mb-2"></div>
+      <div className="h-4 dark:bg-slate-700 bg-gray-300 rounded w-3/4 mx-auto"></div>
     </div>
   </Card>
 );
 
 const SkeletonTable = () => (
-  <Card className="bg-slate-800/60 border-slate-700 overflow-hidden rounded-xl shadow-lg">
+  <Card className="dark:bg-slate-800/60 dark:border-slate-700 bg-white/80 border-gray-200 overflow-hidden rounded-xl shadow-lg">
     <div className="p-6">
       <div className="animate-pulse">
         <div className="flex justify-between items-center mb-4">
-          <div className="h-6 bg-slate-700 rounded w-1/3"></div>
-          <div className="h-4 bg-slate-700 rounded w-1/4"></div>
+          <div className="h-6 dark:bg-slate-700 bg-gray-300 rounded w-1/3"></div>
+          <div className="h-4 dark:bg-slate-700 bg-gray-300 rounded w-1/4"></div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-slate-600">
+              <tr className="border-b dark:border-slate-600 border-gray-300">
                 {[...Array(4)].map((_, i) => (
                   <th key={i} className="text-left py-3 px-4">
-                    <div className="h-4 bg-slate-700 rounded w-full"></div>
+                    <div className="h-4 dark:bg-slate-700 bg-gray-300 rounded w-full"></div>
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {[...Array(5)].map((_, rowIndex) => (
-                <tr key={rowIndex} className="border-b border-slate-600/50">
+                <tr key={rowIndex} className="border-b dark:border-slate-600/50 border-gray-300/50">
                   {[...Array(4)].map((_, colIndex) => (
                     <td key={colIndex} className="py-4 px-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-5 h-5 bg-slate-700 rounded"></div>
-                        <div className="h-4 bg-slate-700 rounded flex-1"></div>
+                        <div className="w-5 h-5 dark:bg-slate-700 bg-gray-300 rounded"></div>
+                        <div className="h-4 dark:bg-slate-700 bg-gray-300 rounded flex-1"></div>
                       </div>
                     </td>
                   ))}
@@ -69,22 +69,22 @@ const SkeletonTable = () => (
 
 const SkeletonModal = () => (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div className="bg-slate-800 rounded-xl p-8 w-full max-w-lg mx-4 shadow-2xl">
+    <div className="dark:bg-slate-800 bg-white rounded-xl p-8 w-full max-w-lg mx-4 shadow-2xl">
       <div className="animate-pulse">
         <div className="flex justify-between items-center mb-6">
-          <div className="h-8 bg-slate-700 rounded w-1/2"></div>
-          <div className="w-6 h-6 bg-slate-700 rounded"></div>
+          <div className="h-8 dark:bg-slate-700 bg-gray-300 rounded w-1/2"></div>
+          <div className="w-6 h-6 dark:bg-slate-700 bg-gray-300 rounded"></div>
         </div>
         <div className="space-y-6">
           {[...Array(3)].map((_, i) => (
             <div key={i}>
-              <div className="h-4 bg-slate-700 rounded w-1/4 mb-2"></div>
-              <div className="h-12 bg-slate-700 rounded-xl"></div>
+              <div className="h-4 dark:bg-slate-700 bg-gray-300 rounded w-1/4 mb-2"></div>
+              <div className="h-12 dark:bg-slate-700 bg-gray-300 rounded-xl"></div>
             </div>
           ))}
           <div className="flex justify-end gap-4 pt-6">
-            <div className="h-12 bg-slate-700 rounded-xl w-24"></div>
-            <div className="h-12 bg-slate-700 rounded-xl w-32"></div>
+            <div className="h-12 dark:bg-slate-700 bg-gray-300 rounded-xl w-24"></div>
+            <div className="h-12 dark:bg-slate-700 bg-gray-300 rounded-xl w-32"></div>
           </div>
         </div>
       </div>
@@ -506,7 +506,7 @@ const RouteAssignPage = () => {
   // Show skeleton loading
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 text-white">
+      <div className="min-h-screen bg-gradient-to-br dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 from-gray-50 via-gray-100 to-gray-200 dark:text-white text-gray-800">
         <Navbar showBackButton={true} />
         
         <div className="pt-24 px-4 pb-8">
@@ -514,8 +514,8 @@ const RouteAssignPage = () => {
             {/* Header skeleton */}
             <div className="text-center mb-8">
               <div className="animate-pulse">
-                <div className="h-12 bg-slate-700 rounded-lg mb-4 mx-auto w-1/2"></div>
-                <div className="h-6 bg-slate-700 rounded mx-auto w-1/3"></div>
+                <div className="h-12 dark:bg-slate-700 bg-gray-300 rounded-lg mb-4 mx-auto w-1/2"></div>
+                <div className="h-6 dark:bg-slate-700 bg-gray-300 rounded mx-auto w-1/3"></div>
               </div>
             </div>
 
@@ -530,10 +530,10 @@ const RouteAssignPage = () => {
             {/* Controls skeleton */}
             <div className="flex flex-col sm:flex-row gap-4 mb-8">
               <div className="animate-pulse flex-1">
-                <div className="h-12 bg-slate-700 rounded-lg"></div>
+                <div className="h-12 dark:bg-slate-700 bg-gray-300 rounded-lg"></div>
               </div>
               <div className="animate-pulse">
-                <div className="h-12 bg-slate-700 rounded-lg w-40"></div>
+                <div className="h-12 dark:bg-slate-700 bg-gray-300 rounded-lg w-40"></div>
               </div>
             </div>
 
@@ -546,50 +546,50 @@ const RouteAssignPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 text-white">
+    <div className="min-h-screen bg-gradient-to-br dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 from-gray-50 via-gray-100 to-gray-200 dark:text-white text-gray-800">
       <Navbar showBackButton={true} />
       
       <div className="pt-24 px-4 pb-8">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="text-center mb-8">
-            <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 bg-clip-text text-transparent mb-4">
+            <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r dark:from-yellow-400 dark:via-orange-500 dark:to-red-500 from-blue-500 via-blue-600 to-blue-700 bg-clip-text text-transparent mb-4">
               {pageTitle}
             </h1>
-            <p className="text-gray-300 text-lg">Manage route assignments for drivers and students</p>
+            <p className="dark:text-gray-300 text-gray-600 text-lg">Manage route assignments for drivers and students</p>
           </div>
 
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <Card className="bg-gradient-to-br from-blue-500/20 to-blue-600/20 border-blue-500/30 p-6 text-center rounded-xl shadow-lg">
               <MapPin className="w-8 h-8 text-blue-400 mx-auto mb-2" />
-              <h3 className="text-2xl font-bold text-white">{totalRoutes}</h3>
-              <p className="text-blue-300">Total Routes</p>
-              <div className="text-sm text-blue-200 mt-1">
+              <h3 className="text-2xl font-bold dark:text-white text-gray-800">{totalRoutes}</h3>
+              <p className="text-blue-600">Total Routes</p>
+              <div className="text-sm text-blue-500 mt-1">
                 {assignedRoutes} assigned, {availableRoutesCount} available
               </div>
             </Card>
             <Card className="bg-gradient-to-br from-green-500/20 to-green-600/20 border-green-500/30 p-6 text-center rounded-xl shadow-lg">
               <Users className="w-8 h-8 text-green-400 mx-auto mb-2" />
-              <h3 className="text-2xl font-bold text-white">{totalDrivers}</h3>
-              <p className="text-green-300">Total Drivers</p>
-              <div className="text-sm text-green-200 mt-1">
+              <h3 className="text-2xl font-bold dark:text-white text-gray-800">{totalDrivers}</h3>
+              <p className="text-green-600">Total Drivers</p>
+              <div className="text-sm text-green-500 mt-1">
                 {assignedDrivers} assigned, {availableDriversCount} available
               </div>
             </Card>
             <Card className="bg-gradient-to-br from-purple-500/20 to-purple-600/20 border-purple-500/30 p-6 text-center rounded-xl shadow-lg">
               <UserCheck className="w-8 h-8 text-purple-400 mx-auto mb-2" />
-              <h3 className="text-2xl font-bold text-white">{totalAttenders}</h3>
-              <p className="text-purple-300">Total Attenders</p>
-              <div className="text-sm text-purple-200 mt-1">
+              <h3 className="text-2xl font-bold dark:text-white text-gray-800">{totalAttenders}</h3>
+              <p className="text-purple-600">Total Attenders</p>
+              <div className="text-sm text-purple-500 mt-1">
                 {assignedAttenders} assigned, {availableAttendersCount} available
               </div>
             </Card>
             <Card className="bg-gradient-to-br from-orange-500/20 to-orange-600/20 border-orange-500/30 p-6 text-center rounded-xl shadow-lg">
               <Bus className="w-8 h-8 text-orange-400 mx-auto mb-2" />
-              <h3 className="text-2xl font-bold text-white">{activeAssignments}</h3>
-              <p className="text-orange-300">Active Assignments</p>
-              <div className="text-sm text-orange-200 mt-1">
+              <h3 className="text-2xl font-bold dark:text-white text-gray-800">{activeAssignments}</h3>
+              <p className="text-orange-600">Active Assignments</p>
+              <div className="text-sm text-orange-500 mt-1">
                 Currently assigned today
               </div>
             </Card>
@@ -598,13 +598,13 @@ const RouteAssignPage = () => {
           {/* Controls */}
           <div className="flex flex-col sm:flex-row gap-4 mb-8">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 dark:text-gray-400 text-gray-500 w-5 h-5" />
               <input
                 type="text"
                 placeholder="Search routes or drivers..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-200"
+                className="w-full pl-10 pr-4 py-3 dark:bg-slate-700/50 dark:border-slate-600 bg-gray-100 border-gray-300 border rounded-lg dark:text-white dark:placeholder-gray-400 text-gray-800 placeholder-gray-500 focus:outline-none dark:focus:ring-2 dark:focus:ring-yellow-500 dark:focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
               />
             </div>
             <button 
@@ -613,7 +613,7 @@ const RouteAssignPage = () => {
                 setEditingAssignment(null);
                 setShowModal(true);
               }}
-              className="px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 font-semibold rounded-lg hover:from-yellow-600 hover:to-orange-600 transition-all duration-200 flex items-center gap-2 shadow-md"
+              className="px-6 py-3 bg-gradient-to-r dark:from-yellow-500 dark:to-orange-500 dark:text-slate-900 from-blue-500 to-blue-600 text-white font-semibold rounded-lg dark:hover:from-yellow-600 dark:hover:to-orange-600 hover:from-blue-600 hover:to-blue-700 transition-all duration-200 flex items-center gap-2 shadow-md"
             >
               <Plus className="w-5 h-5" />
               New Assignment
@@ -621,12 +621,12 @@ const RouteAssignPage = () => {
           </div>
 
           {/* Assignments Table */}
-          <Card className="bg-slate-800/60 border-slate-700 overflow-hidden rounded-xl shadow-lg">
+          <Card className="dark:bg-slate-800/60 dark:border-slate-700 bg-white/80 border-gray-200 overflow-hidden rounded-xl shadow-lg">
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-white">Current Route Assignments</h2>
+                <h2 className="text-xl font-bold dark:text-white text-gray-800">Current Route Assignments</h2>
                 {totalPages > 1 && (
-                  <div className="text-sm text-gray-400">
+                  <div className="text-sm dark:text-gray-400 text-gray-600">
                     Page {currentPage} of {totalPages} ({currentAssignments.length} of {filteredAssignments.length} assignments)
                   </div>
                 )}
@@ -634,11 +634,11 @@ const RouteAssignPage = () => {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-slate-600">
-                      <th className="text-left py-3 px-4 text-gray-300 font-semibold">Route</th>
-                      <th className="text-left py-3 px-4 text-gray-300 font-semibold">Driver</th>
-                      <th className="text-left py-3 px-4 text-gray-300 font-semibold">Attender</th>
-                      <th className="text-left py-3 px-4 text-gray-300 font-semibold">Actions</th>
+                    <tr className="border-b dark:border-slate-600 border-gray-300">
+                      <th className="text-left py-3 px-4 dark:text-gray-300 text-gray-700 font-semibold">Route</th>
+                      <th className="text-left py-3 px-4 dark:text-gray-300 text-gray-700 font-semibold">Driver</th>
+                      <th className="text-left py-3 px-4 dark:text-gray-300 text-gray-700 font-semibold">Attender</th>
+                      <th className="text-left py-3 px-4 dark:text-gray-300 text-gray-700 font-semibold">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -648,23 +648,23 @@ const RouteAssignPage = () => {
                       const attender = attenders.find(a => a.smAttenderId === assignment.smAttenderId);
 
                       return (
-                        <tr key={assignment.id} className="border-b border-slate-600/50 hover:bg-slate-700/30 transition-colors">
+                        <tr key={assignment.id} className="border-b dark:border-slate-600/50 border-gray-300/50 dark:hover:bg-slate-700/30 hover:bg-gray-100/30 transition-colors">
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-3">
                               <MapPin className="w-5 h-5 text-blue-400" />
-                              <span className="text-white font-medium">{route?.routeName || 'Unknown Route'}</span>
+                              <span className="dark:text-white text-gray-800 font-medium">{route?.routeName || 'Unknown Route'}</span>
                             </div>
                           </td>
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-3">
                               <Users className="w-5 h-5 text-green-400" />
-                              <span className="text-gray-300">{driver?.user?.username || 'Unknown Driver'}</span>
+                              <span className="dark:text-gray-300 text-gray-700">{driver?.user?.username || 'Unknown Driver'}</span>
                             </div>
                           </td>
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-3">
                               <UserCheck className="w-5 h-5 text-purple-400" />
-                              <span className="text-gray-300">{attender?.user?.username || 'Unknown Attender'}</span>
+                              <span className="dark:text-gray-300 text-gray-700">{attender?.user?.username || 'Unknown Attender'}</span>
                             </div>
                           </td>
                           <td className="py-4 px-4">
@@ -694,7 +694,7 @@ const RouteAssignPage = () => {
                   </tbody>
                 </table>
                 {currentAssignments.length === 0 && (
-                  <div className="text-center py-8 text-gray-400">
+                  <div className="text-center py-8 dark:text-gray-400 text-gray-600">
                     {searchTerm ? 'No assignments found matching your search.' : 'No assignments found for today.'}
                   </div>
                 )}
@@ -743,9 +743,9 @@ const RouteAssignPage = () => {
           {modalLoading && <SkeletonModal />}
           {!modalLoading && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-slate-800 rounded-xl p-8 w-full max-w-lg mx-4 shadow-2xl">
+              <div className="dark:bg-slate-800 bg-white rounded-xl p-8 w-full max-w-lg mx-4 shadow-2xl">
                 <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-2xl font-bold text-white">
+                  <h3 className="text-2xl font-bold dark:text-white text-gray-800">
                     {editingAssignment ? 'Edit Assignment' : 'New Assignment'}
                   </h3>
                   <button
@@ -754,7 +754,7 @@ const RouteAssignPage = () => {
                       setEditingAssignment(null);
                       resetForm();
                     }}
-                    className="text-gray-400 hover:text-white transition-colors"
+                    className="dark:text-gray-400 dark:hover:text-white text-gray-600 hover:text-gray-800 transition-colors"
                   >
                     <X className="w-6 h-6" />
                   </button>
@@ -763,7 +763,7 @@ const RouteAssignPage = () => {
                 <form onSubmit={handleSubmit} className="space-y-6">
                   {/* Route Selection */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-200 mb-2">Route *</label>
+                    <label className="block text-sm font-medium dark:text-gray-200 text-gray-700 mb-2">Route *</label>
                     <div className="relative">
                       <div 
                         onClick={() => {
@@ -773,20 +773,20 @@ const RouteAssignPage = () => {
                             setRouteSearch('');
                           }
                         }}
-                        className="w-full px-4 py-3 bg-slate-700/90 border border-slate-600 rounded-xl text-white flex items-center justify-between cursor-pointer hover:bg-slate-700 transition-all duration-200 shadow-md"
+                        className="w-full px-4 py-3 dark:bg-slate-700/90 dark:border-slate-600 bg-gray-100 border-gray-300 border rounded-xl dark:text-white text-gray-800 flex items-center justify-between cursor-pointer dark:hover:bg-slate-700 hover:bg-gray-200 transition-all duration-200 shadow-md"
                       >
-                        <span className="text-gray-200">{routeSearch || 'Select Route'}</span>
-                        <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${showRouteDropdown ? 'rotate-180' : ''}`} />
+                        <span className="dark:text-gray-200 text-gray-700">{routeSearch || 'Select Route'}</span>
+                        <ChevronDown className={`w-5 h-5 dark:text-gray-400 text-gray-500 transition-transform duration-200 ${showRouteDropdown ? 'rotate-180' : ''}`} />
                       </div>
                       {showRouteDropdown && (
-                        <div className="absolute z-20 w-full mt-2 bg-slate-700 border border-slate-600 rounded-xl max-h-64 shadow-2xl overflow-hidden">
-                          <div className="px-4 py-3 sticky top-0 bg-slate-700 border-b border-slate-600">
+                        <div className="absolute z-20 w-full mt-2 dark:bg-slate-700 dark:border-slate-600 bg-white border-gray-300 border rounded-xl max-h-64 shadow-2xl overflow-hidden">
+                          <div className="px-4 py-3 sticky top-0 dark:bg-slate-700 dark:border-slate-600 bg-gray-50 border-gray-300 border-b">
                             <input
                               type="text"
                               placeholder="Search routes..."
                               value={routeSearch}
                               onChange={(e) => setRouteSearch(e.target.value)}
-                              className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-yellow-500/50 transition-all duration-200"
+                              className="w-full px-3 py-2 dark:bg-slate-800 dark:border-slate-600 dark:text-white bg-white border-gray-300 border rounded-lg focus:outline-none dark:focus:ring-2 dark:focus:ring-yellow-500/50 focus:ring-2 focus:ring-blue-500/50 transition-all duration-200"
                             />
                           </div>
                           <div className="max-h-48 overflow-y-auto">
@@ -798,14 +798,14 @@ const RouteAssignPage = () => {
                                   setRouteSearch(route.routeName);
                                   setShowRouteDropdown(false);
                                 }}
-                                className="px-4 py-3 hover:bg-slate-600 cursor-pointer text-white transition-colors duration-150 border-b border-slate-600/30 last:border-b-0"
+                                className="px-4 py-3 dark:hover:bg-slate-600 hover:bg-gray-100 cursor-pointer dark:text-white text-gray-800 transition-colors duration-150 dark:border-slate-600/30 border-gray-300/30 border-b last:border-b-0"
                               >
                                 <div className="font-medium">{route.routeName}</div>
-                                <div className="text-sm text-gray-400">{route.smRouteId}</div>
+                                <div className="text-sm dark:text-gray-400 text-gray-600">{route.smRouteId}</div>
                               </div>
                             ))}
                             {filteredRoutes.length === 0 && (
-                              <div className="px-4 py-3 text-gray-400 text-sm">No routes found</div>
+                              <div className="px-4 py-3 dark:text-gray-400 text-gray-600 text-sm">No routes found</div>
                             )}
                           </div>
                         </div>
@@ -815,7 +815,7 @@ const RouteAssignPage = () => {
 
                   {/* Driver Selection */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-200 mb-2">Driver *</label>
+                    <label className="block text-sm font-medium dark:text-gray-200 text-gray-700 mb-2">Driver *</label>
                     <div className="relative">
                       <div 
                         onClick={() => {
@@ -825,20 +825,20 @@ const RouteAssignPage = () => {
                             setDriverSearch('');
                           }
                         }}
-                        className="w-full px-4 py-3 bg-slate-700/90 border border-slate-600 rounded-xl text-white flex items-center justify-between cursor-pointer hover:bg-slate-700 transition-all duration-200 shadow-md"
+                        className="w-full px-4 py-3 dark:bg-slate-700/90 dark:border-slate-600 bg-gray-100 border-gray-300 border rounded-xl dark:text-white text-gray-800 flex items-center justify-between cursor-pointer dark:hover:bg-slate-700 hover:bg-gray-200 transition-all duration-200 shadow-md"
                       >
-                        <span className="text-gray-200">{driverSearch || 'Select Driver'}</span>
-                        <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${showDriverDropdown ? 'rotate-180' : ''}`} />
+                        <span className="dark:text-gray-200 text-gray-700">{driverSearch || 'Select Driver'}</span>
+                        <ChevronDown className={`w-5 h-5 dark:text-gray-400 text-gray-500 transition-transform duration-200 ${showDriverDropdown ? 'rotate-180' : ''}`} />
                       </div>
                       {showDriverDropdown && (
-                        <div className="absolute z-20 w-full mt-2 bg-slate-700 border border-slate-600 rounded-xl max-h-64 shadow-2xl overflow-hidden">
-                          <div className="px-4 py-3 sticky top-0 bg-slate-700 border-b border-slate-600">
+                        <div className="absolute z-20 w-full mt-2 dark:bg-slate-700 dark:border-slate-600 bg-white border-gray-300 border rounded-xl max-h-64 shadow-2xl overflow-hidden">
+                          <div className="px-4 py-3 sticky top-0 dark:bg-slate-700 dark:border-slate-600 bg-gray-50 border-gray-300 border-b">
                             <input
                               type="text"
                               placeholder="Search drivers..."
                               value={driverSearch}
                               onChange={(e) => setDriverSearch(e.target.value)}
-                              className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-yellow-500/50 transition-all duration-200"
+                              className="w-full px-3 py-2 dark:bg-slate-800 dark:border-slate-600 dark:text-white bg-white border-gray-300 border rounded-lg focus:outline-none dark:focus:ring-2 dark:focus:ring-yellow-500/50 focus:ring-2 focus:ring-blue-500/50 transition-all duration-200"
                             />
                           </div>
                           <div className="max-h-48 overflow-y-auto">
@@ -850,14 +850,14 @@ const RouteAssignPage = () => {
                                   setDriverSearch(driver.user?.username || '');
                                   setShowDriverDropdown(false);
                                 }}
-                                className="px-4 py-3 hover:bg-slate-600 cursor-pointer text-white transition-colors duration-150 border-b border-slate-600/30 last:border-b-0"
+                                className="px-4 py-3 dark:hover:bg-slate-600 hover:bg-gray-100 cursor-pointer dark:text-white text-gray-800 transition-colors duration-150 dark:border-slate-600/30 border-gray-300/30 border-b last:border-b-0"
                               >
                                 <div className="font-medium">{driver.user?.username}</div>
-                                <div className="text-sm text-gray-400">{driver.smDriverId}</div>
+                                <div className="text-sm dark:text-gray-400 text-gray-600">{driver.smDriverId}</div>
                               </div>
                             ))}
                             {filteredDrivers.length === 0 && (
-                              <div className="px-4 py-3 text-gray-400 text-sm">No available drivers found</div>
+                              <div className="px-4 py-3 dark:text-gray-400 text-gray-600 text-sm">No available drivers found</div>
                             )}
                           </div>
                         </div>
@@ -867,7 +867,7 @@ const RouteAssignPage = () => {
 
                   {/* Attender Selection */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-200 mb-2">Attender *</label>
+                    <label className="block text-sm font-medium dark:text-gray-200 text-gray-700 mb-2">Attender *</label>
                     <div className="relative">
                       <div 
                         onClick={() => {
@@ -877,20 +877,20 @@ const RouteAssignPage = () => {
                             setAttenderSearch('');
                           }
                         }}
-                        className="w-full px-4 py-3 bg-slate-700/90 border border-slate-600 rounded-xl text-white flex items-center justify-between cursor-pointer hover:bg-slate-700 transition-all duration-200 shadow-md"
+                        className="w-full px-4 py-3 dark:bg-slate-700/90 dark:border-slate-600 bg-gray-100 border-gray-300 border rounded-xl dark:text-white text-gray-800 flex items-center justify-between cursor-pointer dark:hover:bg-slate-700 hover:bg-gray-200 transition-all duration-200 shadow-md"
                       >
-                        <span className="text-gray-200">{attenderSearch || 'Select Attender'}</span>
-                        <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${showAttenderDropdown ? 'rotate-180' : ''}`} />
+                        <span className="dark:text-gray-200 text-gray-700">{attenderSearch || 'Select Attender'}</span>
+                        <ChevronDown className={`w-5 h-5 dark:text-gray-400 text-gray-500 transition-transform duration-200 ${showAttenderDropdown ? 'rotate-180' : ''}`} />
                       </div>
                       {showAttenderDropdown && (
-                        <div className="absolute z-20 w-full mt-2 bg-slate-700 border border-slate-600 rounded-xl max-h-64 shadow-2xl overflow-hidden">
-                          <div className="px-4 py-3 sticky top-0 bg-slate-700 border-b border-slate-600">
+                        <div className="absolute z-20 w-full mt-2 dark:bg-slate-700 dark:border-slate-600 bg-white border-gray-300 border rounded-xl max-h-64 shadow-2xl overflow-hidden">
+                          <div className="px-4 py-3 sticky top-0 dark:bg-slate-700 dark:border-slate-600 bg-gray-50 border-gray-300 border-b">
                             <input
                               type="text"
                               placeholder="Search attenders..."
                               value={attenderSearch}
                               onChange={(e) => setAttenderSearch(e.target.value)}
-                              className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-yellow-500/50 transition-all duration-200"
+                              className="w-full px-3 py-2 dark:bg-slate-800 dark:border-slate-600 dark:text-white bg-white border-gray-300 border rounded-lg focus:outline-none dark:focus:ring-2 dark:focus:ring-yellow-500/50 focus:ring-2 focus:ring-blue-500/50 transition-all duration-200"
                             />
                           </div>
                           <div className="max-h-48 overflow-y-auto">
@@ -902,14 +902,14 @@ const RouteAssignPage = () => {
                                   setAttenderSearch(attender.user?.username || '');
                                   setShowAttenderDropdown(false);
                                 }}
-                                className="px-4 py-3 hover:bg-slate-600 cursor-pointer text-white transition-colors duration-150 border-b border-slate-600/30 last:border-b-0"
+                                className="px-4 py-3 dark:hover:bg-slate-600 hover:bg-gray-100 cursor-pointer dark:text-white text-gray-800 transition-colors duration-150 dark:border-slate-600/30 border-gray-300/30 border-b last:border-b-0"
                               >
                                 <div className="font-medium">{attender.user?.username}</div>
-                                <div className="text-sm text-gray-400">{attender.smAttenderId}</div>
+                                <div className="text-sm dark:text-gray-400 text-gray-600">{attender.smAttenderId}</div>
                               </div>
                             ))}
                             {filteredAttenders.length === 0 && (
-                              <div className="px-4 py-3 text-gray-400 text-sm">No available attenders found</div>
+                              <div className="px-4 py-3 dark:text-gray-400 text-gray-600 text-sm">No available attenders found</div>
                             )}
                           </div>
                         </div>
@@ -926,13 +926,13 @@ const RouteAssignPage = () => {
                         setEditingAssignment(null);
                         resetForm();
                       }}
-                      className="px-6 py-3 bg-slate-600 text-white rounded-xl hover:bg-slate-500 transition-all duration-200 font-medium shadow-md"
+                      className="px-6 py-3 dark:bg-slate-600 dark:text-white bg-gray-300 text-gray-700 rounded-xl dark:hover:bg-slate-500 hover:bg-gray-400 transition-all duration-200 font-medium shadow-md"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-slate-900 font-semibold rounded-xl hover:from-yellow-600 hover:to-orange-600 transition-all duration-200 shadow-md"
+                      className="px-6 py-3 bg-gradient-to-r dark:from-yellow-500 dark:to-orange-500 dark:text-slate-900 from-blue-500 to-blue-600 text-white font-semibold rounded-xl dark:hover:from-yellow-600 dark:hover:to-orange-600 hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-md"
                     >
                       {editingAssignment ? 'Update Assignment' : 'Create Assignment'}
                     </button>
@@ -947,16 +947,16 @@ const RouteAssignPage = () => {
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-slate-800 rounded-xl p-6 w-full max-w-sm mx-4 shadow-2xl">
-            <h3 className="text-lg font-bold text-white mb-4">Confirm Delete</h3>
-            <p className="text-gray-200 mb-6">Are you sure you want to delete this assignment? This action cannot be undone.</p>
+          <div className="dark:bg-slate-800 bg-white rounded-xl p-6 w-full max-w-sm mx-4 shadow-2xl">
+            <h3 className="text-lg font-bold dark:text-white text-gray-800 mb-4">Confirm Delete</h3>
+            <p className="dark:text-gray-200 text-gray-600 mb-6">Are you sure you want to delete this assignment? This action cannot be undone.</p>
             <div className="flex justify-end gap-4">
               <button
                 onClick={() => {
                   setShowDeleteConfirm(false);
                   setDeleteId(null);
                 }}
-                className="px-6 py-3 bg-slate-600 text-white rounded-xl hover:bg-slate-500 transition-all duration-200 font-medium shadow-md"
+                className="px-6 py-3 dark:bg-slate-600 dark:text-white bg-gray-300 text-gray-700 rounded-xl dark:hover:bg-slate-500 hover:bg-gray-400 transition-all duration-200 font-medium shadow-md"
               >
                 Cancel
               </button>

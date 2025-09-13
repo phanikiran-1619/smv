@@ -695,12 +695,12 @@ const LiveMap = () => {
 
   if (loadError) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white">
+      <div className="min-h-screen bg-gradient-to-br dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 from-gray-50 via-gray-100 to-gray-200 dark:text-white text-gray-800">
         <Navbar showBackButton={true} />
         <div className="pt-24 flex items-center justify-center h-full">
-          <div className="text-center p-6 bg-slate-800/90 backdrop-blur-sm rounded-lg shadow-xl border border-slate-600">
+          <div className="text-center p-6 dark:bg-slate-800/60 dark:border-slate-600 bg-white/80 border-gray-200 backdrop-blur-sm rounded-lg shadow-xl border">
             <p className="text-red-400 font-semibold">Google Maps API Error</p>
-            <p className="text-gray-300">{loadError.message}</p>
+            <p className="dark:text-gray-300 text-gray-600">{loadError.message}</p>
           </div>
         </div>
       </div>
@@ -714,16 +714,16 @@ const LiveMap = () => {
   const formattedTime = formatDisplayTime(currentTime);
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white overflow-hidden">
+    <div className="h-screen w-screen flex flex-col bg-gradient-to-br dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 from-gray-50 via-gray-100 to-gray-200 dark:text-white text-gray-800 overflow-hidden">
       {/* Enhanced Top Controls with Dropdown on Top-Right */}
-      <div className="bg-white/10 backdrop-blur-xl p-4 lg:p-6 flex items-center justify-between border-b border-white/20 flex-wrap gap-4">
+      <div className="dark:bg-slate-800/80 bg-white/80 backdrop-blur-xl p-4 lg:p-6 flex items-center justify-between border-b dark:border-slate-600 border-gray-200 flex-wrap gap-4">
         <div className="flex items-center space-x-4 min-w-0">
-          <div className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 bg-clip-text text-transparent truncate">
+          <div className="text-2xl lg:text-3xl font-bold bg-gradient-to-r dark:from-yellow-400 dark:via-orange-500 dark:to-red-500 from-blue-500 via-blue-600 to-blue-700 bg-clip-text text-transparent truncate">
             🚌 {showAllRoutes ? 'ALL ROUTES - LIVE VIEW' : selectedRoute?.routeName || 'LIVE MAP'}
           </div>
           {loading && (
-            <div className="text-sm text-gray-300 flex items-center">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-400 mr-2"></div>
+            <div className="text-sm dark:text-gray-300 text-gray-600 flex items-center">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 dark:border-yellow-400 border-blue-500 mr-2"></div>
               Loading routes...
             </div>
           )}
@@ -732,7 +732,7 @@ const LiveMap = () => {
         <div className="flex items-center space-x-3">
           <Button
             onClick={() => navigate('/dashboard/admin')}
-            className="px-6 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-black hover:from-yellow-600 hover:to-orange-600 font-semibold rounded-full shadow-lg transform hover:scale-105 transition-all duration-200"
+            className="px-6 py-2 bg-gradient-to-r dark:from-yellow-500 dark:to-orange-500 dark:text-black from-blue-500 to-blue-600 text-white dark:hover:from-yellow-600 dark:hover:to-orange-600 hover:from-blue-600 hover:to-blue-700 font-semibold rounded-full shadow-lg transform hover:scale-105 transition-all duration-200"
           >
             ← Back to Dashboard
           </Button>
@@ -740,35 +740,35 @@ const LiveMap = () => {
             onClick={() => navigate('/historical-map', { 
               state: { pageTitle: 'Historical Map', userType, username } 
             })}
-            className="px-6 py-2 bg-white/20 backdrop-blur-md hover:bg-white/30 text-white rounded-full border border-white/30 transition-all duration-200 flex items-center space-x-2"
+            className="px-6 py-2 dark:bg-slate-700/50 bg-gray-200/50 backdrop-blur-md dark:hover:bg-slate-700 hover:bg-gray-300 dark:text-white text-gray-800 rounded-full dark:border-slate-600 border-gray-300 border transition-all duration-200 flex items-center space-x-2"
           >
             <History className="w-4 h-4" />
             <span>Historical</span>
           </Button>
           <div className="w-48">
             <Select value={selectedRouteId} onValueChange={handleRouteSelect}>
-              <SelectTrigger className="bg-white/10 backdrop-blur-md border-white/30 text-white rounded-xl py-4 font-medium hover:bg-white/20 transition-all">
+              <SelectTrigger className="dark:bg-slate-700/50 dark:border-slate-600 bg-gray-200/50 border-gray-300 dark:text-white text-gray-800 rounded-xl py-4 font-medium dark:hover:bg-slate-700 hover:bg-gray-300 transition-all">
                 <div className="flex items-center">
-                  <Route className="w-4 h-4 mr-2 text-blue-400" />
+                  <Route className="w-4 h-4 mr-2 dark:text-yellow-400 text-blue-600" />
                   <SelectValue placeholder="Select Route" />
                 </div>
               </SelectTrigger>
-              <SelectContent className="bg-white border-gray-200 rounded-xl text-gray-900">
-                <div className="p-3 bg-gray-50">
+              <SelectContent className="dark:bg-slate-700 dark:border-slate-600 bg-white border-gray-200 rounded-xl dark:text-white text-gray-800">
+                <div className="p-3 dark:bg-slate-800 bg-gray-50">
                   <div className="relative mb-3">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 dark:text-gray-400 text-gray-500 w-4 h-4" />
                     <Input
                       placeholder="Search routes..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 bg-white border-gray-300 text-gray-900 placeholder-gray-500 rounded-lg"
+                      className="pl-10 dark:bg-slate-700 dark:border-slate-600 dark:text-white dark:placeholder-gray-400 bg-white border-gray-300 text-gray-800 placeholder-gray-500 rounded-lg"
                       onClick={(e) => e.stopPropagation()}
                     />
                   </div>
                 </div>
-                <SelectItem value="all" className="font-semibold hover:bg-gray-100">
+                <SelectItem value="all" className="font-semibold dark:hover:bg-slate-600 hover:bg-gray-100">
                   <div className="flex items-center">
-                    <Navigation className="w-4 h-4 mr-2 text-blue-600" />
+                    <Navigation className="w-4 h-4 mr-2 dark:text-yellow-400 text-blue-600" />
                     All Routes
                   </div>
                 </SelectItem>
@@ -776,10 +776,10 @@ const LiveMap = () => {
                   <SelectItem 
                     key={route.smRouteId || route.id} 
                     value={route.smRouteId || route.id}
-                    className="hover:bg-gray-100"
+                    className="dark:hover:bg-slate-600 hover:bg-gray-100"
                   >
                     <div className="flex items-center">
-                      <Bus className="w-4 h-4 mr-2 text-blue-600" />
+                      <Bus className="w-4 h-4 mr-2 dark:text-yellow-400 text-blue-600" />
                       {route.routeName}
                     </div>
                   </SelectItem>
@@ -897,17 +897,17 @@ const LiveMap = () => {
 
         {/* Enhanced Live Mode Preview Card - Vertical on the left, wider and attractive */}
         {!showAllRoutes && selectedRoute && routeDisplayInfo && (
-          <div className="absolute left-4 top-4 bottom-4 w-96 bg-gradient-to-br from-gray-800 to-gray-900 p-6 rounded-2xl shadow-2xl z-10 border border-gray-700/50 backdrop-blur-md bg-opacity-95 overflow-auto">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-2xl blur-md"></div>
+          <div className="absolute left-4 top-4 bottom-4 w-96 bg-gradient-to-br dark:from-slate-800/95 dark:to-slate-900/95 from-white/95 to-gray-100/95 p-6 rounded-2xl shadow-2xl z-10 dark:border-slate-600/50 border-gray-300/50 border backdrop-blur-md overflow-auto">
+            <div className="absolute inset-0 bg-gradient-to-r dark:from-yellow-500/10 dark:to-orange-500/10 from-blue-500/10 to-blue-600/10 rounded-2xl blur-md"></div>
             <div className="relative">
               <div className="flex justify-between items-start mb-5">
                 <div>
-                  <h2 className="font-extrabold text-2xl text-white tracking-tight">{selectedRoute.routeName}</h2>
-                  <p className="text-sm text-gray-300 font-medium">{formattedDate} • {formattedTime}</p>
+                  <h2 className="font-extrabold text-2xl dark:text-white text-gray-800 tracking-tight">{selectedRoute.routeName}</h2>
+                  <p className="text-sm dark:text-gray-300 text-gray-600 font-medium">{formattedDate} • {formattedTime}</p>
                 </div>
                 <div
                   className={`${
-                    isMorningShift() ? 'bg-yellow-500/20 text-yellow-300' : 'bg-purple-500/20 text-purple-300'
+                    isMorningShift() ? 'dark:bg-yellow-500/20 dark:text-yellow-300 bg-yellow-100 text-yellow-800' : 'dark:bg-purple-500/20 dark:text-purple-300 bg-purple-100 text-purple-800'
                   } px-3 py-1 rounded-full text-xs font-semibold border border-current shadow-sm animate-pulse`}
                 >
                   {isMorningShift() ? 'Morning Shift' : 'Evening Shift'}
@@ -920,13 +920,13 @@ const LiveMap = () => {
                   <p className="text-green-300 text-sm font-medium text-center">Bus is active and moving</p>
                 </div>
               ) : (
-                <div className="mb-4 p-3 bg-yellow-500/20 border border-yellow-500/30 rounded-lg shadow-md">
-                  <p className="text-yellow-300 text-sm font-medium text-center">Bus not started yet</p>
+                <div className="mb-4 p-3 dark:bg-yellow-500/20 dark:border-yellow-500/30 bg-yellow-100 border-yellow-300 border rounded-lg shadow-md">
+                  <p className="dark:text-yellow-300 text-yellow-800 text-sm font-medium text-center">Bus not started yet</p>
                 </div>
               )}
 
               <div className="mb-6">
-                <div className="flex justify-between text-sm text-gray-300 mb-2">
+                <div className="flex justify-between text-sm dark:text-gray-300 text-gray-600 mb-2">
                   <span className="font-medium">Active Buses</span>
                   <span className="font-bold">
                     {Object.entries(busPositions).filter(([id, pos]) => pos.routeId === selectedRouteId && !id.startsWith('default-')).length}
@@ -936,23 +936,23 @@ const LiveMap = () => {
                   {Object.entries(busPositions)
                     .filter(([id, pos]) => pos.routeId === selectedRouteId && !id.startsWith('default-'))
                     .map(([deviceId, position]) => (
-                      <div key={deviceId} className="flex items-center justify-between p-2 bg-blue-900/30 rounded-lg">
+                      <div key={deviceId} className="flex items-center justify-between p-2 dark:bg-slate-700/30 bg-gray-100/50 rounded-lg">
                         <div className="flex items-center">
-                          <Bus className="w-4 h-4 mr-2 text-blue-400" />
-                          <span className="text-sm text-white">Bus {deviceId}</span>
+                          <Bus className="w-4 h-4 mr-2 dark:text-yellow-400 text-blue-600" />
+                          <span className="text-sm dark:text-white text-gray-800">Bus {deviceId}</span>
                         </div>
                         <div className="flex space-x-2">
                           <Button
                             size="sm"
                             onClick={() => centerMapOnBus(deviceId)}
-                            className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
+                            className="dark:bg-yellow-600 dark:hover:bg-yellow-700 dark:text-black bg-blue-600 hover:bg-blue-700 text-white text-xs"
                           >
                             Center
                           </Button>
                           <Button
                             size="sm"
                             onClick={() => toggleFollowBus(deviceId, position.routeId)}
-                            className={`${isFollowingBus && followedDeviceId === deviceId ? 'bg-green-600' : 'bg-gray-600'} hover:bg-green-700 text-white text-xs`}
+                            className={`${isFollowingBus && followedDeviceId === deviceId ? 'bg-green-600' : 'dark:bg-slate-600 bg-gray-400'} hover:bg-green-700 text-white text-xs`}
                           >
                             {isFollowingBus && followedDeviceId === deviceId ? 'Following' : 'Follow'}
                           </Button>
@@ -976,18 +976,18 @@ const LiveMap = () => {
                       {index < displayPoints.length - 1 && (
                         <div
                           className={`absolute left-8 top-12 w-0.5 h-12 z-0 ${
-                            isCompleted ? 'bg-gradient-to-b from-blue-500 to-purple-500' : 'bg-gray-600'
+                            isCompleted ? 'bg-gradient-to-b dark:from-yellow-500 dark:to-orange-500 from-blue-500 to-blue-600' : 'dark:bg-slate-600 bg-gray-400'
                           }`}
                         ></div>
                       )}
                       <div
                         className={`flex items-start p-3 rounded-xl relative z-10 w-full transition-all duration-300 ${
                           isCurrent
-                            ? 'bg-blue-900/30 border border-blue-500/50 shadow-lg shadow-blue-500/20'
+                            ? 'dark:bg-slate-700/30 dark:border-yellow-500/50 bg-blue-100/50 border-blue-500/50 border shadow-lg dark:shadow-yellow-500/20 shadow-blue-500/20'
                             : isCompleted
-                            ? 'bg-gray-700/30'
-                            : 'bg-gray-800/30'
-                        } hover:bg-gray-700/50 hover:shadow-lg hover:shadow-blue-500/10`}
+                            ? 'dark:bg-slate-700/30 bg-gray-100/30'
+                            : 'dark:bg-slate-800/30 bg-gray-50/30'
+                        } dark:hover:bg-slate-700/50 hover:bg-gray-100/50 hover:shadow-lg dark:hover:shadow-yellow-500/10 hover:shadow-blue-500/10`}
                         onMouseEnter={() => setHoveredPoint(point)}
                         onMouseLeave={() => setHoveredPoint(null)}
                       >
@@ -1000,8 +1000,8 @@ const LiveMap = () => {
                               : isBoardingPoint
                               ? 'bg-purple-500 shadow-lg shadow-purple-500/30'
                               : isCompleted
-                              ? 'bg-blue-500 shadow-lg shadow-blue-500/20'
-                              : 'bg-blue-400 shadow-md'
+                              ? 'dark:bg-yellow-500 bg-blue-500 shadow-lg dark:shadow-yellow-500/20 shadow-blue-500/20'
+                              : 'dark:bg-yellow-400 bg-blue-400 shadow-md'
                           }`}
                         >
                           {isCompleted ? (
@@ -1015,18 +1015,18 @@ const LiveMap = () => {
                         <div className="ml-4 flex-1 min-w-0">
                           <p
                             className={`text-sm font-medium truncate ${
-                              isCurrent ? 'text-blue-300 font-semibold' : isCompleted ? 'text-gray-400' : 'text-white'
+                              isCurrent ? 'dark:text-yellow-300 text-blue-600 font-semibold' : isCompleted ? 'dark:text-gray-400 text-gray-500' : 'dark:text-white text-gray-800'
                             }`}
                           >
                             {point.routePointName}
                             {isBoardingPoint && (
-                              <span className="ml-2 bg-purple-500/20 text-purple-300 text-xs px-2 py-0.5 rounded-full border border-purple-400/30">
+                              <span className="ml-2 dark:bg-purple-500/20 dark:text-purple-300 bg-purple-100 text-purple-800 text-xs px-2 py-0.5 rounded-full dark:border-purple-400/30 border-purple-300 border">
                                 {isMorningShift() ? 'Boarding' : 'Destination'}
                               </span>
                             )}
                           </p>
                           {isCurrent && (
-                            <p className="text-xs text-blue-300 mt-1 flex items-center">
+                            <p className="text-xs dark:text-yellow-300 text-blue-600 mt-1 flex items-center">
                               <svg className="w-4 h-4 mr-1 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
                                 <path
                                   fillRule="evenodd"
@@ -1040,7 +1040,7 @@ const LiveMap = () => {
                         </div>
                         {isCurrent && (
                           <div className="ml-auto flex-shrink-0">
-                            <div className="animate-pulse bg-blue-500 rounded-full p-2 shadow-lg shadow-blue-500/30">
+                            <div className="animate-pulse dark:bg-yellow-500 bg-blue-500 rounded-full p-2 shadow-lg dark:shadow-yellow-500/30 shadow-blue-500/30">
                               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path
                                   strokeLinecap="round"
@@ -1055,17 +1055,17 @@ const LiveMap = () => {
                       </div>
                       {/* Enhanced Hover Tooltip */}
                       {hoveredPoint && hoveredPoint.id === point.id && (
-                        <div className="absolute left-full ml-4 px-6 py-4 bg-gray-900/95 backdrop-blur-md text-white text-sm rounded-xl shadow-2xl whitespace-nowrap z-20 min-w-64 border border-gray-700">
-                          <div className="font-bold text-blue-400 mb-2 text-base">{point.routePointName}</div>
+                        <div className="absolute left-full ml-4 px-6 py-4 dark:bg-slate-800/95 bg-white/95 backdrop-blur-md dark:text-white text-gray-800 text-sm rounded-xl shadow-2xl whitespace-nowrap z-20 min-w-64 dark:border-slate-600 border-gray-300 border">
+                          <div className="font-bold dark:text-yellow-400 text-blue-600 mb-2 text-base">{point.routePointName}</div>
                           <div className="text-green-400 mb-2 flex items-center">
                             <Clock className="w-4 h-4 mr-2" />
                             Current Time: {formattedTime}
                           </div>
-                          <div className="text-yellow-400 flex items-center">
+                          <div className="dark:text-yellow-400 text-orange-500 flex items-center">
                             <AlertCircle className="w-4 h-4 mr-2" />
                             Status: {Object.entries(busPositions).filter(([id, pos]) => pos.routeId === selectedRouteId && !id.startsWith('default-')).length > 0 ? 'Bus active' : 'Bus not started yet'}
                           </div>
-                          <div className="absolute right-full top-1/2 transform translate-x-1/2 -translate-y-1/2 border-8 border-transparent border-r-gray-900 rotate-180"></div>
+                          <div className="absolute right-full top-1/2 transform translate-x-1/2 -translate-y-1/2 border-8 border-transparent dark:border-r-slate-800 border-r-white rotate-180"></div>
                         </div>
                       )}
                     </div>
@@ -1073,14 +1073,14 @@ const LiveMap = () => {
                 })}
               </div>
 
-              <div className="mt-6 p-4 bg-gradient-to-r from-blue-900/30 to-purple-900/30 rounded-xl border border-blue-500/20 shadow-lg shadow-blue-500/10">
+              <div className="mt-6 p-4 bg-gradient-to-r dark:from-slate-700/30 dark:to-slate-800/30 from-gray-100/30 to-gray-200/30 rounded-xl dark:border-slate-600/20 border-gray-300/20 border shadow-lg dark:shadow-yellow-500/10 shadow-blue-500/10">
                 <div className="flex items-center">
-                  <div className="bg-blue-500/20 p-2 rounded-full border border-blue-400/30 shadow-md">
-                    <Bus className="w-6 h-6 text-white" />
+                  <div className="dark:bg-yellow-500/20 bg-blue-500/20 p-2 rounded-full dark:border-yellow-400/30 border-blue-400/30 border shadow-md">
+                    <Bus className="w-6 h-6 dark:text-white text-gray-800" />
                   </div>
                   <div className="ml-3">
-                    <p className="text-sm font-medium text-white">Bus Status</p>
-                    <p className="text-xs text-gray-300">
+                    <p className="text-sm font-medium dark:text-white text-gray-800">Bus Status</p>
+                    <p className="text-xs dark:text-gray-300 text-gray-600">
                       {Object.entries(busPositions).filter(([id, pos]) => pos.routeId === selectedRouteId && !id.startsWith('default-')).length > 0 
                         ? 'Active and moving' 
                         : 'Not started yet'}
@@ -1094,8 +1094,8 @@ const LiveMap = () => {
         
         {/* Bus List Panel for All Routes View */}
         {showAllRoutes && Object.keys(busPositions).length > 0 && (
-          <div className="absolute right-4 top-4 w-80 bg-gradient-to-br from-gray-800 to-gray-900 p-6 rounded-2xl shadow-2xl z-10 border border-gray-700/50 backdrop-blur-md bg-opacity-95 overflow-auto max-h-96">
-            <h3 className="font-bold text-lg text-white mb-4">Active Buses</h3>
+          <div className="absolute right-4 top-4 w-80 bg-gradient-to-br dark:from-slate-800/95 dark:to-slate-900/95 from-white/95 to-gray-100/95 p-6 rounded-2xl shadow-2xl z-10 dark:border-slate-600/50 border-gray-300/50 border backdrop-blur-md overflow-auto max-h-96">
+            <h3 className="font-bold text-lg dark:text-white text-gray-800 mb-4">Active Buses</h3>
             <div className="space-y-3">
               {Object.entries(busPositions).filter(([id]) => !id.startsWith('default-')).map(([deviceId, position]) => {
                 const routeForBus = routes.find(route => 
@@ -1103,21 +1103,21 @@ const LiveMap = () => {
                 );
                 
                 return (
-                  <div key={deviceId} className="p-3 bg-blue-900/30 rounded-lg border border-blue-500/20">
+                  <div key={deviceId} className="p-3 dark:bg-slate-700/30 bg-gray-100/50 rounded-lg dark:border-slate-600/20 border-gray-300/20 border">
                     <div className="flex justify-between items-center">
                       <div>
-                        <p className="text-white font-medium">Bus {deviceId}</p>
-                        <p className="text-gray-300 text-sm">{routeForBus?.routeName || 'Unknown Route'}</p>
+                        <p className="dark:text-white text-gray-800 font-medium">Bus {deviceId}</p>
+                        <p className="dark:text-gray-300 text-gray-600 text-sm">{routeForBus?.routeName || 'Unknown Route'}</p>
                       </div>
                       <Button
                         size="sm"
                         onClick={() => toggleFollowBus(deviceId, position.routeId)}
-                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                        className="dark:bg-yellow-600 dark:hover:bg-yellow-700 dark:text-black bg-blue-600 hover:bg-blue-700 text-white"
                       >
                         {isFollowingBus && followedDeviceId === deviceId ? 'Following' : 'Follow'}
                       </Button>
                     </div>
-                    <div className="mt-2 text-xs text-gray-400">
+                    <div className="mt-2 text-xs dark:text-gray-400 text-gray-500">
                       Updated: {new Date(position.timestamp).toLocaleTimeString()}
                     </div>
                   </div>
@@ -1130,8 +1130,8 @@ const LiveMap = () => {
         {/* Enhanced Error Message */}
         {error && (
           <div className="absolute top-4 right-4 max-w-md">
-            <Card className="bg-red-100/95 backdrop-blur-md border-red-300 p-4 rounded-xl">
-              <div className="text-red-800 text-sm flex items-center">
+            <Card className="dark:bg-red-900/95 bg-red-100/95 dark:border-red-700 border-red-300 backdrop-blur-md p-4 rounded-xl">
+              <div className="dark:text-red-300 text-red-800 text-sm flex items-center">
                 <AlertCircle className="w-5 h-5 mr-2" />
                 <div>
                   <strong>Error:</strong> {error}

@@ -276,7 +276,7 @@ const AllUsersPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 from-gray-50 via-gray-100 to-gray-200 dark:text-foreground text-gray-800">
+    <div className="min-h-screen bg-gradient-to-br dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 from-gray-50 via-gray-100 to-gray-200 dark:text-white text-gray-800">
       <Navbar showBackButton={true} />
       
       <div className="pt-24 px-4 pb-8">
@@ -284,32 +284,32 @@ const AllUsersPage = () => {
           {/* Header with School ID */}
           <div className="flex justify-between items-start mb-8">
             <div>
-              <h1 className="text-4xl font-bold text-yellow-500 mb-2 flex items-center">
+              <h1 className="text-4xl font-bold dark:text-yellow-400 text-blue-600 mb-2 flex items-center">
                 <Users className="w-10 h-10 mr-3" />
                 All Users Management
               </h1>
-              <p className="text-muted-foreground text-lg">Comprehensive data management for all user types</p>
+              <p className="dark:text-gray-300 text-gray-600 text-lg">Comprehensive data management for all user types</p>
             </div>
             
             {/* Admin School ID Box */}
-            <Card className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border-yellow-500/50 p-4 min-w-[200px]">
+            <Card className="dark:bg-gradient-to-r dark:from-yellow-500/20 dark:to-orange-500/20 dark:border-yellow-500/50 bg-gradient-to-r from-blue-500/20 to-blue-600/20 border-blue-500/50 p-4 min-w-[200px]">
               <div className="flex items-center space-x-2">
-                <Building2 className="w-5 h-5 text-yellow-500" />
+                <Building2 className="w-5 h-5 dark:text-yellow-500 text-blue-600" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Admin School ID</p>
-                  <p className="text-lg font-bold text-yellow-500">{adminSchoolId}</p>
+                  <p className="text-sm dark:text-gray-300 text-gray-600">Admin School ID</p>
+                  <p className="text-lg font-bold dark:text-yellow-500 text-blue-600">{adminSchoolId}</p>
                 </div>
               </div>
             </Card>
           </div>
 
           {/* Main Control Panel */}
-          <Card className="bg-card p-8 rounded-2xl shadow-xl border-4 border-yellow-500 mb-8">
+          <Card className="dark:bg-slate-800/60 dark:border-slate-600 bg-white/80 border-gray-200 p-8 rounded-2xl shadow-xl border-4 dark:border-yellow-500 border-blue-500 mb-8">
             <div className="flex items-center space-x-3 mb-6">
-              <Filter className="w-6 h-6 text-yellow-500" />
-              <h3 className="text-2xl font-bold text-yellow-500">Data Management Panel</h3>
+              <Filter className="w-6 h-6 dark:text-yellow-500 text-blue-600" />
+              <h3 className="text-2xl font-bold dark:text-yellow-500 text-blue-600">Data Management Panel</h3>
             </div>
-            <p className="text-muted-foreground mb-6">Select data type and manage school-related information efficiently.</p>
+            <p className="dark:text-gray-300 text-gray-600 mb-6">Select data type and manage school-related information efficiently.</p>
 
             {error && (
               <div className="mb-4 p-4 bg-red-500/10 border border-red-500 text-red-400 rounded-xl">
@@ -323,7 +323,7 @@ const AllUsersPage = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Select Data Type</label>
+                <label className="block text-sm font-medium dark:text-white text-gray-700 mb-2">Select Data Type</label>
                 <Select 
                   onValueChange={(value) => {
                     setSelectedOption(value);
@@ -336,7 +336,7 @@ const AllUsersPage = () => {
                   }} 
                   value={selectedOption}
                 >
-                  <SelectTrigger className="border-border focus:ring-yellow-500 focus:border-yellow-500 rounded-xl text-foreground bg-background transition-all w-full">
+                  <SelectTrigger className="dark:border-slate-600 dark:focus:ring-yellow-500 dark:focus:border-yellow-500 border-gray-300 focus:ring-blue-500 focus:border-blue-500 rounded-xl dark:text-white text-gray-800 dark:bg-slate-700 bg-gray-100 transition-all w-full">
                     <SelectValue placeholder="Select Data Type" />
                   </SelectTrigger>
                   <SelectContent className="max-h-60 overflow-auto">
@@ -351,11 +351,11 @@ const AllUsersPage = () => {
                 <Button
                   onClick={fetchData}
                   disabled={loading}
-                  className="w-full bg-yellow-500 text-black font-semibold py-3 rounded-xl hover:bg-yellow-600 transition-all"
+                  className="w-full dark:bg-yellow-500 dark:text-black dark:hover:bg-yellow-600 bg-blue-500 text-white hover:bg-blue-600 font-semibold py-3 rounded-xl transition-all"
                 >
                   {loading ? (
                     <span className="flex items-center">
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 dark:text-black text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
@@ -371,7 +371,7 @@ const AllUsersPage = () => {
               <div className="mt-6">
                 <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-4">
                   <div className="relative w-full md:w-2/3">
-                    <Search className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
+                    <Search className="absolute left-3 top-2.5 h-5 w-5 dark:text-gray-400 text-gray-500" />
                     <Input
                       type="text"
                       placeholder={`Search ${selectedOption}s...`}
@@ -380,7 +380,7 @@ const AllUsersPage = () => {
                         setSearchQuery(e.target.value);
                         setCurrentPage(1);
                       }}
-                      className="pl-10 pr-4 py-2 w-full rounded-xl bg-background border-border text-foreground focus:ring-yellow-500 focus:border-yellow-500"
+                      className="pl-10 pr-4 py-2 w-full rounded-xl dark:bg-slate-700 dark:border-slate-600 dark:text-white dark:placeholder-gray-400 bg-gray-100 border-gray-300 text-gray-800 placeholder-gray-500 dark:focus:ring-yellow-500 dark:focus:border-yellow-500 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
                   <div className="flex space-x-2">
@@ -396,17 +396,17 @@ const AllUsersPage = () => {
                 
                 {/* Data Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  <Card className="bg-muted p-4 text-center">
-                    <p className="text-2xl font-bold text-yellow-500">{data.length}</p>
-                    <p className="text-muted-foreground">Total Records</p>
+                  <Card className="dark:bg-slate-700/50 bg-gray-100/70 p-4 text-center">
+                    <p className="text-2xl font-bold dark:text-yellow-500 text-blue-600">{data.length}</p>
+                    <p className="dark:text-gray-300 text-gray-600">Total Records</p>
                   </Card>
-                  <Card className="bg-muted p-4 text-center">
+                  <Card className="dark:bg-slate-700/50 bg-gray-100/70 p-4 text-center">
                     <p className="text-2xl font-bold text-green-500">{processedData.length}</p>
-                    <p className="text-muted-foreground">Filtered Results</p>
+                    <p className="dark:text-gray-300 text-gray-600">Filtered Results</p>
                   </Card>
-                  <Card className="bg-muted p-4 text-center">
+                  <Card className="dark:bg-slate-700/50 bg-gray-100/70 p-4 text-center">
                     <p className="text-2xl font-bold text-blue-500">{totalPages}</p>
-                    <p className="text-muted-foreground">Total Pages</p>
+                    <p className="dark:text-gray-300 text-gray-600">Total Pages</p>
                   </Card>
                 </div>
               </div>
@@ -415,10 +415,10 @@ const AllUsersPage = () => {
 
           {/* Data Table */}
           {data.length > 0 && (
-            <div className="bg-card p-6 rounded-2xl shadow-xl border-4 border-yellow-500 overflow-x-auto">
+            <div className="dark:bg-slate-800/60 dark:border-slate-600 bg-white/80 border-gray-200 p-6 rounded-2xl shadow-xl border-4 dark:border-yellow-500 border-blue-500 overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-muted text-foreground">
+                  <TableRow className="dark:bg-slate-700/50 bg-gray-100/70 dark:text-white text-gray-800">
                     {selectedOption === "route" && (
                       <>
                         <TableHead onClick={() => handleSort("smRouteId")} className="cursor-pointer py-3">
@@ -519,7 +519,7 @@ const AllUsersPage = () => {
                 <TableBody>
                   {paginatedData.length > 0 ? (
                     paginatedData.map((item, index) => (
-                      <TableRow key={index} className="border-b border-border text-foreground hover:bg-muted/50 transition-colors">
+                      <TableRow key={index} className="border-b dark:border-slate-600 border-gray-300 dark:text-white text-gray-800 dark:hover:bg-slate-700/50 hover:bg-gray-100/50 transition-colors">
                         {selectedOption === "route" && (
                           <>
                             <TableCell className="py-3 font-medium">{item.smRouteId}</TableCell>
@@ -593,7 +593,7 @@ const AllUsersPage = () => {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={selectedOption === "route" ? 6 : 7} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={selectedOption === "route" ? 6 : 7} className="text-center py-8 dark:text-gray-300 text-gray-600">
                         No matching records found
                       </TableCell>
                     </TableRow>
@@ -604,7 +604,7 @@ const AllUsersPage = () => {
               {/* Pagination */}
               {totalPages > 1 && (
                 <div className="flex items-center justify-between mt-6">
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-sm dark:text-gray-300 text-gray-600">
                     Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, processedData.length)} of {processedData.length} results
                   </div>
                   <div className="flex items-center space-x-2">
@@ -613,7 +613,7 @@ const AllUsersPage = () => {
                       disabled={currentPage === 1}
                       variant="outline"
                       size="sm"
-                      className="border-border text-foreground hover:bg-muted"
+                      className="dark:border-slate-600 dark:text-white dark:hover:bg-slate-700 border-gray-300 text-gray-800 hover:bg-gray-100"
                     >
                       <ChevronLeft className="w-4 h-4" />
                       Previous
@@ -629,8 +629,8 @@ const AllUsersPage = () => {
                             variant={currentPage === pageNum ? "default" : "outline"}
                             size="sm"
                             className={currentPage === pageNum 
-                              ? "bg-yellow-500 text-black" 
-                              : "border-border text-foreground hover:bg-muted"
+                              ? "dark:bg-yellow-500 dark:text-black bg-blue-500 text-white" 
+                              : "dark:border-slate-600 dark:text-white dark:hover:bg-slate-700 border-gray-300 text-gray-800 hover:bg-gray-100"
                             }
                           >
                             {pageNum}
@@ -644,7 +644,7 @@ const AllUsersPage = () => {
                       disabled={currentPage === totalPages}
                       variant="outline"
                       size="sm"
-                      className="border-border text-foreground hover:bg-muted"
+                      className="dark:border-slate-600 dark:text-white dark:hover:bg-slate-700 border-gray-300 text-gray-800 hover:bg-gray-100"
                     >
                       Next
                       <ChevronRight className="w-4 h-4" />
@@ -657,12 +657,12 @@ const AllUsersPage = () => {
 
           {!loading && data.length === 0 && !error && (
             <div className="text-center mt-12">
-              <Card className="bg-card p-8 border-2 border-yellow-500 inline-block">
-                <Users className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
-                <p className="text-muted-foreground text-xl font-semibold">
+              <Card className="dark:bg-slate-800/60 dark:border-yellow-500 bg-white/80 border-blue-500 p-8 border-2 inline-block">
+                <Users className="w-16 h-16 dark:text-yellow-500 text-blue-600 mx-auto mb-4" />
+                <p className="dark:text-gray-300 text-gray-600 text-xl font-semibold">
                   Select a data type and click "Fetch Data" to load information
                 </p>
-                <p className="text-muted-foreground text-sm mt-2">
+                <p className="dark:text-gray-300 text-gray-600 text-sm mt-2">
                   Manage routes, students, drivers, and attenders efficiently
                 </p>
               </Card>

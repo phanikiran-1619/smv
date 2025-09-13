@@ -193,7 +193,7 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/50 to-background">
+    <div className="min-h-screen bg-gradient-to-br dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 from-gray-50 via-gray-100 to-gray-200">
       <Navbar showBackButton={true} />
       
       <main className="pt-16 min-h-screen flex items-center justify-center px-4 py-4">
@@ -203,9 +203,9 @@ const LoginPage = () => {
             {/* Header */}
             <div className="text-center lg:text-left space-y-3">
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight">
-                <span className="text-foreground">School</span>
+                <span className="dark:text-white text-gray-800">School</span>
               </h1>
-              <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-yellow-500 leading-tight">
+              <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold dark:text-yellow-500 text-blue-600 leading-tight">
              Transport Portal
               </h2>
             </div>
@@ -222,19 +222,19 @@ const LoginPage = () => {
 
           {/* Right Side - Enhanced Login Form */}
           <div className="flex justify-center lg:justify-end order-1 lg:order-2">
-            <Card className="w-full max-w-md mx-auto bg-card border-2 border-yellow-500/30 shadow-xl backdrop-blur-sm">
+            <Card className="w-full max-w-md mx-auto dark:bg-slate-800/60 dark:border-slate-600 bg-white/80 border-gray-200 border-2 dark:border-yellow-500/30 border-blue-500/30 shadow-xl backdrop-blur-sm">
               <div className="p-8 space-y-5">
                 {/* Header */}
                 <div className="text-center space-y-3">
-                  <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-yellow-500/20 border border-yellow-500/30 mb-2">
-                    <div className="text-yellow-500">
+                  <div className="inline-flex items-center justify-center w-14 h-14 rounded-full dark:bg-yellow-500/20 bg-blue-500/20 border dark:border-yellow-500/30 border-blue-500/30 mb-2">
+                    <div className="dark:text-yellow-500 text-blue-600">
                       {currentLoginType.icon}
                     </div>
                   </div>
-                  <h3 className="text-xl font-bold text-yellow-500">
+                  <h3 className="text-xl font-bold dark:text-yellow-500 text-blue-600">
                     {currentLoginType.title}
                   </h3>
-                  <p className="text-muted-foreground text-sm">
+                  <p className="dark:text-gray-300 text-gray-600 text-sm">
                     {currentLoginType.description}
                   </p>
                 </div>
@@ -243,12 +243,12 @@ const LoginPage = () => {
                 <form onSubmit={handleLogin} className="space-y-4">
                   {/* Username Field */}
                   <div className="space-y-2">
-                    <Label htmlFor="username" className="text-foreground text-sm font-medium">
+                    <Label htmlFor="username" className="dark:text-white text-gray-700 text-sm font-medium">
                       Username
                     </Label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <User className="h-5 w-5 text-muted-foreground" />
+                        <User className="h-5 w-5 dark:text-gray-400 text-gray-500" />
                       </div>
                       <Input
                         id="username"
@@ -258,19 +258,19 @@ const LoginPage = () => {
                         value={formData.username}
                         onChange={handleInputChange}
                         onKeyDown={handleUsernameKeyDown}
-                        className="pl-10 bg-background border-border text-foreground placeholder-muted-foreground focus:border-yellow-500 focus:ring-yellow-500/20 h-11 text-sm"
+                        className="pl-10 dark:bg-slate-700 dark:border-slate-600 dark:text-white dark:placeholder-gray-400 bg-gray-100 border-gray-300 text-gray-800 placeholder-gray-500 dark:focus:border-yellow-500 dark:focus:ring-yellow-500/20 focus:border-blue-500 focus:ring-blue-500/20 h-11 text-sm"
                       />
                     </div>
                   </div>
                   
                   {/* Password Field */}
                   <div className="space-y-2">
-                    <Label htmlFor="password" className="text-foreground text-sm font-medium">
+                    <Label htmlFor="password" className="dark:text-white text-gray-700 text-sm font-medium">
                       Password
                     </Label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <KeyRound className="h-5 w-5 text-muted-foreground" />
+                        <KeyRound className="h-5 w-5 dark:text-gray-400 text-gray-500" />
                       </div>
                       <Input
                         id="password"
@@ -280,12 +280,12 @@ const LoginPage = () => {
                         value={formData.password}
                         onChange={handleInputChange}
                         ref={passwordRef}
-                        className="pl-10 pr-10 bg-background border-border text-foreground placeholder-muted-foreground focus:border-yellow-500 focus:ring-yellow-500/20 h-11 text-sm"
+                        className="pl-10 pr-10 dark:bg-slate-700 dark:border-slate-600 dark:text-white dark:placeholder-gray-400 bg-gray-100 border-gray-300 text-gray-800 placeholder-gray-500 dark:focus:border-yellow-500 dark:focus:ring-yellow-500/20 focus:border-blue-500 focus:ring-blue-500/20 h-11 text-sm"
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-muted-foreground hover:text-foreground transition-colors duration-200"
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center dark:text-gray-400 dark:hover:text-white text-gray-500 hover:text-gray-700 transition-colors duration-200"
                       >
                         {showPassword ? (
                           <EyeOff className="h-5 w-5" />
@@ -300,7 +300,7 @@ const LoginPage = () => {
                   <div className="text-right">
                     <button
                       type="button"
-                      className="text-yellow-500 hover:text-yellow-600 text-sm transition-colors duration-200 underline-offset-4 hover:underline"
+                      className="dark:text-yellow-500 dark:hover:text-yellow-600 text-blue-600 hover:text-blue-700 text-sm transition-colors duration-200 underline-offset-4 hover:underline"
                       onClick={handleForgotPassword}
                     >
                       Forgot Password?
@@ -311,11 +311,11 @@ const LoginPage = () => {
                   <Button 
                     type="submit"
                     disabled={isLoading}
-                    className="w-full bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-black font-semibold py-3 h-11 rounded-lg transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:transform-none shadow-lg text-sm"
+                    className="w-full bg-gradient-to-r dark:from-yellow-500 dark:to-yellow-600 dark:hover:from-yellow-600 dark:hover:to-yellow-700 dark:text-black from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold py-3 h-11 rounded-lg transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:transform-none shadow-lg text-sm"
                   >
                     {isLoading ? (
                       <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+                        <div className="w-4 h-4 border-2 dark:border-black border-white dark:border-t-transparent border-t-transparent rounded-full animate-spin"></div>
                         Logging in...
                       </div>
                     ) : (
