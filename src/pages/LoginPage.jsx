@@ -193,7 +193,7 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200">
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/50 to-background">
       <Navbar showBackButton={true} />
       
       <main className="pt-16 min-h-screen flex items-center justify-center px-4 py-4">
@@ -203,7 +203,7 @@ const LoginPage = () => {
             {/* Header */}
             <div className="text-center lg:text-left space-y-3">
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight">
-                <span className="text-slate-700">School</span>
+                <span className="text-foreground">School</span>
               </h1>
               <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-yellow-500 leading-tight">
              Transport Portal
@@ -222,19 +222,19 @@ const LoginPage = () => {
 
           {/* Right Side - Enhanced Login Form */}
           <div className="flex justify-center lg:justify-end order-1 lg:order-2">
-            <Card className="w-full max-w-md mx-auto bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800 border-2 border-yellow-500/30 shadow-xl backdrop-blur-sm">
+            <Card className="w-full max-w-md mx-auto bg-card border-2 border-yellow-500/30 shadow-xl backdrop-blur-sm">
               <div className="p-8 space-y-5">
                 {/* Header */}
                 <div className="text-center space-y-3">
                   <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-yellow-500/20 border border-yellow-500/30 mb-2">
-                    <div className="text-yellow-400">
+                    <div className="text-yellow-500">
                       {currentLoginType.icon}
                     </div>
                   </div>
-                  <h3 className="text-xl font-bold text-yellow-400">
+                  <h3 className="text-xl font-bold text-yellow-500">
                     {currentLoginType.title}
                   </h3>
-                  <p className="text-gray-300 text-sm">
+                  <p className="text-muted-foreground text-sm">
                     {currentLoginType.description}
                   </p>
                 </div>
@@ -243,12 +243,12 @@ const LoginPage = () => {
                 <form onSubmit={handleLogin} className="space-y-4">
                   {/* Username Field */}
                   <div className="space-y-2">
-                    <Label htmlFor="username" className="text-gray-300 text-sm font-medium">
+                    <Label htmlFor="username" className="text-foreground text-sm font-medium">
                       Username
                     </Label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <User className="h-5 w-5 text-gray-400" />
+                        <User className="h-5 w-5 text-muted-foreground" />
                       </div>
                       <Input
                         id="username"
@@ -258,19 +258,19 @@ const LoginPage = () => {
                         value={formData.username}
                         onChange={handleInputChange}
                         onKeyDown={handleUsernameKeyDown}
-                        className="pl-10 bg-slate-600/50 border-slate-500/50 text-white placeholder-gray-400 focus:border-yellow-400 focus:ring-yellow-400/20 h-11 text-sm"
+                        className="pl-10 bg-background border-border text-foreground placeholder-muted-foreground focus:border-yellow-500 focus:ring-yellow-500/20 h-11 text-sm"
                       />
                     </div>
                   </div>
                   
                   {/* Password Field */}
                   <div className="space-y-2">
-                    <Label htmlFor="password" className="text-gray-300 text-sm font-medium">
+                    <Label htmlFor="password" className="text-foreground text-sm font-medium">
                       Password
                     </Label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <KeyRound className="h-5 w-5 text-gray-400" />
+                        <KeyRound className="h-5 w-5 text-muted-foreground" />
                       </div>
                       <Input
                         id="password"
@@ -280,12 +280,12 @@ const LoginPage = () => {
                         value={formData.password}
                         onChange={handleInputChange}
                         ref={passwordRef}
-                        className="pl-10 pr-10 bg-slate-600/50 border-slate-500/50 text-white placeholder-gray-400 focus:border-yellow-400 focus:ring-yellow-400/20 h-11 text-sm"
+                        className="pl-10 pr-10 bg-background border-border text-foreground placeholder-muted-foreground focus:border-yellow-500 focus:ring-yellow-500/20 h-11 text-sm"
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-white transition-colors duration-200"
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-muted-foreground hover:text-foreground transition-colors duration-200"
                       >
                         {showPassword ? (
                           <EyeOff className="h-5 w-5" />
@@ -300,7 +300,7 @@ const LoginPage = () => {
                   <div className="text-right">
                     <button
                       type="button"
-                      className="text-yellow-400 hover:text-yellow-300 text-sm transition-colors duration-200 underline-offset-4 hover:underline"
+                      className="text-yellow-500 hover:text-yellow-600 text-sm transition-colors duration-200 underline-offset-4 hover:underline"
                       onClick={handleForgotPassword}
                     >
                       Forgot Password?

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Bus, LogOut } from 'lucide-react';
 import { Button } from './ui/button';
+import ThemeToggle from './ThemeToggle';
 import LogoutConfirmDialog from './LogoutConfirmDialog';
 
 const Navbar = ({ showBackButton = false }) => {
@@ -25,7 +26,7 @@ const Navbar = ({ showBackButton = false }) => {
 
   return (
     <>
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-slate-800/95 backdrop-blur-sm border-b border-slate-700/50">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-4">
@@ -34,7 +35,7 @@ const Navbar = ({ showBackButton = false }) => {
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate(-1)}
-                  className="text-gray-300 hover:text-white hover:bg-slate-700 transition-colors duration-200"
+                  className="text-muted-foreground hover:text-foreground hover:bg-accent transition-colors duration-200"
                 >
                   <ArrowLeft size={18} className="mr-1" />
                   <span className="text-sm">Back</span>
@@ -42,18 +43,19 @@ const Navbar = ({ showBackButton = false }) => {
               )}
               <div className="flex items-center gap-2">
                 <div className="p-1.5 bg-yellow-500/20 rounded-lg border border-yellow-500/30">
-                  <Bus className="w-5 h-5 text-yellow-400" />
+                  <Bus className="w-5 h-5 text-yellow-500" />
                 </div>
                 <h1 className="text-lg font-bold">
-                  <span className="text-yellow-400">School Bus</span>
-                  <span className="text-white ml-1">Tracker</span>
+                  <span className="text-yellow-500">School Bus</span>
+                  <span className="text-foreground ml-1">Tracker</span>
                 </h1>
               </div>
             </div>
             
-            {/* Right side content - Show logout on dashboard pages */}
-            {showLogoutButton && (
-              <div className="flex items-center gap-3">
+            {/* Right side content */}
+            <div className="flex items-center gap-3">
+              <ThemeToggle />
+              {showLogoutButton && (
                 <Button
                   onClick={handleLogoutClick}
                   className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
@@ -61,8 +63,8 @@ const Navbar = ({ showBackButton = false }) => {
                   <LogOut size={16} />
                   <span>Logout</span>
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </nav>

@@ -7,6 +7,8 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { format } from 'date-fns';
+import { Client } from '@stomp/stompjs';
+import { toast } from '../hooks/use-toast';
 import Navbar from '../components/Navbar';
 
 // Map container style - responsive
@@ -49,6 +51,9 @@ const LiveMap = () => {
   const [showAllRoutes, setShowAllRoutes] = useState(true);
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [busPositions, setBusPositions] = useState({});
+  const [isFollowingBus, setIsFollowingBus] = useState(false);
+  const [followedDeviceId, setFollowedDeviceId] = useState(null);
   
   // Refs
   const mapRef = useRef(null);
@@ -56,6 +61,9 @@ const LiveMap = () => {
   const mapPinIconRef = useRef(null);
   const schoolIconRef = useRef(null);
   const busIconRef = useRef(null);
+  const stompClientRef = useRef(null);
+  const animationRefs = useRef({});
+  const lastPositionsRef = useRef({});
 
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
@@ -185,6 +193,41 @@ const LiveMap = () => {
       setLoading(false);
     }
   }, [isLoaded]);
+
+  // Set initial bus positions for each route if no real position
+  useEffect(() => {
+    if (routes.length > 0 && isLoaded) {
+      setBusPositions(prev => {
+        let newPositions = { ...prev };
+        routes.forEach(route => {
+          const rid = route.smRouteId || route.id;
+          const hasRealBus = Object.entries(prev).some(([id, pos]) => pos.routeId === rid && !id.startsWith('default-'));
+          if (!hasRealBus) {
+            let validPoints = route.routePoints
+              .filter(p => isValidCoordinate(p.latitude) && isValidCoordinate(p.longitude))
+              .sort((a, b) => a.seqOrder - b.seqOrder);
+            if (!isMorningShift()) {
+              validPoints = validPoints.reverse();
+            }
+            if (validPoints.length > 0) {
+              const startPoint = validPoints[0];
+              const defaultDeviceId = `default-${rid}`;
+              newPositions[defaultDeviceId] = {
+                lat: parseCoordinate(startPoint.latitude),
+                lng: parseCoordinate(startPoint.longitude),
+                heading: 0,
+                timestamp: Date.now(),
+                routeId: rid,
+                deviceId: defaultDeviceId,
+                schoolId: route.schId || 'unknown'
+              };
+            }
+          }
+        });
+        return newPositions;
+      });
+    }
+  }, [routes, isLoaded, currentTime]);
 
   // Filter routes based on search term
   useEffect(() => {
@@ -425,6 +468,216 @@ const LiveMap = () => {
     return uniquePoints;
   };
 
+  // WebSocket connection for real-time bus tracking
+  useEffect(() => {
+    const token = getAuthToken();
+    if (!token) {
+      toast({
+        title: 'Authentication Error',
+        description: 'No token found. Please log in again.',
+        variant: 'destructive',
+        duration: 5000,
+      });
+      navigate('/login/admin');
+      return;
+    }
+
+    const apiBase = process.env.REACT_APP_API_BASE_URL;
+    if (!apiBase) {
+      console.error('API base URL is not defined');
+      toast({
+        title: 'Configuration Error',
+        description: 'API base URL is not defined.',
+        variant: 'destructive',
+        duration: 5000,
+      });
+      return;
+    }
+    
+    const wsBase = apiBase.replace(/^http/, 'ws').replace(/\/api\/v1$/, '');
+    const brokerURL = `${wsBase}/ws/gps`;
+
+    const client = new Client({
+      brokerURL,
+      connectHeaders: {
+        Authorization: `Bearer ${token}`,
+      },
+      webSocketFactory: () => new WebSocket(brokerURL),
+      debug: (str) => console.log('[DEBUG]', str),
+      reconnectDelay: 5000,
+      heartbeatIncoming: 4000,
+      heartbeatOutgoing: 4000,
+    });
+
+    client.onConnect = () => {
+      console.log('Connected to WebSocket STOMP broker');
+
+      // Subscribe to the GPS updates topic
+      client.subscribe(`/topic/gps-updates`, (message) => {
+        try {
+          const data = JSON.parse(message.body);
+          if (data.type === 'gps_location' && data.latitude && data.longitude) {
+            const dataTimestamp = Date.parse(data.timestamp);
+            const deviceId = data.deviceId;
+            const lastPosition = lastPositionsRef.current[deviceId];
+
+            if (lastPosition && dataTimestamp <= lastPosition.timestamp) {
+              console.log(`Ignoring old update for ${deviceId}`);
+              return;
+            }
+
+            // Update bus position
+            const newPosition = {
+              lat: Number(data.latitude),
+              lng: Number(data.longitude),
+              heading: data.heading || undefined,
+              timestamp: dataTimestamp,
+              routeId: data.routeId,
+              deviceId: data.deviceId,
+              schoolId: data.schoolId
+            };
+
+            setBusPositions(prev => ({
+              ...prev,
+              [deviceId]: newPosition
+            }));
+
+            // If we're following this bus, update the map center
+            if (isFollowingBus && followedDeviceId === deviceId && mapRef.current) {
+              setMapCenter({ lat: newPosition.lat, lng: newPosition.lng });
+              mapRef.current.panTo({ lat: newPosition.lat, lng: newPosition.lng });
+            }
+          }
+        } catch (err) {
+          console.error('Error parsing WebSocket message:', err);
+        }
+      });
+
+      console.log('Subscribed to /topic/gps-updates');
+    };
+
+    client.onStompError = (frame) => {
+      console.error('STOMP error:', frame);
+      toast({
+        title: 'WebSocket Error',
+        description: 'Failed to connect to real-time updates. Please try again.',
+        variant: 'destructive',
+        duration: 5000,
+      });
+    };
+
+    client.activate();
+    stompClientRef.current = client;
+
+    return () => {
+      if (stompClientRef.current) {
+        stompClientRef.current.deactivate().then(() => {
+          console.log('Disconnected cleanly.');
+        });
+      }
+    };
+  }, [navigate, isFollowingBus, followedDeviceId]);
+
+  // Smooth animation for bus movement
+  const animateBusMovement = useCallback((deviceId, start, end) => {
+    if (animationRefs.current[deviceId]) {
+      cancelAnimationFrame(animationRefs.current[deviceId]);
+    }
+
+    const startTime = Date.now();
+    const duration = 2000;
+
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      const ease = (t) => (t < 0.5 ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1);
+      const easedProgress = ease(progress);
+
+      const lat = start.lat + (end.lat - start.lat) * easedProgress;
+      const lng = start.lng + (end.lng - start.lng) * easedProgress;
+
+      let heading = start.heading;
+      if (start.lat !== end.lat || start.lng !== end.lng) {
+        heading = window.google.maps.geometry.spherical.computeHeading(
+          new window.google.maps.LatLng(start.lat, start.lng),
+          new window.google.maps.LatLng(end.lat, end.lng)
+        );
+      }
+
+      const newPosition = {
+        lat,
+        lng,
+        heading,
+        timestamp: Date.now(),
+        routeId: end.routeId,
+        deviceId: end.deviceId,
+        schoolId: end.schoolId
+      };
+
+      setBusPositions(prev => ({
+        ...prev,
+        [deviceId]: newPosition
+      }));
+
+      if (progress < 1) {
+        animationRefs.current[deviceId] = requestAnimationFrame(animate);
+      } else {
+        lastPositionsRef.current[deviceId] = end;
+      }
+    };
+
+    animationRefs.current[deviceId] = requestAnimationFrame(animate);
+  }, []);
+
+  // Update bus positions with animation
+  useEffect(() => {
+    Object.entries(busPositions).forEach(([deviceId, position]) => {
+      const lastPosition = lastPositionsRef.current[deviceId];
+      
+      if (lastPosition && 
+          (lastPosition.lat !== position.lat || lastPosition.lng !== position.lng)) {
+        animateBusMovement(deviceId, lastPosition, position);
+      } else if (!lastPosition) {
+        lastPositionsRef.current[deviceId] = position;
+      }
+    });
+  }, [busPositions, animateBusMovement]);
+
+  // Toggle follow bus mode for specific device
+  const toggleFollowBus = (deviceId, routeId) => {
+    if (isFollowingBus && followedDeviceId === deviceId) {
+      setIsFollowingBus(false);
+      setFollowedDeviceId(null);
+    } else {
+      const route = routes.find(r => (r.smRouteId || r.id) === routeId);
+      if (route) {
+        setIsFollowingBus(true);
+        setFollowedDeviceId(deviceId);
+        setSelectedRouteId(routeId);
+        setSelectedRoute(route);
+        setShowAllRoutes(false);
+        calculateDirections(route);
+        
+        // Center on the bus
+        const busPosition = busPositions[deviceId];
+        if (busPosition && mapRef.current) {
+          setMapCenter({ lat: busPosition.lat, lng: busPosition.lng });
+          mapRef.current.panTo({ lat: busPosition.lat, lng: busPosition.lng });
+        }
+      }
+    }
+  };
+
+  // Center map on a specific bus
+  const centerMapOnBus = (deviceId) => {
+    const busPosition = busPositions[deviceId];
+    if (busPosition && mapRef.current) {
+      setMapCenter({ lat: busPosition.lat, lng: busPosition.lng });
+      mapRef.current.panTo({ lat: busPosition.lat, lng: busPosition.lng });
+    }
+  };
+
   // Effects
   useEffect(() => {
     fetchRoutes();
@@ -608,17 +861,36 @@ const LiveMap = () => {
                 );
               })}
 
-              {/* Bus Marker at Starting Point for Single Route */}
-              {!showAllRoutes && displayPoints.length > 0 && busIconRef.current && (
-                <Marker
-                  position={{
-                    lat: parseCoordinate(displayPoints[0].latitude),
-                    lng: parseCoordinate(displayPoints[0].longitude),
-                  }}
-                  icon={busIconRef.current}
-                  zIndex={1001}
-                />
-              )}
+              {/* Bus Markers */}
+              {Object.entries(busPositions).map(([deviceId, position]) => {
+                const routeForBus = routes.find(route => 
+                  (route.smRouteId || route.id) === position.routeId
+                );
+                
+                if (!routeForBus) return null;
+                
+                const isDefault = deviceId.startsWith('default-');
+                const title = isDefault ? `Awaiting start - ${routeForBus.routeName}` : `Bus ${deviceId} - ${routeForBus.routeName}`;
+                
+                return (
+                  <Marker
+                    key={deviceId}
+                    position={{
+                      lat: position.lat,
+                      lng: position.lng,
+                    }}
+                    icon={{
+                      ...busIconRef.current,
+                      rotation: position.heading || 0,
+                    }}
+                    zIndex={1001}
+                    title={title}
+                    onClick={() => {
+                      toggleFollowBus(deviceId, position.routeId);
+                    }}
+                  />
+                );
+              })}
             </GoogleMap>
           )}
         </div>
@@ -642,20 +914,52 @@ const LiveMap = () => {
                 </div>
               </div>
 
-              <div className="mb-4 p-3 bg-yellow-500/20 border border-yellow-500/30 rounded-lg shadow-md">
-                <p className="text-yellow-300 text-sm font-medium text-center">Bus not started yet</p>
-              </div>
+              {/* Bus Status */}
+              {Object.entries(busPositions).filter(([id, pos]) => pos.routeId === selectedRouteId && !id.startsWith('default-')).length > 0 ? (
+                <div className="mb-4 p-3 bg-green-500/20 border border-green-500/30 rounded-lg shadow-md">
+                  <p className="text-green-300 text-sm font-medium text-center">Bus is active and moving</p>
+                </div>
+              ) : (
+                <div className="mb-4 p-3 bg-yellow-500/20 border border-yellow-500/30 rounded-lg shadow-md">
+                  <p className="text-yellow-300 text-sm font-medium text-center">Bus not started yet</p>
+                </div>
+              )}
 
               <div className="mb-6">
                 <div className="flex justify-between text-sm text-gray-300 mb-2">
-                  <span className="font-medium">Route Progress</span>
-                  <span className="font-bold">0%</span>
+                  <span className="font-medium">Active Buses</span>
+                  <span className="font-bold">
+                    {Object.entries(busPositions).filter(([id, pos]) => pos.routeId === selectedRouteId && !id.startsWith('default-')).length}
+                  </span>
                 </div>
-                <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden shadow-inner">
-                  <div
-                    className="bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full transition-all duration-500 ease-out shadow-lg animate-pulse"
-                    style={{ width: `0%` }}
-                  ></div>
+                <div className="space-y-2">
+                  {Object.entries(busPositions)
+                    .filter(([id, pos]) => pos.routeId === selectedRouteId && !id.startsWith('default-'))
+                    .map(([deviceId, position]) => (
+                      <div key={deviceId} className="flex items-center justify-between p-2 bg-blue-900/30 rounded-lg">
+                        <div className="flex items-center">
+                          <Bus className="w-4 h-4 mr-2 text-blue-400" />
+                          <span className="text-sm text-white">Bus {deviceId}</span>
+                        </div>
+                        <div className="flex space-x-2">
+                          <Button
+                            size="sm"
+                            onClick={() => centerMapOnBus(deviceId)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
+                          >
+                            Center
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => toggleFollowBus(deviceId, position.routeId)}
+                            className={`${isFollowingBus && followedDeviceId === deviceId ? 'bg-green-600' : 'bg-gray-600'} hover:bg-green-700 text-white text-xs`}
+                          >
+                            {isFollowingBus && followedDeviceId === deviceId ? 'Following' : 'Follow'}
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  }
                 </div>
               </div>
 
@@ -663,7 +967,7 @@ const LiveMap = () => {
                 {displayPoints.map((point, index) => {
                   const isStart = index === 0;
                   const isEnd = index === displayPoints.length - 1;
-                  const isBoardingPoint = point.routePointName.toLowerCase().includes('boarding') || point.id === 226; // Example
+                  const isBoardingPoint = point.routePointName.toLowerCase().includes('boarding') || point.id === 226;
                   const isCompleted = false; // No real-time
                   const isCurrent = false; // No real-time
 
@@ -759,7 +1063,7 @@ const LiveMap = () => {
                           </div>
                           <div className="text-yellow-400 flex items-center">
                             <AlertCircle className="w-4 h-4 mr-2" />
-                            Status: Bus not started yet
+                            Status: {Object.entries(busPositions).filter(([id, pos]) => pos.routeId === selectedRouteId && !id.startsWith('default-')).length > 0 ? 'Bus active' : 'Bus not started yet'}
                           </div>
                           <div className="absolute right-full top-1/2 transform translate-x-1/2 -translate-y-1/2 border-8 border-transparent border-r-gray-900 rotate-180"></div>
                         </div>
@@ -776,10 +1080,49 @@ const LiveMap = () => {
                   </div>
                   <div className="ml-3">
                     <p className="text-sm font-medium text-white">Bus Status</p>
-                    <p className="text-xs text-gray-300">Next: Calculating...</p>
+                    <p className="text-xs text-gray-300">
+                      {Object.entries(busPositions).filter(([id, pos]) => pos.routeId === selectedRouteId && !id.startsWith('default-')).length > 0 
+                        ? 'Active and moving' 
+                        : 'Not started yet'}
+                    </p>
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Bus List Panel for All Routes View */}
+        {showAllRoutes && Object.keys(busPositions).length > 0 && (
+          <div className="absolute right-4 top-4 w-80 bg-gradient-to-br from-gray-800 to-gray-900 p-6 rounded-2xl shadow-2xl z-10 border border-gray-700/50 backdrop-blur-md bg-opacity-95 overflow-auto max-h-96">
+            <h3 className="font-bold text-lg text-white mb-4">Active Buses</h3>
+            <div className="space-y-3">
+              {Object.entries(busPositions).filter(([id]) => !id.startsWith('default-')).map(([deviceId, position]) => {
+                const routeForBus = routes.find(route => 
+                  (route.smRouteId || route.id) === position.routeId
+                );
+                
+                return (
+                  <div key={deviceId} className="p-3 bg-blue-900/30 rounded-lg border border-blue-500/20">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="text-white font-medium">Bus {deviceId}</p>
+                        <p className="text-gray-300 text-sm">{routeForBus?.routeName || 'Unknown Route'}</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => toggleFollowBus(deviceId, position.routeId)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                      >
+                        {isFollowingBus && followedDeviceId === deviceId ? 'Following' : 'Follow'}
+                      </Button>
+                    </div>
+                    <div className="mt-2 text-xs text-gray-400">
+                      Updated: {new Date(position.timestamp).toLocaleTimeString()}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
