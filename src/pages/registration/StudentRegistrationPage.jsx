@@ -4,7 +4,7 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Card } from "../../components/ui/card";
-import { SearchableSelect } from "../../components/ui/searchable-select";
+import SearchableSelect from "../../components/ui/SearchableSelect";
 import { getToken } from "../../lib/token";
 import { countryCodes, cityCodes } from "../../lib/countryCodes";
 import Navbar from '../../components/Navbar';
@@ -453,7 +453,7 @@ export function StudentRegistrationFormPage() {
       : 'bg-white/80 border-blue-400 border-2',
     input: theme === 'dark'
       ? 'bg-gray-800/50 border-gray-700 text-white placeholder:text-gray-500'
-      : 'bg-gray-50/50 border-gray-300 text-gray-900 placeholder:text-gray-500',
+      : 'bg-gray-50/50 border-gray-300 text-gray-900 placeholder:text-gray-400',
     label: theme === 'dark' ? 'text-gray-300' : 'text-gray-700',
     title: theme === 'dark' ? 'text-yellow-400' : 'text-blue-600',
     subtitle: theme === 'dark' ? 'text-gray-300' : 'text-gray-600',

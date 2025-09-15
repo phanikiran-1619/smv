@@ -4,7 +4,7 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Card } from "../../components/ui/card";
-import { SearchableSelect } from "../../components/ui/searchable-select";
+import SearchableSelect from "../../components/ui/SearchableSelect";
 import { getToken } from "../../lib/token";
 import { countryCodes, cityCodes } from "../../lib/countryCodes";
 import Navbar from '../../components/Navbar';
