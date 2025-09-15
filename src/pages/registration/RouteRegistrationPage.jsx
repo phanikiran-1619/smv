@@ -1,116 +1,283 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from "react";
 import { useLocation } from 'react-router-dom';
-import axios from 'axios';
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import { Card } from "../../components/ui/card";
+import SearchableSelect from "../../components/ui/SearchableSelect";
+import SchoolSelect from "../../components/ui/SchoolSelect";
+import SkeletonForm from "../../components/ui/SkeletonForm";
+import { getToken } from "../../lib/token";
+import { countryCodes, cityCodes } from "../../lib/countryCodes";
 import Navbar from '../../components/Navbar';
-import { Card } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { Route, Save, RotateCcw, FileDown } from 'lucide-react';
+import { MapPin, Save, RotateCcw, Upload, FileDown } from 'lucide-react';
+import * as XLSX from "xlsx";
 
 const RouteRegistrationPage = () => {
   const location = useLocation();
   const { username } = location.state || { username: 'Admin' };
-  
-  const [mode, setMode] = useState('register');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
-  
+
+  const [theme, setTheme] = useState(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
   const [formData, setFormData] = useState({
-    smRouteId: '',
-    routeName: '',
-    title: '',
-    cityCode: '',
-    content: '',
-    schoolId: localStorage.getItem("adminSchoolId") || '',
-    status: true,
-    reserve: 0
+    routeName: "",
+    title: "",
+    status: "true",
+    reserve: 0,
+    smRouteId: "",
+    content: "",
+    schoolId: "",
+    cityCode: "",
+  });
+  
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [excelError, setExcelError] = useState(null);
+  const [isUpdateMode, setIsUpdateMode] = useState(false);
+  const [alertMessage, setAlertMessage] = useState(null);
+  const [errors, setErrors] = useState({});
+  const [routes, setRoutes] = useState([]);
+  const [selectedRouteForUpdate, setSelectedRouteForUpdate] = useState("");
+  const [loadingStates, setLoadingStates] = useState({
+    routes: false,
+    routeDetails: false,
   });
 
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
-  const getAuthToken = () => {
-    return localStorage.getItem("admintoken") || "YOUR_AUTH_TOKEN";
-  };
-
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-    setError(null);
-    setSuccess(null);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // Listen for theme changes from navbar
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+    });
     
-    if (!formData.smRouteId || !formData.routeName || !formData.title) {
-      setError('Please fill in all required fields');
-      return;
-    }
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    
+    return () => observer.disconnect();
+  }, []);
 
-    setLoading(true);
-    setError(null);
-    setSuccess(null);
+  // Initial data loading
+  useEffect(() => {
+    const initializePage = async () => {
+      const token = getToken();
+      if (!token) {
+        setAlertMessage("Please log in again.");
+        return;
+      }
+      
+      if (isUpdateMode) {
+        await fetchRoutes();
+      }
+    };
+    initializePage();
+  }, [isUpdateMode]);
 
+  // Fetch routes for update mode dropdown
+  const fetchRoutes = async () => {
     try {
-      const token = getAuthToken();
-      const url = mode === 'register' 
-        ? `${API_BASE_URL}/route`
-        : `${API_BASE_URL}/route/${formData.smRouteId}`;
+      setLoadingStates(prev => ({ ...prev, routes: true }));
+      const token = getToken();
+      if (!token) return;
       
-      const method = mode === 'register' ? 'post' : 'put';
-      
-      await axios[method](url, formData, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+      const response = await fetch(`${API_BASE_URL}/route`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-
-      setSuccess(`Route ${mode === 'register' ? 'registered' : 'updated'} successfully!`);
       
-      if (mode === 'register') {
-        handleReset();
+      if (response.ok) {
+        const data = await response.json();
+        setRoutes(Array.isArray(data) ? data : []);
       }
     } catch (error) {
-      console.error('Submit error:', error);
-      setError(error.response?.data?.message || `Failed to ${mode} route`);
+      console.error('Error fetching routes:', error);
     } finally {
-      setLoading(false);
+      setLoadingStates(prev => ({ ...prev, routes: false }));
     }
   };
 
-  const handleReset = () => {
+  // Fetch individual route details for auto-fill
+  const fetchRouteDetails = async (smRouteId) => {
+    try {
+      setLoadingStates(prev => ({ ...prev, routeDetails: true }));
+      const token = getToken();
+      if (!token) return;
+      
+      const response = await fetch(`${API_BASE_URL}/route/by-routeId?smRouteId=${smRouteId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setFormData({
+          routeName: data.routeName || "",
+          title: data.title || "",
+          status: data.status !== null ? (data.status ? "true" : "false") : "true",
+          reserve: data.reserve !== null ? data.reserve : 0,
+          smRouteId: data.smRouteId || "",
+          content: data.content || "",
+          schoolId: data.schId || "",
+          cityCode: data.cityCode || "",
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching route details:', error);
+      setAlertMessage("Failed to fetch route details");
+    } finally {
+      setLoadingStates(prev => ({ ...prev, routeDetails: false }));
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    // Route Name: At least 2 characters, max 20 characters (Required only in register mode)
+    if (!isUpdateMode) {
+      if (!formData.routeName || formData.routeName.length < 2) {
+        newErrors.routeName = "Route Name must be at least 2 characters long";
+      } else if (formData.routeName.length > 20) {
+        newErrors.routeName = "Route Name must be 20 characters or less";
+      }
+    } else if (formData.routeName) {
+      if (formData.routeName.length < 2) {
+        newErrors.routeName = "Route Name must be at least 2 characters long";
+      } else if (formData.routeName.length > 20) {
+        newErrors.routeName = "Route Name must be 20 characters or less";
+      }
+    }
+
+    // Title: At least 2 characters, max 20 characters (Required only in register mode)
+    if (!isUpdateMode) {
+      if (!formData.title || formData.title.length < 2) {
+        newErrors.title = "Title must be at least 2 characters long";
+      } else if (formData.title.length > 20) {
+        newErrors.title = "Title must be 20 characters or less";
+      }
+    } else if (formData.title) {
+      if (formData.title.length < 2) {
+        newErrors.title = "Title must be at least 2 characters long";
+      } else if (formData.title.length > 20) {
+        newErrors.title = "Title must be 20 characters or less";
+      }
+    }
+
+    // School ID: Must be exactly 8 characters, alphanumeric (Required only in register mode)
+    if (!isUpdateMode) {
+      if (!formData.schoolId) {
+        newErrors.schoolId = "Please select a school";
+      } else if (formData.schoolId.length !== 8) {
+        newErrors.schoolId = "School ID must be exactly 8 characters";
+      } else if (!/^[a-zA-Z0-9]+$/.test(formData.schoolId)) {
+        newErrors.schoolId = "School ID must be alphanumeric";
+      }
+    } else if (formData.schoolId) {
+      if (formData.schoolId.length !== 8) {
+        newErrors.schoolId = "School ID must be exactly 8 characters";
+      } else if (!/^[a-zA-Z0-9]+$/.test(formData.schoolId)) {
+        newErrors.schoolId = "School ID must be alphanumeric";
+      }
+    }
+
+    // City Code: Must be provided (Required only in register mode)
+    if (!isUpdateMode) {
+      if (!formData.cityCode) {
+        newErrors.cityCode = "Please select a city code";
+      } else if (!cityCodes.some((option) => option.id === formData.cityCode)) {
+        newErrors.cityCode = "Invalid city code";
+      }
+    } else if (formData.cityCode) {
+      if (!cityCodes.some((option) => option.id === formData.cityCode)) {
+        newErrors.cityCode = "Invalid city code";
+      }
+    }
+
+    // SM Route ID: Required in both modes, alphanumeric, max 10 characters
+    if (!formData.smRouteId) {
+      newErrors.smRouteId = "SM Route ID is required";
+    } else if (!/^[a-zA-Z0-9]+$/.test(formData.smRouteId)) {
+      newErrors.smRouteId = "SM Route ID must be alphanumeric";
+    } else if (formData.smRouteId.length > 10) {
+      newErrors.smRouteId = "SM Route ID must be 10 characters or less";
+    }
+
+    // Content: Optional, max 8 characters
+    if (formData.content && formData.content.length > 8) {
+      newErrors.content = "Content must be 8 characters or less";
+    }
+
+    // Reserve: Between 0 and 100
+    if (formData.reserve < 0 || formData.reserve > 100) {
+      newErrors.reserve = "Reserve must be a number between 0 and 100";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleChange = (event) => {
+    const { name, value, type, checked } = event.target;
     setFormData({
-      smRouteId: '',
-      routeName: '',
-      title: '',
-      cityCode: '',
-      content: '',
-      schoolId: localStorage.getItem("adminSchoolId") || '',
-      status: true,
-      reserve: 0
+      ...formData,
+      [name]: type === "checkbox" ? checked : type === "number" ? Number(value) : value.trim(),
     });
-    setError(null);
-    setSuccess(null);
+    setErrors({ ...errors, [name]: undefined });
+  };
+
+  const handleSelectChange = (field, value) => {
+    setFormData({
+      ...formData,
+      [field]: value,
+    });
+    setErrors({ ...errors, [field]: undefined });
+  };
+
+  const resetForm = (newUpdateMode = false) => {
+    setFormData({
+      routeName: "",
+      title: "",
+      status: "true",
+      reserve: 0,
+      smRouteId: "",
+      content: "",
+      schoolId: "",
+      cityCode: "",
+    });
+    setIsUpdateMode(newUpdateMode);
+    setExcelError(null);
+    setErrors({});
+    setSelectedRouteForUpdate("");
+  };
+
+  const handleRouteSelection = async (smRouteId) => {
+    setSelectedRouteForUpdate(smRouteId);
+    if (smRouteId) {
+      await fetchRouteDetails(smRouteId);
+    }
+  };
+
+  const checkExcelDuplicates = (routeDataArray) => {
+    const seenSmRouteIds = new Set();
+
+    for (let i = 0; i < routeDataArray.length; i++) {
+      const route = routeDataArray[i];
+      if (route.smRouteId && seenSmRouteIds.has(route.smRouteId)) {
+        setExcelError(`Row ${i + 2}: Duplicate SM Route ID: ${route.smRouteId}`);
+        return false;
+      }
+      if (route.smRouteId) seenSmRouteIds.add(route.smRouteId);
+    }
+    return true;
   };
 
   const downloadExcelTemplate = async () => {
     try {
-      const XLSX = await import('xlsx');
       const templateData = [
         {
-          'SM Route ID': 'RT001',
-          'Route Name': 'Main Street Route',
-          'Title': 'Main Street Bus Route',
-          'City Code': 'NYC',
-          'Content': 'Primary route through downtown area',
-          'School ID': formData.schoolId,
+          'Route Name': 'MG Road → Whitefield',
+          'Title': 'Main Route',
+          'SM Route ID': 'RT1F0001',
+          'School ID': 'SC1F0001',
+          'City Code': 'BNG',
+          'Content': 'Express',
+          'Reserve': '5',
           'Status': 'Active',
-          'Reserve': '0'
+          'Action': 'Register'
         }
       ];
       
@@ -118,196 +285,626 @@ const RouteRegistrationPage = () => {
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Route Template");
       XLSX.writeFile(workbook, `route_registration_template.xlsx`);
+      
+      setAlertMessage("Excel template downloaded successfully!");
     } catch (error) {
       console.error('Download failed:', error);
+      setAlertMessage("Failed to download template");
     }
   };
 
+  const SkeletonLoader = ({ height = "h-10" }) => (
+    <div className={`${height} bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse`}></div>
+  );
+
+  const themeClasses = {
+    background: theme === 'dark' 
+      ? 'min-h-screen bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 text-white'
+      : 'min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 text-gray-900',
+    card: theme === 'dark'
+      ? 'bg-slate-800/80 border-yellow-400 border-2'
+      : 'bg-white/80 border-blue-400 border-2',
+    input: theme === 'dark'
+      ? 'bg-gray-800/50 border-gray-700 text-white placeholder:text-gray-500'
+      : 'bg-gray-50/50 border-gray-300 text-gray-900 placeholder:text-gray-400',
+    label: theme === 'dark' ? 'text-gray-300' : 'text-gray-700',
+    title: theme === 'dark' ? 'text-yellow-400' : 'text-blue-600',
+    subtitle: theme === 'dark' ? 'text-gray-300' : 'text-gray-600',
+    alert: theme === 'dark' 
+      ? 'bg-slate-800 border-slate-700' 
+      : 'bg-white border-gray-300',
+  };
+
+  // Show loading skeleton while data is being fetched
+  if (loadingStates.routeDetails) {
+    return (
+      <div className={themeClasses.background}>
+        <Navbar showBackButton={true} />
+        <div className="pt-24 px-4 pb-8">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-8">
+              <h1 className={`text-4xl font-bold ${themeClasses.title} mb-2 flex items-center justify-center`}>
+                <MapPin className="w-10 h-10 mr-3" />
+                Enhanced Route Registration
+              </h1>
+              <p className={themeClasses.subtitle}>Loading route data...</p>
+            </div>
+            <SkeletonForm />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 text-white">
+    <div className={themeClasses.background}>
       <Navbar showBackButton={true} />
       
       <div className="pt-24 px-4 pb-8">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
+          {/* Header */}
           <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-yellow-400 mb-2 flex items-center justify-center">
-              <Route className="w-10 h-10 mr-3" />
-              Route Registration
+            <h1 className={`text-4xl font-bold ${themeClasses.title} mb-2 flex items-center justify-center`}>
+              <MapPin className="w-10 h-10 mr-3" />
+              Enhanced Route Registration
             </h1>
-            <p className="text-gray-300">Register and manage route information</p>
+            <p className={themeClasses.subtitle}>Advanced route registration with comprehensive validation and Excel support</p>
           </div>
 
+          {/* Mode Toggle */}
           <div className="flex justify-center mb-8">
-            <div className="bg-slate-700 rounded-xl p-1">
+            <div className={`${theme === 'dark' ? 'bg-slate-700' : 'bg-gray-200'} rounded-xl p-1`}>
               <button
-                onClick={() => setMode('register')}
+                onClick={() => resetForm(false)}
                 className={`px-6 py-2 rounded-lg transition-all ${
-                  mode === 'register' 
-                    ? 'bg-yellow-500 text-black font-semibold' 
-                    : 'text-gray-300 hover:text-white'
+                  !isUpdateMode 
+                    ? `${theme === 'dark' ? 'bg-yellow-500 text-black' : 'bg-blue-500 text-white'} font-semibold` 
+                    : `${theme === 'dark' ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`
                 }`}
               >
-                Register Route
+                Register Mode
               </button>
               <button
-                onClick={() => setMode('update')}
+                onClick={() => resetForm(true)}
                 className={`px-6 py-2 rounded-lg transition-all ${
-                  mode === 'update' 
-                    ? 'bg-yellow-500 text-black font-semibold' 
-                    : 'text-gray-300 hover:text-white'
+                  isUpdateMode 
+                    ? `${theme === 'dark' ? 'bg-yellow-500 text-black' : 'bg-blue-500 text-white'} font-semibold` 
+                    : `${theme === 'dark' ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`
                 }`}
               >
-                Update Route
+                Update Mode
               </button>
             </div>
           </div>
 
-          <Card className="bg-slate-800/80 border-yellow-400 border-2 p-8 rounded-2xl">
-            <form onSubmit={handleSubmit}>
+          {/* Alert Modal */}
+          {alertMessage && (
+            <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+              <div className={`${themeClasses.alert} rounded-lg p-6 max-w-md w-full mx-4 shadow-lg transform transition-all duration-300 scale-100`}>
+                <h3 className={`text-lg font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'} mb-2`}>Notification</h3>
+                <p className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'} mb-4 whitespace-pre-wrap break-words overflow-auto max-h-40`}>{alertMessage}</p>
+                <button
+                  onClick={() => setAlertMessage(null)}
+                  className={`w-full ${theme === 'dark' ? 'bg-yellow-400 hover:bg-yellow-500 text-black' : 'bg-blue-500 hover:bg-blue-600 text-white'} font-semibold py-2 rounded-lg transition duration-200`}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
+
+          <Card className={`${themeClasses.card} p-8 rounded-2xl`}>
+            {/* Route Selection Dropdown for Update Mode */}
+            {isUpdateMode && (
+              <div className={`mb-6 p-4 ${theme === 'dark' ? 'bg-blue-500/10 border-blue-500' : 'bg-blue-50 border-blue-300'} border rounded-xl`}>
+                <Label className={`${theme === 'dark' ? 'text-blue-300' : 'text-blue-700'} font-medium mb-2 block`}>
+                  Select Route to Update
+                </Label>
+                {loadingStates.routes ? (
+                  <SkeletonLoader />
+                ) : (
+                  <SearchableSelect
+                    options={routes.map(route => ({
+                      value: route.smRouteId,
+                      label: `${route.routeName} (${route.smRouteId})`
+                    }))}
+                    value={selectedRouteForUpdate}
+                    onValueChange={handleRouteSelection}
+                    placeholder="Search and select a route..."
+                    searchPlaceholder="Type to search routes..."
+                    className={themeClasses.input}
+                  />
+                )}
+                <p className={`${theme === 'dark' ? 'text-blue-300' : 'text-blue-600'} text-sm mt-2`}>
+                  Select a route from the dropdown to auto-fill the form with current data
+                </p>
+              </div>
+            )}
+
+            <form
+              onSubmit={async (event) => {
+                event.preventDefault();
+                if (isSubmitting) return;
+
+                if (!validateForm()) {
+                  setAlertMessage("Please fix the form errors before submitting");
+                  return;
+                }
+
+                setIsSubmitting(true);
+
+                const token = getToken();
+                if (!token) {
+                  setAlertMessage("Please log in again.");
+                  setIsSubmitting(false);
+                  return;
+                }
+
+                try {
+                  if (isUpdateMode) {
+                    const updateBody = {};
+                    if (formData.routeName) updateBody.routeName = formData.routeName;
+                    if (formData.title) updateBody.title = formData.title;
+                    if (formData.status !== undefined) updateBody.status = formData.status === "true" ? 1 : 0;
+                    if (formData.reserve !== undefined) updateBody.reserve = formData.reserve;
+                    if (formData.content) updateBody.content = formData.content;
+                    if (formData.schoolId) updateBody.schoolId = formData.schoolId;
+                    if (formData.cityCode) updateBody.cityCode = formData.cityCode;
+
+                    const response = await fetch(
+                      `${API_BASE_URL}/route/update/${formData.smRouteId}`,
+                      {
+                        method: "PUT",
+                        headers: {
+                          "Content-Type": "application/json",
+                          "Authorization": `Bearer ${token}`,
+                        },
+                        body: JSON.stringify(updateBody),
+                      }
+                    );
+
+                    const responseText = await response.text();
+                    let responseData;
+
+                    try {
+                      responseData = JSON.parse(responseText);
+                    } catch {
+                      responseData = { message: responseText };
+                    }
+
+                    if (!response.ok) {
+                      throw new Error(responseData.message || `Update failed with status ${response.status}`);
+                    }
+
+                    setAlertMessage(responseData.message || "Route updated successfully");
+                    resetForm();
+                  } else {
+                    const registerBody = {
+                      routeName: formData.routeName,
+                      title: formData.title,
+                      status: formData.status === "true" ? 1 : 0,
+                      reserve: formData.reserve,
+                      smRouteId: formData.smRouteId,
+                      content: formData.content,
+                      schoolId: formData.schoolId,
+                      cityCode: formData.cityCode,
+                    };
+
+                    const response = await fetch(`${API_BASE_URL}/route/register`, {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`,
+                      },
+                      body: JSON.stringify(registerBody),
+                    });
+
+                    const responseText = await response.text();
+                    let responseData;
+
+                    try {
+                      responseData = JSON.parse(responseText);
+                    } catch {
+                      responseData = { message: responseText };
+                    }
+
+                    if (!response.ok) {
+                      throw new Error(responseData.message || `Registration failed with status ${response.status}`);
+                    }
+
+                    setAlertMessage(`Registration successful: ${JSON.stringify(responseData)}`);
+                    resetForm();
+                  }
+                } catch (error) {
+                  const errorMessage = error instanceof Error ? error.message : `${isUpdateMode ? "Update" : "Registration"} failed`;
+                  setAlertMessage(errorMessage);
+                } finally {
+                  setIsSubmitting(false);
+                }
+              }}
+              className="space-y-6"
+            >
+              <div className={`text-2xl font-bold text-center ${theme === 'dark' ? 'text-white' : 'text-gray-900'} mb-4`}>
+                Route {isUpdateMode ? "Update" : "Registration"}
+              </div>
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">
-                    SM Route ID <span className="text-red-400">*</span>
-                  </label>
+                <div className="space-y-2">
+                  <Label htmlFor="routeName" className={themeClasses.label}>
+                    Route Name: {!isUpdateMode && <span className="text-red-400">*</span>}
+                  </Label>
                   <Input
-                    type="text"
-                    value={formData.smRouteId}
-                    onChange={(e) => handleInputChange('smRouteId', e.target.value)}
-                    placeholder="Enter SM Route ID"
-                    className="bg-slate-700 border-slate-600 rounded-lg text-white focus:border-yellow-400"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">
-                    Route Name <span className="text-red-400">*</span>
-                  </label>
-                  <Input
-                    type="text"
-                    value={formData.routeName}
-                    onChange={(e) => handleInputChange('routeName', e.target.value)}
+                    id="routeName"
+                    name="routeName"
                     placeholder="Enter Route Name"
-                    className="bg-slate-700 border-slate-600 rounded-lg text-white focus:border-yellow-400"
-                    required
+                    value={formData.routeName}
+                    onChange={handleChange}
+                    maxLength={20}
+                    required={!isUpdateMode}
+                    className={`${themeClasses.input} ${errors.routeName ? "border-red-500" : ""}`}
+                    disabled={isSubmitting}
                   />
+                  {errors.routeName && <p className="text-red-500 text-sm">{errors.routeName}</p>}
                 </div>
 
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">
-                    Title <span className="text-red-400">*</span>
-                  </label>
+                <div className="space-y-2">
+                  <Label htmlFor="title" className={themeClasses.label}>
+                    Title: {!isUpdateMode && <span className="text-red-400">*</span>}
+                  </Label>
                   <Input
-                    type="text"
+                    id="title"
+                    name="title"
+                    placeholder="Enter Title"
                     value={formData.title}
-                    onChange={(e) => handleInputChange('title', e.target.value)}
-                    placeholder="Enter Route Title"
-                    className="bg-slate-700 border-slate-600 rounded-lg text-white focus:border-yellow-400"
+                    onChange={handleChange}
+                    maxLength={20}
+                    required={!isUpdateMode}
+                    className={`${themeClasses.input} ${errors.title ? "border-red-500" : ""}`}
+                    disabled={isSubmitting}
+                  />
+                  {errors.title && <p className="text-red-500 text-sm">{errors.title}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="smRouteId" className={themeClasses.label}>
+                    SM Route ID: <span className="text-red-400">*</span>
+                  </Label>
+                  <Input
+                    id="smRouteId"
+                    name="smRouteId"
+                    placeholder="Enter SM Route ID"
+                    value={formData.smRouteId}
+                    onChange={handleChange}
+                    maxLength={10}
                     required
+                    disabled={isUpdateMode && formData.smRouteId}
+                    className={`${themeClasses.input} ${errors.smRouteId ? "border-red-500" : ""} ${isUpdateMode && formData.smRouteId ? "opacity-50 cursor-not-allowed" : ""}`}
                   />
+                  {errors.smRouteId && <p className="text-red-500 text-sm">{errors.smRouteId}</p>}
                 </div>
 
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">City Code</label>
-                  <Input
-                    type="text"
+                <div className={`space-y-2 ${errors.schoolId ? "border border-red-500 rounded p-2" : ""}`}>
+                  <Label className={themeClasses.label}>
+                    School: {!isUpdateMode && <span className="text-red-400">*</span>}
+                  </Label>
+                  <SchoolSelect
+                    value={formData.schoolId}
+                    onChange={(value) => handleSelectChange('schoolId', value)}
+                    error={!!errors.schoolId}
+                  />
+                  {errors.schoolId && <p className="text-red-500 text-sm">{errors.schoolId}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="cityCode" className={themeClasses.label}>
+                    City Code: {!isUpdateMode && <span className="text-red-400">*</span>}
+                  </Label>
+                  <SearchableSelect
+                    options={cityCodes.map(city => ({
+                      value: city.id,
+                      label: `${city.name} - ${city.id}`
+                    }))}
                     value={formData.cityCode}
-                    onChange={(e) => handleInputChange('cityCode', e.target.value)}
-                    placeholder="Enter City Code"
-                    className="bg-slate-700 border-slate-600 rounded-lg text-white focus:border-yellow-400"
+                    onValueChange={(value) => handleSelectChange('cityCode', value)}
+                    placeholder="Select City Code"
+                    searchPlaceholder="Search cities..."
+                    error={!!errors.cityCode}
+                    disabled={isSubmitting}
+                    className={themeClasses.input}
                   />
+                  {errors.cityCode && <p className="text-red-500 text-sm">{errors.cityCode}</p>}
                 </div>
 
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">Reserve Number</label>
+                <div className="space-y-2">
+                  <Label htmlFor="content" className={themeClasses.label}>
+                    Content:
+                  </Label>
                   <Input
-                    type="number"
-                    value={formData.reserve}
-                    onChange={(e) => handleInputChange('reserve', parseInt(e.target.value) || 0)}
-                    placeholder="Enter Reserve Number"
-                    className="bg-slate-700 border-slate-600 rounded-lg text-white focus:border-yellow-400"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">Status</label>
-                  <Select onValueChange={(value) => handleInputChange('status', value === 'true')} value={formData.status.toString()}>
-                    <SelectTrigger className="bg-slate-700 border-slate-600 rounded-lg text-white focus:border-yellow-400">
-                      <SelectValue placeholder="Select Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="true">Active</SelectItem>
-                      <SelectItem value="false">Inactive</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-white text-sm font-medium mb-2">Content/Description</label>
-                  <Input
-                    type="text"
+                    id="content"
+                    name="content"
+                    placeholder="Enter Content"
                     value={formData.content}
-                    onChange={(e) => handleInputChange('content', e.target.value)}
-                    placeholder="Enter Route Description"
-                    className="bg-slate-700 border-slate-600 rounded-lg text-white focus:border-yellow-400"
+                    onChange={handleChange}
+                    maxLength={8}
+                    className={`${themeClasses.input} ${errors.content ? "border-red-500" : ""}`}
+                    disabled={isSubmitting}
+                  />
+                  {errors.content && <p className="text-red-500 text-sm">{errors.content}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="reserve" className={themeClasses.label}>
+                    Reserve Info:
+                  </Label>
+                  <Input
+                    id="reserve"
+                    name="reserve"
+                    type="number"
+                    placeholder="Enter Reserve Info"
+                    value={formData.reserve}
+                    onChange={handleChange}
+                    className={`${themeClasses.input} ${errors.reserve ? "border-red-500" : ""}`}
+                    min={0}
+                    max={100}
+                    disabled={isSubmitting}
+                  />
+                  {errors.reserve && <p className="text-red-500 text-sm">{errors.reserve}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="status" className={themeClasses.label}>
+                    Status:
+                  </Label>
+                  <SearchableSelect
+                    options={[
+                      { value: "true", label: "Active" },
+                      { value: "false", label: "Inactive" }
+                    ]}
+                    value={formData.status}
+                    onValueChange={(value) => handleSelectChange('status', value)}
+                    placeholder="Select Status"
+                    searchPlaceholder="Search status..."
+                    disabled={isSubmitting}
+                    className={themeClasses.input}
                   />
                 </div>
               </div>
 
-              {error && (
-                <div className="mt-6 p-4 bg-red-500/10 border border-red-500 text-red-300 rounded-xl">
-                  <p className="font-bold">Error:</p>
-                  <p>{error}</p>
-                </div>
-              )}
+              {/* Excel Upload and Action Buttons */}
+              <div className="flex flex-wrap gap-4">
+                <label className="flex-1 min-w-0">
+                  <input
+                    type="file"
+                    accept=".xlsx, .xls"
+                    onChange={async (event) => {
+                      const file = event.target.files?.[0];
+                      if (!file) return;
 
-              {success && (
-                <div className="mt-6 p-4 bg-green-500/10 border border-green-500 text-green-300 rounded-xl">
-                  <p className="font-bold">Success:</p>
-                  <p>{success}</p>
-                </div>
-              )}
+                      const token = getToken();
+                      if (!token) {
+                        setAlertMessage("Please log in again.");
+                        return;
+                      }
 
-              <div className="mt-8 flex flex-col sm:flex-row gap-4">
+                      const reader = new FileReader();
+                      reader.onload = async (e) => {
+                        try {
+                          const data = new Uint8Array(e.target?.result);
+                          const workbook = XLSX.read(data, { type: "array" });
+                          const sheetName = workbook.SheetNames[0];
+                          const worksheet = workbook.Sheets[sheetName];
+                          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                          const headers = jsonData[0];
+                          const requiredHeaders = [
+                            "Route Name", "Title", "SM Route ID", "School ID", "City Code"
+                          ];
+                          const missingRequiredHeaders = requiredHeaders.filter(
+                            (header) => !headers.includes(header)
+                          );
+                          if (missingRequiredHeaders.length > 0) {
+                            setExcelError(`Missing required headers: ${missingRequiredHeaders.join(", ")}`);
+                            return;
+                          }
+
+                          const routeDataArray = [];
+                          for (let i = 1; i < jsonData.length; i++) {
+                            const row = jsonData[i];
+                            if (!row || row.length === 0) continue;
+
+                            const rowObject = headers.reduce((obj, header, index) => {
+                              obj[header] = String(row[index] ?? "");
+                              return obj;
+                            }, {});
+
+                            // Validation for required fields
+                            const requiredFields = ["Route Name", "Title", "SM Route ID", "School ID", "City Code"];
+                            const missingFields = requiredFields.filter(field => !rowObject[field]);
+                            if (missingFields.length > 0) {
+                              setExcelError(`Row ${i + 1}: Missing required fields: ${missingFields.join(", ")}`);
+                              return;
+                            }
+
+                            // Additional validations...
+                            if (!cityCodes.some((code) => code.id === rowObject["City Code"])) {
+                              setExcelError(`Row ${i + 1}: Invalid City Code: ${rowObject["City Code"]}`);
+                              return;
+                            }
+
+                            const action = rowObject["Action"] ? rowObject["Action"].toLowerCase() : "register";
+                            if (action !== "register" && action !== "update") {
+                              setExcelError(`Row ${i + 1}: Invalid Action value. Must be "Register" or "Update"`);
+                              return;
+                            }
+
+                            const reserveValue = rowObject["Reserve"] ? Number(rowObject["Reserve"]) : 0;
+                            if (isNaN(reserveValue) || reserveValue < 0 || reserveValue > 100) {
+                              setExcelError(`Row ${i + 1}: Reserve must be a number between 0 and 100`);
+                              return;
+                            }
+
+                            routeDataArray.push({
+                              routeName: rowObject["Route Name"].trim(),
+                              title: rowObject["Title"].trim(),
+                              status: rowObject["Status"] === "Active" || rowObject["Status"] === "true" || rowObject["Status"] === "1" ? "true" : "false",
+                              reserve: reserveValue,
+                              smRouteId: rowObject["SM Route ID"].trim(),
+                              content: rowObject["Content"]?.trim() || "",
+                              schoolId: rowObject["School ID"].trim(),
+                              cityCode: rowObject["City Code"].trim(),
+                              action: action,
+                            });
+                          }
+
+                          if (routeDataArray.length === 0) {
+                            setExcelError("Excel file contains no valid data rows.");
+                            return;
+                          }
+
+                          if (!checkExcelDuplicates(routeDataArray)) {
+                            return;
+                          }
+
+                          setIsSubmitting(true);
+                          const failedRegistrations = [];
+                          let successCount = 0;
+
+                          for (const routeData of routeDataArray) {
+                            try {
+                              const isUpdate = routeData.action === "update";
+                              const url = isUpdate
+                                ? `${API_BASE_URL}/route/update/${routeData.smRouteId}`
+                                : `${API_BASE_URL}/route/register`;
+                              const method = isUpdate ? "PUT" : "POST";
+
+                              if (isUpdate && !routeData.smRouteId) {
+                                failedRegistrations.push(`${routeData.routeName}: SM Route ID required for update`);
+                                continue;
+                              }
+
+                              const requestBody = isUpdate ? {} : {
+                                routeName: routeData.routeName,
+                                title: routeData.title,
+                                status: routeData.status === "true" ? 1 : 0,
+                                reserve: routeData.reserve,
+                                smRouteId: routeData.smRouteId,
+                                content: routeData.content,
+                                schoolId: routeData.schoolId,
+                                cityCode: routeData.cityCode,
+                              };
+
+                              if (isUpdate) {
+                                if (routeData.routeName) requestBody.routeName = routeData.routeName;
+                                if (routeData.title) requestBody.title = routeData.title;
+                                if (routeData.status !== undefined) requestBody.status = routeData.status === "true" ? 1 : 0;
+                                if (routeData.reserve !== undefined) requestBody.reserve = routeData.reserve;
+                                if (routeData.content) requestBody.content = routeData.content;
+                                if (routeData.schoolId) requestBody.schoolId = routeData.schoolId;
+                                if (routeData.cityCode) requestBody.cityCode = routeData.cityCode;
+                              }
+
+                              const response = await fetch(url, {
+                                method,
+                                headers: {
+                                  "Content-Type": "application/json",
+                                  "Authorization": `Bearer ${token}`,
+                                },
+                                body: JSON.stringify(requestBody),
+                              });
+
+                              const responseText = await response.text();
+                              let responseData;
+
+                              try {
+                                responseData = JSON.parse(responseText);
+                              } catch {
+                                responseData = { message: responseText };
+                              }
+
+                              if (!response.ok) {
+                                failedRegistrations.push(`${routeData.routeName || routeData.smRouteId}: ${responseData.message || "Request failed"}`);
+                              } else {
+                                successCount++;
+                              }
+                            } catch {
+                              failedRegistrations.push(`${routeData.routeName || routeData.smRouteId}: Network or unexpected error`);
+                            }
+                          }
+
+                          setIsSubmitting(false);
+
+                          if (failedRegistrations.length === 0) {
+                            setAlertMessage(`${successCount} routes processed successfully`);
+                            resetForm();
+                            setExcelError(null);
+                          } else {
+                            const message = [`${successCount} routes processed successfully`, `Failed to process ${failedRegistrations.length} routes:`, ...failedRegistrations].join("\
+");
+                            setExcelError(message);
+                          }
+                        } catch {
+                          console.error("Error parsing Excel file:");
+                          setExcelError("Failed to parse Excel file. Ensure it is a valid Excel file.");
+                        }
+                      };
+                      reader.readAsArrayBuffer(file);
+                    }}
+                    className="hidden"
+                    disabled={isSubmitting}
+                  />
+                  <span className="w-full inline-flex items-center justify-center bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 rounded-lg cursor-pointer transition-colors duration-200">
+                    <Upload className="w-4 h-4 mr-2" />
+                    {isSubmitting ? "Processing..." : "Upload Excel"}
+                  </span>
+                </label>
+
                 <Button
                   type="submit"
-                  disabled={loading}
-                  className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 rounded-xl transition-all"
+                  className={`flex-1 ${theme === 'dark' ? 'bg-yellow-400 hover:bg-yellow-500 text-black' : 'bg-blue-500 hover:bg-blue-600 text-white'} font-semibold py-2.5`}
+                  disabled={isSubmitting}
                 >
-                  {loading ? (
-                    <span className="flex items-center">
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      {mode === 'register' ? 'Registering...' : 'Updating...'}
-                    </span>
-                  ) : (
-                    <span className="flex items-center">
-                      <Save className="w-4 h-4 mr-2" />
-                      {mode === 'register' ? 'Register Route' : 'Update Route'}
-                    </span>
-                  )}
+                  <Save className="w-4 h-4 mr-2" />
+                  {isSubmitting
+                    ? isUpdateMode
+                      ? "Updating..."
+                      : "Registering..."
+                    : isUpdateMode
+                    ? "Update Route"
+                    : "Register Route"}
                 </Button>
 
                 <Button
                   type="button"
-                  onClick={handleReset}
-                  className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 rounded-xl transition-all"
+                  onClick={() => resetForm(!isUpdateMode)}
+                  className={`flex-1 ${theme === 'dark' ? 'bg-blue-400 hover:bg-blue-500' : 'bg-gray-400 hover:bg-gray-500'} text-white font-semibold py-2.5`}
+                  disabled={isSubmitting}
                 >
                   <RotateCcw className="w-4 h-4 mr-2" />
-                  Reset Form
+                  {isUpdateMode ? "Switch to Register" : "Switch to Update"}
                 </Button>
 
                 <Button
                   type="button"
                   onClick={downloadExcelTemplate}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl transition-all"
+                  className="flex-1 bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2.5"
+                  disabled={isSubmitting}
                 >
                   <FileDown className="w-4 h-4 mr-2" />
                   Download Template
                 </Button>
               </div>
+
+              {excelError && (
+                <div className={`mt-4 p-4 ${theme === 'dark' ? 'bg-red-500/10 border-red-500 text-red-300' : 'bg-red-50 border-red-300 text-red-700'} border rounded-xl whitespace-pre-wrap`}>
+                  <p className="font-bold">Excel Processing Error:</p>
+                  <p className="text-sm">{excelError}</p>
+                  <button
+                    onClick={() => setExcelError(null)}
+                    className={`mt-2 text-sm ${theme === 'dark' ? 'text-red-400 hover:text-red-300' : 'text-red-600 hover:text-red-500'} underline`}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              )}
             </form>
           </Card>
         </div>

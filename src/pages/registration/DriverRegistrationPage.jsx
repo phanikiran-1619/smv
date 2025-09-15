@@ -149,8 +149,8 @@ export function DriverRegistrationPage() {
 
     // Phone: 10-12 digits only
     if (!isUpdateMode || formData.phone) {
-      if (!formData.phone || !/^\d{10,12}$/.test(formData.phone)) {
-        newErrors.phone = "Phone number must be 10 to 12 digits";
+      if (!formData.phone || !/^\d{10}$/.test(formData.phone)) {
+        newErrors.phone = "Phone number must be 10 digits";
       }
     }
 
@@ -604,10 +604,10 @@ export function DriverRegistrationPage() {
                   <Input
                     id="phone"
                     name="phone"
-                    placeholder="Enter Phone (10-12 digits)"
+                    placeholder="Enter Phone (10 digits)"
                     value={formData.phone}
                     onChange={handleChange}
-                    maxLength={12}
+                    maxLength={10}
                     pattern="\d*"
                     required={!isUpdateMode}
                     className={`${themeClasses.input} ${errors.phone ? "border-red-500" : ""}`}
