@@ -1,119 +1,311 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from "react";
 import { useLocation } from 'react-router-dom';
-import axios from 'axios';
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import { Card } from "../../components/ui/card";
+import { SearchableSelect } from "../../components/ui/searchable-select";
+import { getToken } from "../../lib/token";
+import { countryCodes, cityCodes } from "../../lib/countryCodes";
 import Navbar from '../../components/Navbar';
-import { Card } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { Building2, Save, RotateCcw, FileDown } from 'lucide-react';
+import { Building2, Save, RotateCcw, Upload, FileDown } from 'lucide-react';
+import * as XLSX from "xlsx";
 
-const SchoolRegistrationPage = () => {
+export function SchoolRegistrationFormPage() {
   const location = useLocation();
   const { username } = location.state || { username: 'Admin' };
-  
-  const [mode, setMode] = useState('register');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
-  
+
+  const [theme, setTheme] = useState(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
   const [formData, setFormData] = useState({
-    id: '',
-    name: '',
-    address: '',
-    phone: '',
-    email: '',
-    principalName: '',
-    establishedYear: '',
-    type: 'PUBLIC',
-    status: 'ACTIVE'
+    schoolId: "",
+    name: "",
+    countryId: "IN",
+    provId: "",
+    areaId: "",
+    entityId: "",
+    contactName: "",
+    contactNum: "",
+    status: true,
+  });
+  
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [excelError, setExcelError] = useState(null);
+  const [isUpdateMode, setIsUpdateMode] = useState(false);
+  const [alertMessage, setAlertMessage] = useState(null);
+  const [errors, setErrors] = useState({});
+  const [schools, setSchools] = useState([]);
+  const [routes, setRoutes] = useState([]);
+  const [routePoints, setRoutePoints] = useState([]);
+  const [selectedSchoolForUpdate, setSelectedSchoolForUpdate] = useState("");
+  const [loadingStates, setLoadingStates] = useState({
+    schools: false,
+    routes: false,
+    routePoints: false,
   });
 
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
-  const getAuthToken = () => {
-    return localStorage.getItem("admintoken") || "YOUR_AUTH_TOKEN";
-  };
-
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-    setError(null);
-    setSuccess(null);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // Listen for theme changes from navbar
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+    });
     
-    if (!formData.id || !formData.name || !formData.address) {
-      setError('Please fill in all required fields');
-      return;
-    }
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    
+    return () => observer.disconnect();
+  }, []);
 
-    setLoading(true);
-    setError(null);
-    setSuccess(null);
+  // Initial data loading
+  useEffect(() => {
+    const initializePage = async () => {
+      const token = getToken();
+      if (!token) {
+        setAlertMessage("Please log in again.");
+        return;
+      }
+      
+      await Promise.all([
+        fetchSchools(),
+        fetchRoutes(),
+        fetchRoutePoints()
+      ]);
+    };
+    initializePage();
+  }, []);
 
+  // Fetch schools for update mode dropdown
+  const fetchSchools = async () => {
     try {
-      const token = getAuthToken();
-      const url = mode === 'register' 
-        ? `${API_BASE_URL}/school`
-        : `${API_BASE_URL}/school/${formData.id}`;
+      setLoadingStates(prev => ({ ...prev, schools: true }));
+      const token = getToken();
+      if (!token) return;
       
-      const method = mode === 'register' ? 'post' : 'put';
-      
-      await axios[method](url, formData, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+      const response = await fetch(`${API_BASE_URL}/school`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-
-      setSuccess(`School ${mode === 'register' ? 'registered' : 'updated'} successfully!`);
       
-      if (mode === 'register') {
-        handleReset();
+      if (response.ok) {
+        const data = await response.json();
+        setSchools(Array.isArray(data) ? data : []);
       }
     } catch (error) {
-      console.error('Submit error:', error);
-      setError(error.response?.data?.message || `Failed to ${mode} school`);
+      console.error('Error fetching schools:', error);
     } finally {
-      setLoading(false);
+      setLoadingStates(prev => ({ ...prev, schools: false }));
     }
   };
 
-  const handleReset = () => {
+  // Fetch routes for dropdown
+  const fetchRoutes = async () => {
+    try {
+      setLoadingStates(prev => ({ ...prev, routes: true }));
+      const token = getToken();
+      if (!token) return;
+      
+      const response = await fetch(`${API_BASE_URL}/route`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setRoutes(Array.isArray(data) ? data : []);
+      }
+    } catch (error) {
+      console.error('Error fetching routes:', error);
+    } finally {
+      setLoadingStates(prev => ({ ...prev, routes: false }));
+    }
+  };
+
+  // Fetch route points for dropdown
+  const fetchRoutePoints = async () => {
+    try {
+      setLoadingStates(prev => ({ ...prev, routePoints: true }));
+      const token = getToken();
+      if (!token) return;
+      
+      const response = await fetch(`${API_BASE_URL}/routepoint`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setRoutePoints(Array.isArray(data) ? data : []);
+      }
+    } catch (error) {
+      console.error('Error fetching route points:', error);
+    } finally {
+      setLoadingStates(prev => ({ ...prev, routePoints: false }));
+    }
+  };
+
+  // Fetch individual school details for auto-fill
+  const fetchSchoolDetails = async (schoolId) => {
+    try {
+      const token = getToken();
+      if (!token) return;
+      
+      const response = await fetch(`${API_BASE_URL}/school/${schoolId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const school = data[0];
+          setFormData({
+            schoolId: school.id || "",
+            name: school.name || "",
+            countryId: school.countryId || "IN",
+            provId: school.provId || "",
+            areaId: school.areaId || "",
+            entityId: school.entityId || "",
+            contactName: school.contactName || "",
+            contactNum: school.contactNum || "",
+            status: school.status !== undefined ? school.status : true,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching school details:', error);
+      setAlertMessage("Failed to fetch school details");
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    // School ID: Alphanumeric, exactly 8 characters, required in both modes
+    if (!formData.schoolId) {
+      newErrors.schoolId = "School ID is required";
+    } else if (!/^[a-zA-Z0-9]+$/.test(formData.schoolId)) {
+      newErrors.schoolId = "School ID must be alphanumeric";
+    } else if (formData.schoolId.length !== 8) {
+      newErrors.schoolId = "School ID must be exactly 8 characters";
+    }
+
+    // Name: Letters only, minimum 2 characters, max 20 characters
+    if (!isUpdateMode || formData.name) {
+      if (!formData.name || formData.name.length < 2) {
+        newErrors.name = "School name must be at least 2 characters long";
+      } else if (!/^[a-zA-Z\s]+$/.test(formData.name)) {
+        newErrors.name = "School name must contain letters only (spaces allowed)";
+      } else if (formData.name.length > 20) {
+        newErrors.name = "School name must be 20 characters or less";
+      }
+    }
+
+    // Country ID: Must be selected in registration mode
+    if (!isUpdateMode) {
+      if (!formData.countryId) {
+        newErrors.countryId = "Please select a country code";
+      }
+    }
+
+    // Province ID: Alphanumeric, max 3 characters, optional
+    if (formData.provId) {
+      if (!/^[a-zA-Z0-9]+$/.test(formData.provId)) {
+        newErrors.provId = "Province ID must be alphanumeric";
+      } else if (formData.provId.length > 3) {
+        newErrors.provId = "Province ID must be 3 characters or less";
+      }
+    }
+
+    // Area ID: Alphanumeric, max 3 characters, optional
+    if (formData.areaId) {
+      if (!/^[a-zA-Z0-9]+$/.test(formData.areaId)) {
+        newErrors.areaId = "Area ID must be alphanumeric";
+      } else if (formData.areaId.length > 3) {
+        newErrors.areaId = "Area ID must be 3 characters or less";
+      }
+    }
+
+    // Entity ID: Alphanumeric, max 3 characters, optional
+    if (formData.entityId) {
+      if (!/^[a-zA-Z0-9]+$/.test(formData.entityId)) {
+        newErrors.entityId = "Entity ID must be alphanumeric";
+      } else if (formData.entityId.length > 3) {
+        newErrors.entityId = "Entity ID must be 3 characters or less";
+      }
+    }
+
+    // Contact Name: Letters only, max 20 characters, optional
+    if (formData.contactName) {
+      if (!/^[a-zA-Z\s]+$/.test(formData.contactName)) {
+        newErrors.contactName = "Contact name must contain letters only (spaces allowed)";
+      } else if (formData.contactName.length > 20) {
+        newErrors.contactName = "Contact name must be 20 characters or less";
+      }
+    }
+
+    // Contact Number: exactly 10 digits, optional
+    if (formData.contactNum) {
+      if (!/^\d{10}$/.test(formData.contactNum)) {
+        newErrors.contactNum = "Contact number must be exactly 10 digits";
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleChange = (event) => {
+    const { name, value, type, checked } = event.target;
     setFormData({
-      id: '',
-      name: '',
-      address: '',
-      phone: '',
-      email: '',
-      principalName: '',
-      establishedYear: '',
-      type: 'PUBLIC',
-      status: 'ACTIVE'
+      ...formData,
+      [name]: type === "checkbox" ? checked : value.trim(),
     });
-    setError(null);
-    setSuccess(null);
+    setErrors({ ...errors, [name]: undefined });
+  };
+
+  const handleSelectChange = (field, value) => {
+    setFormData({
+      ...formData,
+      [field]: value,
+    });
+    setErrors({ ...errors, [field]: undefined });
+  };
+
+  const resetForm = (newUpdateMode = false) => {
+    setFormData({
+      schoolId: "",
+      name: "",
+      countryId: "IN",
+      provId: "",
+      areaId: "",
+      entityId: "",
+      contactName: "",
+      contactNum: "",
+      status: true,
+    });
+    setIsUpdateMode(newUpdateMode);
+    setExcelError(null);
+    setErrors({});
+    setSelectedSchoolForUpdate("");
+  };
+
+  const handleSchoolSelection = async (schoolId) => {
+    setSelectedSchoolForUpdate(schoolId);
+    if (schoolId) {
+      await fetchSchoolDetails(schoolId);
+    }
   };
 
   const downloadExcelTemplate = async () => {
     try {
-      const XLSX = await import('xlsx');
       const templateData = [
         {
-          'School ID': 'SCH001',
-          'School Name': 'Central High School',
-          'Address': '123 Education Street, City, State 12345',
-          'Phone': '+1234567890',
-          'Email': 'info@centralhigh.edu',
-          'Principal Name': 'Dr. John Smith',
-          'Established Year': '1995',
-          'Type': 'PUBLIC',
-          'Status': 'ACTIVE'
+          'School ID': 'SC001234',
+          'School Name': 'Sample School',
+          'Country Code': 'IN',
+          'Province ID': 'KA',
+          'Area ID': 'BNG',
+          'Entity ID': 'EDU',
+          'Contact Name': 'John Smith',
+          'Contact Number': '9876543210',
+          'Status': 'Active',
+          'Action': 'Register'
         }
       ];
       
@@ -121,230 +313,432 @@ const SchoolRegistrationPage = () => {
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "School Template");
       XLSX.writeFile(workbook, `school_registration_template.xlsx`);
+      
+      setAlertMessage("Excel template downloaded successfully!");
     } catch (error) {
       console.error('Download failed:', error);
+      setAlertMessage("Failed to download template");
     }
   };
 
+  const SkeletonLoader = ({ height = "h-10" }) => (
+    <div className={`${height} bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse`}></div>
+  );
+
+  const themeClasses = {
+    background: theme === 'dark' 
+      ? 'min-h-screen bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 text-white'
+      : 'min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 text-gray-900',
+    card: theme === 'dark'
+      ? 'bg-slate-800/80 border-yellow-400 border-2'
+      : 'bg-white/80 border-blue-400 border-2',
+    input: theme === 'dark'
+      ? 'bg-gray-800/50 border-gray-700 text-white placeholder:text-gray-500'
+      : 'bg-gray-50/50 border-gray-300 text-gray-900 placeholder:text-gray-400',
+    label: theme === 'dark' ? 'text-gray-300' : 'text-gray-700',
+    title: theme === 'dark' ? 'text-yellow-400' : 'text-blue-600',
+    subtitle: theme === 'dark' ? 'text-gray-300' : 'text-gray-600',
+    alert: theme === 'dark' 
+      ? 'bg-slate-800 border-slate-700' 
+      : 'bg-white border-gray-300',
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 text-white">
+    <div className={themeClasses.background}>
       <Navbar showBackButton={true} />
       
       <div className="pt-24 px-4 pb-8">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
+          {/* Header */}
           <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-yellow-400 mb-2 flex items-center justify-center">
+            <h1 className={`text-4xl font-bold ${themeClasses.title} mb-2 flex items-center justify-center`}>
               <Building2 className="w-10 h-10 mr-3" />
-              School Registration
+              Enhanced School Registration
             </h1>
-            <p className="text-gray-300">Register and manage school information</p>
+            <p className={themeClasses.subtitle}>Advanced school registration with comprehensive validation and Excel support</p>
           </div>
 
+          {/* Mode Toggle */}
           <div className="flex justify-center mb-8">
-            <div className="bg-slate-700 rounded-xl p-1">
+            <div className={`${theme === 'dark' ? 'bg-slate-700' : 'bg-gray-200'} rounded-xl p-1`}>
               <button
-                onClick={() => setMode('register')}
+                onClick={() => resetForm(false)}
                 className={`px-6 py-2 rounded-lg transition-all ${
-                  mode === 'register' 
-                    ? 'bg-yellow-500 text-black font-semibold' 
-                    : 'text-gray-300 hover:text-white'
+                  !isUpdateMode 
+                    ? `${theme === 'dark' ? 'bg-yellow-500 text-black' : 'bg-blue-500 text-white'} font-semibold` 
+                    : `${theme === 'dark' ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`
                 }`}
               >
-                Register School
+                Register Mode
               </button>
               <button
-                onClick={() => setMode('update')}
+                onClick={() => resetForm(true)}
                 className={`px-6 py-2 rounded-lg transition-all ${
-                  mode === 'update' 
-                    ? 'bg-yellow-500 text-black font-semibold' 
-                    : 'text-gray-300 hover:text-white'
+                  isUpdateMode 
+                    ? `${theme === 'dark' ? 'bg-yellow-500 text-black' : 'bg-blue-500 text-white'} font-semibold` 
+                    : `${theme === 'dark' ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`
                 }`}
               >
-                Update School
+                Update Mode
               </button>
             </div>
           </div>
 
-          <Card className="bg-slate-800/80 border-yellow-400 border-2 p-8 rounded-2xl">
-            <form onSubmit={handleSubmit}>
+          {/* Alert Modal */}
+          {alertMessage && (
+            <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+              <div className={`${themeClasses.alert} rounded-lg p-6 max-w-md w-full mx-4 shadow-lg transform transition-all duration-300 scale-100`}>
+                <h3 className={`text-lg font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'} mb-2`}>Notification</h3>
+                <p className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'} mb-4 whitespace-pre-wrap break-words overflow-auto max-h-40`}>{alertMessage}</p>
+                <button
+                  onClick={() => setAlertMessage(null)}
+                  className={`w-full ${theme === 'dark' ? 'bg-yellow-400 hover:bg-yellow-500 text-black' : 'bg-blue-500 hover:bg-blue-600 text-white'} font-semibold py-2 rounded-lg transition duration-200`}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
+
+          <Card className={`${themeClasses.card} p-8 rounded-2xl`}>
+            {/* School Selection Dropdown for Update Mode */}
+            {isUpdateMode && (
+              <div className={`mb-6 p-4 ${theme === 'dark' ? 'bg-blue-500/10 border-blue-500' : 'bg-blue-50 border-blue-300'} border rounded-xl`}>
+                <Label className={`${theme === 'dark' ? 'text-blue-900' : 'text-blue-700'} font-medium mb-2 block`}>
+                  Select School to Update
+                </Label>
+                {loadingStates.schools ? (
+                  <SkeletonLoader />
+                ) : (
+                  <SearchableSelect
+                    options={schools.map(school => ({
+                      value: school.id,
+                      label: `${school.name} (${school.id})`
+                    }))}
+                    value={selectedSchoolForUpdate}
+                    onValueChange={handleSchoolSelection}
+                    placeholder="Search and select a school..."
+                    searchPlaceholder="Type to search schools..."
+                    className={themeClasses.input}
+                  />
+                )}
+                <p className={`${theme === 'dark' ? 'text-blue-300' : 'text-blue-600'} text-sm mt-2`}>
+                  Select a school from the dropdown to auto-fill the form with its current data
+                </p>
+              </div>
+            )}
+
+            <form
+              onSubmit={async (event) => {
+                event.preventDefault();
+                if (isSubmitting) return;
+
+                if (!validateForm()) {
+                  setAlertMessage("Please fix the form errors before submitting");
+                  return;
+                }
+
+                setIsSubmitting(true);
+
+                const token = getToken();
+                if (!token) {
+                  setAlertMessage("Please log in again.");
+                  setIsSubmitting(false);
+                  return;
+                }
+
+                try {
+                  const response = await fetch(
+                    isUpdateMode
+                      ? `${API_BASE_URL}/school/update?id=${formData.schoolId}`
+                      : `${API_BASE_URL}/school/register`,
+                    {
+                      method: isUpdateMode ? "PUT" : "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                      },
+                      body: JSON.stringify({
+                        schoolId: formData.schoolId,
+                        name: formData.name,
+                        countryId: formData.countryId,
+                        provId: formData.provId,
+                        areaId: formData.areaId,
+                        entityId: formData.entityId,
+                        contactName: formData.contactName,
+                        contactNum: formData.contactNum,
+                        status: formData.status ? 1 : 0,
+                      }),
+                    }
+                  );
+
+                  const responseText = await response.text();
+                  let responseData;
+                  try {
+                    responseData = JSON.parse(responseText);
+                  } catch {
+                    responseData = { message: responseText };
+                  }
+
+                  if (!response.ok) {
+                    throw new Error(responseData.message || `${isUpdateMode ? "Update" : "Registration"} failed with status ${response.status}`);
+                  }
+
+                  setAlertMessage(responseData.message || `School ${isUpdateMode ? "updated" : "registered"} successfully`);
+                  resetForm(false);
+                } catch (error) {
+                  const errorMessage = error instanceof Error ? error.message : `${isUpdateMode ? "Update" : "Registration"} failed`;
+                  setAlertMessage(errorMessage);
+                } finally {
+                  setIsSubmitting(false);
+                }
+              }}
+              className="space-y-6"
+            >
+              <div className={`text-2xl font-bold text-center ${theme === 'dark' ? 'text-white' : 'text-gray-900'} mb-4`}>
+                School {isUpdateMode ? "Update" : "Registration"}
+              </div>
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">
-                    School ID <span className="text-red-400">*</span>
-                  </label>
+                <div className="space-y-2">
+                  <Label htmlFor="schoolId" className={themeClasses.label}>
+                    School ID: <span className="text-red-400">*</span>
+                  </Label>
                   <Input
-                    type="text"
-                    value={formData.id}
-                    onChange={(e) => handleInputChange('id', e.target.value)}
-                    placeholder="Enter School ID"
-                    className="bg-slate-700 border-slate-600 rounded-lg text-white focus:border-yellow-400"
+                    id="schoolId"
+                    name="schoolId"
+                    placeholder="Enter School ID (8 characters)"
+                    value={formData.schoolId}
+                    onChange={handleChange}
+                    maxLength={8}
                     required
+                    disabled={isUpdateMode && formData.schoolId}
+                    className={`${themeClasses.input} ${errors.schoolId ? "border-red-500" : ""} ${isUpdateMode && formData.schoolId ? "opacity-50 cursor-not-allowed" : ""}`}
                   />
+                  {errors.schoolId && <p className="text-red-500 text-sm">{errors.schoolId}</p>}
                 </div>
 
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">
-                    School Name <span className="text-red-400">*</span>
-                  </label>
+                <div className="space-y-2">
+                  <Label htmlFor="name" className={themeClasses.label}>
+                    School Name: {!isUpdateMode && <span className="text-red-400">*</span>}
+                  </Label>
                   <Input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => handleInputChange('name', e.target.value)}
+                    id="name"
+                    name="name"
                     placeholder="Enter School Name"
-                    className="bg-slate-700 border-slate-600 rounded-lg text-white focus:border-yellow-400"
-                    required
+                    value={formData.name}
+                    onChange={handleChange}
+                    maxLength={20}
+                    required={!isUpdateMode}
+                    disabled={isUpdateMode && formData.name}
+                    className={`${themeClasses.input} ${errors.name ? "border-red-500" : ""} ${isUpdateMode && formData.name ? "opacity-50 cursor-not-allowed" : ""}`}
                   />
+                  {errors.name && <p className="text-red-500 text-sm">{errors.name}</p>}
                 </div>
 
-                <div className="md:col-span-2">
-                  <label className="block text-white text-sm font-medium mb-2">
-                    Address <span className="text-red-400">*</span>
-                  </label>
+                <div className="space-y-2">
+                  <Label htmlFor="countryId" className={themeClasses.label}>
+                    Country Code: {!isUpdateMode && <span className="text-red-400">*</span>}
+                  </Label>
+                  <SearchableSelect
+                    options={countryCodes.map(code => ({
+                      value: code.id,
+                      label: `${code.country} - ${code.id}`
+                    }))}
+                    value={formData.countryId}
+                    onValueChange={(value) => handleSelectChange('countryId', value)}
+                    placeholder="Select Country Code"
+                    searchPlaceholder="Search countries..."
+                    error={!!errors.countryId}
+                    disabled={isSubmitting}
+                    className={themeClasses.input}
+                  />
+                  {errors.countryId && <p className="text-red-500 text-sm">{errors.countryId}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="provId" className={themeClasses.label}>
+                    Province ID:
+                  </Label>
                   <Input
-                    type="text"
-                    value={formData.address}
-                    onChange={(e) => handleInputChange('address', e.target.value)}
-                    placeholder="Enter School Address"
-                    className="bg-slate-700 border-slate-600 rounded-lg text-white focus:border-yellow-400"
-                    required
+                    id="provId"
+                    name="provId"
+                    placeholder="Enter Province ID (3 chars max)"
+                    value={formData.provId}
+                    onChange={handleChange}
+                    maxLength={3}
+                    className={`${themeClasses.input} ${errors.provId ? "border-red-500" : ""}`}
+                    disabled={isSubmitting}
                   />
+                  {errors.provId && <p className="text-red-500 text-sm">{errors.provId}</p>}
                 </div>
 
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">Phone</label>
+                <div className="space-y-2">
+                  <Label htmlFor="areaId" className={themeClasses.label}>
+                    Area ID:
+                  </Label>
+                  <SearchableSelect
+                    options={cityCodes.map(city => ({
+                      value: city.id,
+                      label: `${city.name} - ${city.id}`
+                    }))}
+                    value={formData.areaId}
+                    onValueChange={(value) => handleSelectChange('areaId', value)}
+                    placeholder="Select Area/City"
+                    searchPlaceholder="Search cities..."
+                    error={!!errors.areaId}
+                    disabled={isSubmitting}
+                    className={themeClasses.input}
+                  />
+                  {errors.areaId && <p className="text-red-500 text-sm">{errors.areaId}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="entityId" className={themeClasses.label}>
+                    Entity ID:
+                  </Label>
                   <Input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => handleInputChange('phone', e.target.value)}
-                    placeholder="Enter Phone Number"
-                    className="bg-slate-700 border-slate-600 rounded-lg text-white focus:border-yellow-400"
+                    id="entityId"
+                    name="entityId"
+                    placeholder="Enter Entity ID (3 chars max)"
+                    value={formData.entityId}
+                    onChange={handleChange}
+                    maxLength={3}
+                    className={`${themeClasses.input} ${errors.entityId ? "border-red-500" : ""}`}
+                    disabled={isSubmitting}
                   />
+                  {errors.entityId && <p className="text-red-500 text-sm">{errors.entityId}</p>}
                 </div>
 
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">Email</label>
+                <div className="space-y-2">
+                  <Label htmlFor="contactName" className={themeClasses.label}>
+                    Contact Name:
+                  </Label>
                   <Input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange('email', e.target.value)}
-                    placeholder="Enter Email Address"
-                    className="bg-slate-700 border-slate-600 rounded-lg text-white focus:border-yellow-400"
+                    id="contactName"
+                    name="contactName"
+                    placeholder="Enter Contact Name"
+                    value={formData.contactName}
+                    onChange={handleChange}
+                    maxLength={20}
+                    className={`${themeClasses.input} ${errors.contactName ? "border-red-500" : ""}`}
+                    disabled={isSubmitting}
                   />
+                  {errors.contactName && <p className="text-red-500 text-sm">{errors.contactName}</p>}
                 </div>
 
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">Principal Name</label>
+                <div className="space-y-2">
+                  <Label htmlFor="contactNum" className={themeClasses.label}>
+                    Contact Number:
+                  </Label>
                   <Input
-                    type="text"
-                    value={formData.principalName}
-                    onChange={(e) => handleInputChange('principalName', e.target.value)}
-                    placeholder="Enter Principal Name"
-                    className="bg-slate-700 border-slate-600 rounded-lg text-white focus:border-yellow-400"
+                    id="contactNum"
+                    name="contactNum"
+                    placeholder="Enter Contact Number (10 digits)"
+                    value={formData.contactNum}
+                    onChange={handleChange}
+                    maxLength={10}
+                    pattern="\d*"
+                    className={`${themeClasses.input} ${errors.contactNum ? "border-red-500" : ""}`}
+                    disabled={isSubmitting}
                   />
+                  {errors.contactNum && <p className="text-red-500 text-sm">{errors.contactNum}</p>}
                 </div>
 
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">Established Year</label>
-                  <Input
-                    type="number"
-                    value={formData.establishedYear}
-                    onChange={(e) => handleInputChange('establishedYear', e.target.value)}
-                    placeholder="Enter Established Year"
-                    className="bg-slate-700 border-slate-600 rounded-lg text-white focus:border-yellow-400"
-                    min="1900"
-                    max={new Date().getFullYear()}
+                <div className="space-y-2">
+                  <Label htmlFor="status" className={themeClasses.label}>
+                    Status:
+                  </Label>
+                  <SearchableSelect
+                    options={[
+                      { value: "true", label: "Active" },
+                      { value: "false", label: "Inactive" }
+                    ]}
+                    value={formData.status.toString()}
+                    onValueChange={(value) => setFormData({ ...formData, status: value === "true" })}
+                    placeholder="Select Status"
+                    searchPlaceholder="Search status..."
+                    disabled={isSubmitting}
+                    className={themeClasses.input}
                   />
-                </div>
-
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">School Type</label>
-                  <Select onValueChange={(value) => handleInputChange('type', value)} value={formData.type}>
-                    <SelectTrigger className="bg-slate-700 border-slate-600 rounded-lg text-white focus:border-yellow-400">
-                      <SelectValue placeholder="Select School Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="PUBLIC">Public</SelectItem>
-                      <SelectItem value="PRIVATE">Private</SelectItem>
-                      <SelectItem value="CHARTER">Charter</SelectItem>
-                      <SelectItem value="MAGNET">Magnet</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">Status</label>
-                  <Select onValueChange={(value) => handleInputChange('status', value)} value={formData.status}>
-                    <SelectTrigger className="bg-slate-700 border-slate-600 rounded-lg text-white focus:border-yellow-400">
-                      <SelectValue placeholder="Select Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ACTIVE">Active</SelectItem>
-                      <SelectItem value="INACTIVE">Inactive</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
               </div>
 
-              {error && (
-                <div className="mt-6 p-4 bg-red-500/10 border border-red-500 text-red-300 rounded-xl">
-                  <p className="font-bold">Error:</p>
-                  <p>{error}</p>
-                </div>
-              )}
+              {/* Excel Upload and Action Buttons */}
+              <div className="flex flex-wrap gap-4">
+                <label className="flex-1 min-w-0">
+                  <input
+                    type="file"
+                    accept=".xlsx, .xls"
+                    onChange={async (event) => {
+                      const file = event.target.files?.[0];
+                      if (!file) return;
 
-              {success && (
-                <div className="mt-6 p-4 bg-green-500/10 border border-green-500 text-green-300 rounded-xl">
-                  <p className="font-bold">Success:</p>
-                  <p>{success}</p>
-                </div>
-              )}
+                      setAlertMessage("Excel upload functionality will be implemented with backend integration.");
+                    }}
+                    className="hidden"
+                    disabled={isSubmitting}
+                  />
+                  <span className="w-full inline-flex items-center justify-center bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 rounded-lg cursor-pointer transition-colors duration-200">
+                    <Upload className="w-4 h-4 mr-2" />
+                    {isSubmitting ? "Processing..." : "Upload Excel"}
+                  </span>
+                </label>
 
-              <div className="mt-8 flex flex-col sm:flex-row gap-4">
                 <Button
                   type="submit"
-                  disabled={loading}
-                  className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 rounded-xl transition-all"
+                  className={`flex-1 ${theme === 'dark' ? 'bg-yellow-400 hover:bg-yellow-500 text-black' : 'bg-blue-500 hover:bg-blue-600 text-white'} font-semibold py-2.5`}
+                  disabled={isSubmitting}
                 >
-                  {loading ? (
-                    <span className="flex items-center">
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      {mode === 'register' ? 'Registering...' : 'Updating...'}
-                    </span>
-                  ) : (
-                    <span className="flex items-center">
-                      <Save className="w-4 h-4 mr-2" />
-                      {mode === 'register' ? 'Register School' : 'Update School'}
-                    </span>
-                  )}
+                  <Save className="w-4 h-4 mr-2" />
+                  {isSubmitting
+                    ? isUpdateMode
+                      ? "Updating..."
+                      : "Registering..."
+                    : isUpdateMode
+                    ? "Update School"
+                    : "Register School"}
                 </Button>
 
                 <Button
                   type="button"
-                  onClick={handleReset}
-                  className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 rounded-xl transition-all"
+                  onClick={() => resetForm(!isUpdateMode)}
+                  className={`flex-1 ${theme === 'dark' ? 'bg-blue-400 hover:bg-blue-500' : 'bg-gray-400 hover:bg-gray-500'} text-white font-semibold py-2.5`}
+                  disabled={isSubmitting}
                 >
                   <RotateCcw className="w-4 h-4 mr-2" />
-                  Reset Form
+                  {isUpdateMode ? "Switch to Register" : "Switch to Update"}
                 </Button>
 
                 <Button
                   type="button"
                   onClick={downloadExcelTemplate}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl transition-all"
+                  className="flex-1 bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2.5"
+                  disabled={isSubmitting}
                 >
                   <FileDown className="w-4 h-4 mr-2" />
                   Download Template
                 </Button>
               </div>
+
+              {excelError && (
+                <div className={`mt-4 p-4 ${theme === 'dark' ? 'bg-red-500/10 border-red-500 text-red-300' : 'bg-red-50 border-red-300 text-red-700'} border rounded-xl whitespace-pre-wrap`}>
+                  <p className="font-bold">Excel Processing Error:</p>
+                  <p className="text-sm">{excelError}</p>
+                  <button
+                    onClick={() => setExcelError(null)}
+                    className={`mt-2 text-sm ${theme === 'dark' ? 'text-red-400 hover:text-red-300' : 'text-red-600 hover:text-red-500'} underline`}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              )}
             </form>
           </Card>
         </div>
       </div>
     </div>
   );
-};
+}
 
-export default SchoolRegistrationPage;
+export default SchoolRegistrationFormPage;

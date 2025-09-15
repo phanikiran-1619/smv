@@ -1,157 +1,430 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import { useLocation } from 'react-router-dom';
-import axios from 'axios';
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import { Card } from "../../components/ui/card";
+import { SearchableSelect } from "../../components/ui/searchable-select";
+import { getToken } from "../../lib/token";
+import { countryCodes, cityCodes } from "../../lib/countryCodes";
 import Navbar from '../../components/Navbar';
-import { Card } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { GraduationCap, Save, RotateCcw, Upload, FileDown } from 'lucide-react';
+import { Users, Save, RotateCcw, Upload, FileDown } from 'lucide-react';
+import * as XLSX from "xlsx";
 
-const StudentRegistrationPage = () => {
+export function StudentRegistrationFormPage() {
   const location = useLocation();
   const { username } = location.state || { username: 'Admin' };
-  
-  const [mode, setMode] = useState('register'); // 'register' or 'update'
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
-  
-  // Form data
-  const [formData, setFormData] = useState({
-    smStudentId: '',
-    firstName: '',
-    lastName: '',
-    age: '',
-    gender: '',
-    parentId: '',
-    routeId: '',
-    schoolId: localStorage.getItem("adminSchoolId") || '',
-    status: 'ACTIVE'
-  });
 
-  // Dropdown data
+  const [theme, setTheme] = useState(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+  const [formData, setFormData] = useState({
+    smStudentId: "",
+    schoolId: "",
+    parentId: 0,
+    firstName: "",
+    lastName: "",
+    age: "",
+    gender: "",
+    status: true,
+    routeId: 0,
+    routePointId: 0,
+  });
+  
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [excelError, setExcelError] = useState(null);
+  const [isUpdateMode, setIsUpdateMode] = useState(false);
+  const [alertMessage, setAlertMessage] = useState(null);
+  const [errors, setErrors] = useState({});
+  
+  // Data arrays for dropdowns
+  const [students, setStudents] = useState([]);
+  const [schools, setSchools] = useState([]);
   const [parents, setParents] = useState([]);
   const [routes, setRoutes] = useState([]);
-  const [schools, setSchools] = useState([]);
+  const [routePoints, setRoutePoints] = useState([]);
+  const [selectedStudentForUpdate, setSelectedStudentForUpdate] = useState("");
+  
+  // Loading states for skeleton
+  const [loadingStates, setLoadingStates] = useState({
+    students: false,
+    schools: false,
+    parents: false,
+    routes: false,
+    routePoints: false,
+  });
 
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
-  const getAuthToken = () => {
-    return localStorage.getItem("admintoken") || "YOUR_AUTH_TOKEN";
-  };
-
-  // Fetch dropdown data
+  // Listen for theme changes from navbar
   useEffect(() => {
-    fetchDropdownData();
+    const observer = new MutationObserver(() => {
+      setTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+    });
+    
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    
+    return () => observer.disconnect();
   }, []);
 
-  const fetchDropdownData = async () => {
-    try {
-      const token = getAuthToken();
-      const schoolId = localStorage.getItem("adminSchoolId");
+  // Initial data loading
+  useEffect(() => {
+    const initializePage = async () => {
+      const token = getToken();
+      if (!token) {
+        setAlertMessage("Please log in again.");
+        return;
+      }
       
-      // Fetch parents, routes, and schools
-      const [parentsRes, routesRes, schoolsRes] = await Promise.all([
-        axios.get(`${API_BASE_URL}/parent/school/${schoolId}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        axios.get(`${API_BASE_URL}/route/school/${schoolId}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        axios.get(`${API_BASE_URL}/school`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
+      await Promise.all([
+        fetchStudents(),
+        fetchSchools()
       ]);
+    };
+    initializePage();
+  }, []);
 
-      setParents(Array.isArray(parentsRes.data) ? parentsRes.data : []);
-      setRoutes(Array.isArray(routesRes.data) ? routesRes.data : []);
-      setSchools(Array.isArray(schoolsRes.data) ? schoolsRes.data : []);
-    } catch (error) {
-      console.error('Error fetching dropdown data:', error);
-    }
-  };
-
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-    setError(null);
-    setSuccess(null);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    // Validation
-    if (!formData.smStudentId || !formData.firstName || !formData.lastName) {
-      setError('Please fill in all required fields');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    setSuccess(null);
-
+  // Fetch students for update mode dropdown
+  const fetchStudents = async () => {
     try {
-      const token = getAuthToken();
-      const url = mode === 'register' 
-        ? `${API_BASE_URL}/student`
-        : `${API_BASE_URL}/student/${formData.smStudentId}`;
+      setLoadingStates(prev => ({ ...prev, students: true }));
+      const token = getToken();
+      if (!token) return;
       
-      const method = mode === 'register' ? 'post' : 'put';
-      
-      await axios[method](url, formData, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+      const response = await fetch(`${API_BASE_URL}/student`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-
-      setSuccess(`Student ${mode === 'register' ? 'registered' : 'updated'} successfully!`);
       
-      if (mode === 'register') {
-        handleReset();
+      if (response.ok) {
+        const data = await response.json();
+        setStudents(Array.isArray(data) ? data : []);
       }
     } catch (error) {
-      console.error('Submit error:', error);
-      setError(error.response?.data?.message || `Failed to ${mode} student`);
+      console.error('Error fetching students:', error);
     } finally {
-      setLoading(false);
+      setLoadingStates(prev => ({ ...prev, students: false }));
     }
   };
 
-  const handleReset = () => {
+  // Fetch schools
+  const fetchSchools = async () => {
+    try {
+      setLoadingStates(prev => ({ ...prev, schools: true }));
+      const token = getToken();
+      if (!token) return;
+      
+      const response = await fetch(`${API_BASE_URL}/school/mine`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSchools(Array.isArray(data) ? data : []);
+      }
+    } catch (error) {
+      console.error('Error fetching schools:', error);
+    } finally {
+      setLoadingStates(prev => ({ ...prev, schools: false }));
+    }
+  };
+
+  // Fetch parents based on selected schoolId
+  useEffect(() => {
+    const fetchParents = async () => {
+      if (!formData.schoolId) {
+        setParents([]);
+        return;
+      }
+
+      try {
+        setLoadingStates(prev => ({ ...prev, parents: true }));
+        const token = getToken();
+        if (!token) return;
+
+        const response = await fetch(
+          `${API_BASE_URL}/parent/by-school?schoolId=${formData.schoolId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setParents(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        console.error("Error fetching parents:", error);
+      } finally {
+        setLoadingStates(prev => ({ ...prev, parents: false }));
+      }
+    };
+
+    fetchParents();
+  }, [formData.schoolId]);
+
+  // Fetch routes based on selected schoolId
+  useEffect(() => {
+    const fetchRoutesForSchool = async () => {
+      if (!formData.schoolId) {
+        setRoutes([]);
+        return;
+      }
+
+      try {
+        setLoadingStates(prev => ({ ...prev, routes: true }));
+        const token = getToken();
+        if (!token) return;
+        
+        const response = await fetch(`${API_BASE_URL}/route/school/${formData.schoolId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setRoutes(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        console.error('Error fetching routes:', error);
+      } finally {
+        setLoadingStates(prev => ({ ...prev, routes: false }));
+      }
+    };
+
+    fetchRoutesForSchool();
+  }, [formData.schoolId]);
+
+  // Fetch route points based on selected routeId
+  useEffect(() => {
+    const fetchRoutePoints = async () => {
+      if (!formData.routeId) {
+        setRoutePoints([]);
+        return;
+      }
+
+      try {
+        setLoadingStates(prev => ({ ...prev, routePoints: true }));
+        const token = getToken();
+        if (!token) return;
+
+        const routeResponse = await fetch(
+          `${API_BASE_URL}/route/${formData.routeId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (routeResponse.ok) {
+          const routeData = await routeResponse.json();
+          const smRouteId = routeData.smRouteId;
+
+          const response = await fetch(
+            `${API_BASE_URL}/route/smid/${smRouteId}/route-points`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            setRoutePoints(Array.isArray(data) ? data : []);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching route points:", error);
+      } finally {
+        setLoadingStates(prev => ({ ...prev, routePoints: false }));
+      }
+    };
+
+    fetchRoutePoints();
+  }, [formData.routeId]);
+
+  // Fetch individual student details for auto-fill
+  const fetchStudentDetails = async (smStudentId) => {
+    try {
+      const token = getToken();
+      if (!token) return;
+      
+      const response = await fetch(`${API_BASE_URL}/student/by-smStudentId?smStudentId=${smStudentId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      if (response.ok) {
+        const student = await response.json();
+        setFormData({
+          smStudentId: student.smStudentId || "",
+          schoolId: student.schoolId || "",
+          parentId: student.parentId || 0,
+          firstName: student.firstName || "",
+          lastName: student.lastName || "",
+          age: student.age?.toString() || "",
+          gender: student.gender || "",
+          status: student.status !== undefined ? student.status : true,
+          routeId: student.routeId || 0,
+          routePointId: student.routePointId || 0,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching student details:', error);
+      setAlertMessage("Failed to fetch student details");
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!isUpdateMode) {
+      // Registration mode - all fields mandatory
+      if (!formData.smStudentId) {
+        newErrors.smStudentId = "SM Student ID is required";
+      } else if (!/^[a-zA-Z0-9]+$/.test(formData.smStudentId)) {
+        newErrors.smStudentId = "SM Student ID must be alphanumeric";
+      } else if (formData.smStudentId.length > 10) {
+        newErrors.smStudentId = "SM Student ID must be 10 characters or less";
+      }
+
+      if (!formData.schoolId) {
+        newErrors.schoolId = "Please select a school";
+      }
+
+      if (!formData.parentId || formData.parentId <= 0) {
+        newErrors.parentId = "Please select a parent";
+      }
+
+      if (!formData.firstName || formData.firstName.length < 2) {
+        newErrors.firstName = "First name must be at least 2 characters long";
+      } else if (!/^[a-zA-Z]+$/.test(formData.firstName)) {
+        newErrors.firstName = "First name must contain letters only";
+      } else if (formData.firstName.length > 20) {
+        newErrors.firstName = "First name must be 20 characters or less";
+      }
+
+      if (!formData.lastName || formData.lastName.length < 2) {
+        newErrors.lastName = "Last name must be at least 2 characters long";
+      } else if (!/^[a-zA-Z]+$/.test(formData.lastName)) {
+        newErrors.lastName = "Last name must contain letters only";
+      } else if (formData.lastName.length > 20) {
+        newErrors.lastName = "Last name must be 20 characters or less";
+      }
+
+      const ageNum = Number(formData.age);
+      if (!formData.age || isNaN(ageNum)) {
+        newErrors.age = "Please enter a valid age";
+      } else if (ageNum < 3 || ageNum > 18) {
+        newErrors.age = "Age must be between 3 and 18";
+      }
+
+      if (!formData.gender) {
+        newErrors.gender = "Please select a gender";
+      }
+
+      if (formData.routeId <= 0) {
+        newErrors.routeId = "Please select a route";
+      }
+
+      if (formData.routePointId <= 0) {
+        newErrors.routePointId = "Please select a route point";
+      }
+    } else {
+      // Update mode - only smStudentId required
+      if (!formData.smStudentId) {
+        newErrors.smStudentId = "SM Student ID is required for update";
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleChange = (event) => {
+    const { name, value, type } = event.target;
     setFormData({
-      smStudentId: '',
-      firstName: '',
-      lastName: '',
-      age: '',
-      gender: '',
-      parentId: '',
-      routeId: '',
-      schoolId: localStorage.getItem("adminSchoolId") || '',
-      status: 'ACTIVE'
+      ...formData,
+      [name]: type === "number" ? Number(value) : value.trim(),
     });
-    setError(null);
-    setSuccess(null);
+    setErrors({ ...errors, [name]: undefined });
+  };
+
+  const handleSelectChange = (field, value) => {
+    setFormData({
+      ...formData,
+      [field]: value,
+    });
+    setErrors({ ...errors, [field]: undefined });
+  };
+
+  const resetForm = (newUpdateMode = false) => {
+    setFormData({
+      smStudentId: "",
+      schoolId: "",
+      parentId: 0,
+      firstName: "",
+      lastName: "",
+      age: "",
+      gender: "",
+      status: true,
+      routeId: 0,
+      routePointId: 0,
+    });
+    setIsUpdateMode(newUpdateMode);
+    setExcelError(null);
+    setErrors({});
+    setSelectedStudentForUpdate("");
+    setParents([]);
+    setRoutePoints([]);
+  };
+
+  const handleStudentSelection = async (smStudentId) => {
+    setSelectedStudentForUpdate(smStudentId);
+    if (smStudentId) {
+      await fetchStudentDetails(smStudentId);
+    }
+  };
+
+  const checkExistingStudent = async (smStudentId) => {
+    try {
+      const token = getToken();
+      if (!token) {
+        setAlertMessage("Please log in again.");
+        return false;
+      }
+      const response = await fetch(
+        `${API_BASE_URL}/student/check?smStudentId=${smStudentId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      const data = await response.json();
+      if (data.exists && !isUpdateMode) {
+        setAlertMessage(`This SM Student ID is already in use`);
+        return false;
+      }
+      return !data.exists || isUpdateMode;
+    } catch {
+      setAlertMessage(`Error checking SM Student ID`);
+      return false;
+    }
   };
 
   const downloadExcelTemplate = async () => {
     try {
-      const XLSX = await import('xlsx');
       const templateData = [
         {
-          'SM Student ID': 'STU001',
+          'SM Student ID': 'ST001234',
+          'School ID': 'SC001234',
+          'Parent ID': '1',
           'First Name': 'John',
           'Last Name': 'Doe',
-          'Age': '12',
+          'Age': '15',
           'Gender': 'Male',
-          'Parent ID': 'PAR001',
-          'Route ID': 'RT001',
-          'School ID': formData.schoolId,
-          'Status': 'ACTIVE'
+          'Route ID': '1',
+          'Route Point ID': '1',
+          'Status': 'Active',
+          'Action': 'Register'
         }
       ];
       
@@ -159,239 +432,491 @@ const StudentRegistrationPage = () => {
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Student Template");
       XLSX.writeFile(workbook, `student_registration_template.xlsx`);
+      
+      setAlertMessage("Excel template downloaded successfully!");
     } catch (error) {
       console.error('Download failed:', error);
+      setAlertMessage("Failed to download template");
     }
   };
 
+  const SkeletonLoader = ({ height = "h-10" }) => (
+    <div className={`${height} bg-gray-300 dark:bg-gray-700 rounded-lg animate-pulse`}></div>
+  );
+
+  const themeClasses = {
+    background: theme === 'dark' 
+      ? 'min-h-screen bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 text-white'
+      : 'min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 text-gray-900',
+    card: theme === 'dark'
+      ? 'bg-slate-800/80 border-yellow-400 border-2'
+      : 'bg-white/80 border-blue-400 border-2',
+    input: theme === 'dark'
+      ? 'bg-gray-800/50 border-gray-700 text-white placeholder:text-gray-500'
+      : 'bg-gray-50/50 border-gray-300 text-gray-900 placeholder:text-gray-500',
+    label: theme === 'dark' ? 'text-gray-300' : 'text-gray-700',
+    title: theme === 'dark' ? 'text-yellow-400' : 'text-blue-600',
+    subtitle: theme === 'dark' ? 'text-gray-300' : 'text-gray-600',
+    alert: theme === 'dark' 
+      ? 'bg-slate-800 border-slate-700' 
+      : 'bg-white border-gray-300',
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 text-white">
+    <div className={themeClasses.background}>
       <Navbar showBackButton={true} />
       
       <div className="pt-24 px-4 pb-8">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           {/* Header */}
           <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-yellow-400 mb-2 flex items-center justify-center">
-              <GraduationCap className="w-10 h-10 mr-3" />
-              Student Registration
+            <h1 className={`text-4xl font-bold ${themeClasses.title} mb-2 flex items-center justify-center`}>
+              <Users className="w-10 h-10 mr-3" />
+              Enhanced Student Registration
             </h1>
-            <p className="text-gray-300">Register and manage student information</p>
+            <p className={themeClasses.subtitle}>Advanced student registration with comprehensive validation and Excel support</p>
           </div>
 
           {/* Mode Toggle */}
           <div className="flex justify-center mb-8">
-            <div className="bg-slate-700 rounded-xl p-1">
+            <div className={`${theme === 'dark' ? 'bg-slate-700' : 'bg-gray-200'} rounded-xl p-1`}>
               <button
-                onClick={() => setMode('register')}
+                onClick={() => resetForm(false)}
                 className={`px-6 py-2 rounded-lg transition-all ${
-                  mode === 'register' 
-                    ? 'bg-yellow-500 text-black font-semibold' 
-                    : 'text-gray-300 hover:text-white'
+                  !isUpdateMode 
+                    ? `${theme === 'dark' ? 'bg-yellow-500 text-black' : 'bg-blue-500 text-white'} font-semibold` 
+                    : `${theme === 'dark' ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`
                 }`}
               >
-                Register Student
+                Register Mode
               </button>
               <button
-                onClick={() => setMode('update')}
+                onClick={() => resetForm(true)}
                 className={`px-6 py-2 rounded-lg transition-all ${
-                  mode === 'update' 
-                    ? 'bg-yellow-500 text-black font-semibold' 
-                    : 'text-gray-300 hover:text-white'
+                  isUpdateMode 
+                    ? `${theme === 'dark' ? 'bg-yellow-500 text-black' : 'bg-blue-500 text-white'} font-semibold` 
+                    : `${theme === 'dark' ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`
                 }`}
               >
-                Update Student
+                Update Mode
               </button>
             </div>
           </div>
 
-          {/* Form */}
-          <Card className="bg-slate-800/80 border-yellow-400 border-2 p-8 rounded-2xl">
-            <form onSubmit={handleSubmit}>
+          {/* Alert Modal */}
+          {alertMessage && (
+            <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+              <div className={`${themeClasses.alert} rounded-lg p-6 max-w-md w-full mx-4 shadow-lg transform transition-all duration-300 scale-100`}>
+                <h3 className={`text-lg font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'} mb-2`}>Notification</h3>
+                <p className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'} mb-4 whitespace-pre-wrap break-words overflow-auto max-h-40`}>{alertMessage}</p>
+                <button
+                  onClick={() => setAlertMessage(null)}
+                  className={`w-full ${theme === 'dark' ? 'bg-yellow-400 hover:bg-yellow-500 text-black' : 'bg-blue-500 hover:bg-blue-600 text-white'} font-semibold py-2 rounded-lg transition duration-200`}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
+
+          <Card className={`${themeClasses.card} p-8 rounded-2xl`}>
+            {/* Student Selection Dropdown for Update Mode */}
+            {isUpdateMode && (
+              <div className={`mb-6 p-4 ${theme === 'dark' ? 'bg-blue-500/10 border-blue-500' : 'bg-blue-50 border-blue-300'} border rounded-xl`}>
+                <Label className={`${theme === 'dark' ? 'text-blue-300' : 'text-blue-700'} font-medium mb-2 block`}>
+                  Select Student to Update
+                </Label>
+                {loadingStates.students ? (
+                  <SkeletonLoader />
+                ) : (
+                  <SearchableSelect
+                    options={students.map(student => ({
+                      value: student.smStudentId,
+                      label: `${student.firstName} ${student.lastName} (${student.smStudentId})`
+                    }))}
+                    value={selectedStudentForUpdate}
+                    onValueChange={handleStudentSelection}
+                    placeholder="Search and select a student..."
+                    searchPlaceholder="Type to search students..."
+                    className={themeClasses.input}
+                  />
+                )}
+                <p className={`${theme === 'dark' ? 'text-blue-300' : 'text-blue-600'} text-sm mt-2`}>
+                  Select a student from the dropdown to auto-fill the form with current data
+                </p>
+              </div>
+            )}
+
+            <form
+              onSubmit={async (event) => {
+                event.preventDefault();
+                if (isSubmitting) return;
+
+                if (!validateForm()) {
+                  setAlertMessage("Please fix the form errors before submitting");
+                  return;
+                }
+
+                setIsSubmitting(true);
+
+                const token = getToken();
+                if (!token) {
+                  setAlertMessage("Please log in again.");
+                  setIsSubmitting(false);
+                  return;
+                }
+
+                if (!isUpdateMode && formData.smStudentId) {
+                  if (!(await checkExistingStudent(formData.smStudentId))) {
+                    setIsSubmitting(false);
+                    return;
+                  }
+                }
+
+                try {
+                  const selectedRoutePoint = routePoints.find((rp) => rp.id === formData.routePointId);
+                  const requestBody = isUpdateMode
+                    ? { smStudentId: formData.smStudentId }
+                    : { ...formData, seqOrder: selectedRoutePoint?.seqOrder };
+
+                  if (isUpdateMode) {
+                    if (formData.schoolId) requestBody.schoolId = formData.schoolId;
+                    if (formData.parentId > 0) requestBody.parentId = formData.parentId;
+                    if (formData.firstName) requestBody.firstName = formData.firstName;
+                    if (formData.lastName) requestBody.lastName = formData.lastName;
+                    if (formData.age) requestBody.age = formData.age;
+                    if (formData.gender) requestBody.gender = formData.gender;
+                    if (formData.routeId > 0) requestBody.routeId = formData.routeId;
+                    if (formData.routePointId > 0) {
+                      requestBody.routePointId = formData.routePointId;
+                      requestBody.seqOrder = selectedRoutePoint?.seqOrder;
+                    }
+                    requestBody.status = formData.status;
+                  }
+
+                  const response = await fetch(
+                    isUpdateMode
+                      ? `${API_BASE_URL}/student/update?smStudentId=${formData.smStudentId}`
+                      : `${API_BASE_URL}/student/register`,
+                    {
+                      method: isUpdateMode ? "PUT" : "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                      },
+                      body: JSON.stringify(requestBody),
+                    }
+                  );
+
+                  const responseData = await response.json();
+                  if (!response.ok) {
+                    throw new Error(`${isUpdateMode ? "Update" : "Registration"} failed: ${responseData.message || response.statusText}`);
+                  }
+
+                  setAlertMessage(`${isUpdateMode ? "Update" : "Registration"} successful: ${JSON.stringify(responseData)}`);
+                  resetForm(false);
+                } catch (error) {
+                  console.error("Error:", error);
+                  setAlertMessage(error instanceof Error ? error.message : `${isUpdateMode ? "Update" : "Registration"} failed`);
+                } finally {
+                  setIsSubmitting(false);
+                }
+              }}
+              className="space-y-6"
+            >
+              <div className={`text-2xl font-bold text-center ${theme === 'dark' ? 'text-white' : 'text-gray-900'} mb-4`}>
+                Student {isUpdateMode ? "Update" : "Registration"}
+              </div>
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* SM Student ID */}
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">
-                    SM Student ID <span className="text-red-400">*</span>
-                  </label>
+                <div className="space-y-2">
+                  <Label htmlFor="smStudentId" className={themeClasses.label}>
+                    SM Student ID: <span className="text-red-400">*</span>
+                  </Label>
                   <Input
-                    type="text"
+                    id="smStudentId"
+                    name="smStudentId"
+                    placeholder="Enter SM Student ID (10 chars max)"
                     value={formData.smStudentId}
-                    onChange={(e) => handleInputChange('smStudentId', e.target.value)}
-                    placeholder="Enter SM Student ID"
-                    className="bg-slate-700 border-slate-600 rounded-lg text-white focus:border-yellow-400"
+                    onChange={handleChange}
+                    maxLength={10}
                     required
+                    disabled={isUpdateMode && formData.smStudentId}
+                    className={`${themeClasses.input} ${errors.smStudentId ? "border-red-500" : ""} ${isUpdateMode && formData.smStudentId ? "opacity-50 cursor-not-allowed" : ""}`}
                   />
+                  {errors.smStudentId && <p className="text-red-500 text-sm">{errors.smStudentId}</p>}
                 </div>
 
-                {/* First Name */}
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">
-                    First Name <span className="text-red-400">*</span>
-                  </label>
+                <div className="space-y-2">
+                  <Label htmlFor="schoolId" className={themeClasses.label}>
+                    School: {!isUpdateMode && <span className="text-red-400">*</span>}
+                  </Label>
+                  {loadingStates.schools ? (
+                    <SkeletonLoader />
+                  ) : (
+                    <SearchableSelect
+                      options={schools.map(school => ({
+                        value: school.id,
+                        label: `${school.name} (${school.id})`
+                      }))}
+                      value={formData.schoolId}
+                      onValueChange={(value) => handleSelectChange('schoolId', value)}
+                      placeholder="Search and select a school..."
+                      searchPlaceholder="Type to search schools..."
+                      error={!!errors.schoolId}
+                      disabled={isSubmitting || (isUpdateMode && formData.schoolId)}
+                      className={`${themeClasses.input} ${isUpdateMode && formData.schoolId ? "opacity-50" : ""}`}
+                    />
+                  )}
+                  {errors.schoolId && <p className="text-red-500 text-sm">{errors.schoolId}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="parentId" className={themeClasses.label}>
+                    Parent: {!isUpdateMode && <span className="text-red-400">*</span>}
+                  </Label>
+                  {loadingStates.parents ? (
+                    <SkeletonLoader />
+                  ) : (
+                    <SearchableSelect
+                      options={parents.map(parent => ({
+                        value: parent.id,
+                        label: `${parent.smParentId} - ${parent.firstName} ${parent.lastName}`
+                      }))}
+                      value={formData.parentId || ""}
+                      onValueChange={(value) => handleSelectChange('parentId', Number(value))}
+                      placeholder="Search and select a parent..."
+                      searchPlaceholder="Type to search parents..."
+                      error={!!errors.parentId}
+                      disabled={!formData.schoolId || isSubmitting}
+                      className={themeClasses.input}
+                    />
+                  )}
+                  {errors.parentId && <p className="text-red-500 text-sm">{errors.parentId}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="firstName" className={themeClasses.label}>
+                    First Name: {!isUpdateMode && <span className="text-red-400">*</span>}
+                  </Label>
                   <Input
-                    type="text"
-                    value={formData.firstName}
-                    onChange={(e) => handleInputChange('firstName', e.target.value)}
+                    id="firstName"
+                    name="firstName"
                     placeholder="Enter First Name"
-                    className="bg-slate-700 border-slate-600 rounded-lg text-white focus:border-yellow-400"
-                    required
+                    value={formData.firstName}
+                    onChange={handleChange}
+                    maxLength={20}
+                    required={!isUpdateMode}
+                    className={`${themeClasses.input} ${errors.firstName ? "border-red-500" : ""}`}
+                    disabled={isSubmitting}
                   />
+                  {errors.firstName && <p className="text-red-500 text-sm">{errors.firstName}</p>}
                 </div>
 
-                {/* Last Name */}
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">
-                    Last Name <span className="text-red-400">*</span>
-                  </label>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName" className={themeClasses.label}>
+                    Last Name: {!isUpdateMode && <span className="text-red-400">*</span>}
+                  </Label>
                   <Input
-                    type="text"
-                    value={formData.lastName}
-                    onChange={(e) => handleInputChange('lastName', e.target.value)}
+                    id="lastName"
+                    name="lastName"
                     placeholder="Enter Last Name"
-                    className="bg-slate-700 border-slate-600 rounded-lg text-white focus:border-yellow-400"
-                    required
+                    value={formData.lastName}
+                    onChange={handleChange}
+                    maxLength={20}
+                    required={!isUpdateMode}
+                    className={`${themeClasses.input} ${errors.lastName ? "border-red-500" : ""}`}
+                    disabled={isSubmitting}
                   />
+                  {errors.lastName && <p className="text-red-500 text-sm">{errors.lastName}</p>}
                 </div>
 
-                {/* Age */}
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">Age</label>
+                <div className="space-y-2">
+                  <Label htmlFor="age" className={themeClasses.label}>
+                    Age: {!isUpdateMode && <span className="text-red-400">*</span>}
+                  </Label>
                   <Input
+                    id="age"
+                    name="age"
                     type="number"
+                    placeholder="Enter Age (3-18)"
                     value={formData.age}
-                    onChange={(e) => handleInputChange('age', e.target.value)}
-                    placeholder="Enter Age"
-                    className="bg-slate-700 border-slate-600 rounded-lg text-white focus:border-yellow-400"
+                    onChange={handleChange}
+                    min={3}
+                    max={18}
+                    required={!isUpdateMode}
+                    className={`${themeClasses.input} ${errors.age ? "border-red-500" : ""}`}
+                    disabled={isSubmitting}
                   />
+                  {errors.age && <p className="text-red-500 text-sm">{errors.age}</p>}
                 </div>
 
-                {/* Gender */}
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">Gender</label>
-                  <Select onValueChange={(value) => handleInputChange('gender', value)} value={formData.gender}>
-                    <SelectTrigger className="bg-slate-700 border-slate-600 rounded-lg text-white focus:border-yellow-400">
-                      <SelectValue placeholder="Select Gender" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Male">Male</SelectItem>
-                      <SelectItem value="Female">Female</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-2">
+                  <Label htmlFor="gender" className={themeClasses.label}>
+                    Gender: {!isUpdateMode && <span className="text-red-400">*</span>}
+                  </Label>
+                  <SearchableSelect
+                    options={[
+                      { value: "Male", label: "Male" },
+                      { value: "Female", label: "Female" },
+                      { value: "Other", label: "Other" }
+                    ]}
+                    value={formData.gender}
+                    onValueChange={(value) => handleSelectChange('gender', value)}
+                    placeholder="Select Gender"
+                    searchPlaceholder="Search gender..."
+                    error={!!errors.gender}
+                    disabled={isSubmitting}
+                    className={themeClasses.input}
+                  />
+                  {errors.gender && <p className="text-red-500 text-sm">{errors.gender}</p>}
                 </div>
 
-                {/* Parent */}
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">Parent</label>
-                  <Select onValueChange={(value) => handleInputChange('parentId', value)} value={formData.parentId}>
-                    <SelectTrigger className="bg-slate-700 border-slate-600 rounded-lg text-white focus:border-yellow-400">
-                      <SelectValue placeholder="Select Parent" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {parents.map((parent) => (
-                        <SelectItem key={parent.id} value={parent.id.toString()}>
-                          {parent.firstName} {parent.lastName} ({parent.smParentId})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-2">
+                  <Label htmlFor="routeId" className={themeClasses.label}>
+                    Route: {!isUpdateMode && <span className="text-red-400">*</span>}
+                  </Label>
+                  {loadingStates.routes ? (
+                    <SkeletonLoader />
+                  ) : (
+                    <SearchableSelect
+                      options={routes.map(route => ({
+                        value: route.id,
+                        label: `${route.routeName} (${route.smRouteId})`
+                      }))}
+                      value={formData.routeId || ""}
+                      onValueChange={(value) => {
+                        handleSelectChange('routeId', Number(value));
+                        setFormData(prev => ({ ...prev, routePointId: 0 }));
+                      }}
+                      placeholder="Search and select a route..."
+                      searchPlaceholder="Type to search routes..."
+                      error={!!errors.routeId}
+                      disabled={isSubmitting}
+                      className={themeClasses.input}
+                    />
+                  )}
+                  {errors.routeId && <p className="text-red-500 text-sm">{errors.routeId}</p>}
                 </div>
 
-                {/* Route */}
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">Route ID</label>
-                  <Select onValueChange={(value) => handleInputChange('routeId', value)} value={formData.routeId}>
-                    <SelectTrigger className="bg-slate-700 border-slate-600 rounded-lg text-white focus:border-yellow-400">
-                      <SelectValue placeholder="Select Route ID" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {routes.map((route) => (
-                        <SelectItem key={route.id} value={route.id.toString()}>
-                          {route.routeName} ({route.smRouteId})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-2">
+                  <Label htmlFor="routePointId" className={themeClasses.label}>
+                    Route Point: {!isUpdateMode && <span className="text-red-400">*</span>}
+                  </Label>
+                  {loadingStates.routePoints ? (
+                    <SkeletonLoader />
+                  ) : (
+                    <SearchableSelect
+                      options={routePoints.map(point => ({
+                        value: point.id,
+                        label: `${point.routePointName} (Seq: ${point.seqOrder})`
+                      }))}
+                      value={formData.routePointId || ""}
+                      onValueChange={(value) => handleSelectChange('routePointId', Number(value))}
+                      placeholder="Search and select a route point..."
+                      searchPlaceholder="Type to search route points..."
+                      error={!!errors.routePointId}
+                      disabled={!formData.routeId || isSubmitting}
+                      className={themeClasses.input}
+                    />
+                  )}
+                  {errors.routePointId && <p className="text-red-500 text-sm">{errors.routePointId}</p>}
                 </div>
 
-                {/* Status */}
-                <div>
-                  <label className="block text-white text-sm font-medium mb-2">Status</label>
-                  <Select onValueChange={(value) => handleInputChange('status', value)} value={formData.status}>
-                    <SelectTrigger className="bg-slate-700 border-slate-600 rounded-lg text-white focus:border-yellow-400">
-                      <SelectValue placeholder="Select Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ACTIVE">Active</SelectItem>
-                      <SelectItem value="INACTIVE">Inactive</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-2">
+                  <Label htmlFor="status" className={themeClasses.label}>
+                    Status:
+                  </Label>
+                  <SearchableSelect
+                    options={[
+                      { value: "true", label: "Active" },
+                      { value: "false", label: "Inactive" }
+                    ]}
+                    value={formData.status.toString()}
+                    onValueChange={(value) => setFormData({ ...formData, status: value === "true" })}
+                    placeholder="Select Status"
+                    searchPlaceholder="Search status..."
+                    disabled={isSubmitting}
+                    className={themeClasses.input}
+                  />
                 </div>
               </div>
 
-              {/* Error/Success Messages */}
-              {error && (
-                <div className="mt-6 p-4 bg-red-500/10 border border-red-500 text-red-300 rounded-xl">
-                  <p className="font-bold">Error:</p>
-                  <p>{error}</p>
-                </div>
-              )}
+              {/* Excel Upload and Action Buttons */}
+              <div className="flex flex-wrap gap-4">
+                <label className="flex-1 min-w-0">
+                  <input
+                    type="file"
+                    accept=".xlsx, .xls"
+                    onChange={async (event) => {
+                      const file = event.target.files?.[0];
+                      if (!file) return;
 
-              {success && (
-                <div className="mt-6 p-4 bg-green-500/10 border border-green-500 text-green-300 rounded-xl">
-                  <p className="font-bold">Success:</p>
-                  <p>{success}</p>
-                </div>
-              )}
+                      setAlertMessage("Excel upload functionality will be implemented with backend integration.");
+                    }}
+                    className="hidden"
+                    disabled={isSubmitting}
+                  />
+                  <span className="w-full inline-flex items-center justify-center bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 rounded-lg cursor-pointer transition-colors duration-200">
+                    <Upload className="w-4 h-4 mr-2" />
+                    {isSubmitting ? "Processing..." : "Upload Excel"}
+                  </span>
+                </label>
 
-              {/* Action Buttons */}
-              <div className="mt-8 flex flex-col sm:flex-row gap-4">
                 <Button
                   type="submit"
-                  disabled={loading}
-                  className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 rounded-xl transition-all"
+                  className={`flex-1 ${theme === 'dark' ? 'bg-yellow-400 hover:bg-yellow-500 text-black' : 'bg-blue-500 hover:bg-blue-600 text-white'} font-semibold py-2.5`}
+                  disabled={isSubmitting}
                 >
-                  {loading ? (
-                    <span className="flex items-center">
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      {mode === 'register' ? 'Registering...' : 'Updating...'}
-                    </span>
-                  ) : (
-                    <span className="flex items-center">
-                      <Save className="w-4 h-4 mr-2" />
-                      {mode === 'register' ? 'Register Student' : 'Update Student'}
-                    </span>
-                  )}
+                  <Save className="w-4 h-4 mr-2" />
+                  {isSubmitting
+                    ? isUpdateMode
+                      ? "Updating..."
+                      : "Registering..."
+                    : isUpdateMode
+                    ? "Update Student"
+                    : "Register Student"}
                 </Button>
 
                 <Button
                   type="button"
-                  onClick={handleReset}
-                  className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 rounded-xl transition-all"
+                  onClick={() => resetForm(!isUpdateMode)}
+                  className={`flex-1 ${theme === 'dark' ? 'bg-blue-400 hover:bg-blue-500' : 'bg-gray-400 hover:bg-gray-500'} text-white font-semibold py-2.5`}
+                  disabled={isSubmitting}
                 >
                   <RotateCcw className="w-4 h-4 mr-2" />
-                  Reset Form
+                  {isUpdateMode ? "Switch to Register" : "Switch to Update"}
                 </Button>
 
                 <Button
                   type="button"
                   onClick={downloadExcelTemplate}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl transition-all"
+                  className="flex-1 bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2.5"
+                  disabled={isSubmitting}
                 >
                   <FileDown className="w-4 h-4 mr-2" />
                   Download Template
                 </Button>
               </div>
+
+              {excelError && (
+                <div className={`mt-4 p-4 ${theme === 'dark' ? 'bg-red-500/10 border-red-500 text-red-300' : 'bg-red-50 border-red-300 text-red-700'} border rounded-xl whitespace-pre-wrap`}>
+                  <p className="font-bold">Excel Processing Error:</p>
+                  <p className="text-sm">{excelError}</p>
+                  <button
+                    onClick={() => setExcelError(null)}
+                    className={`mt-2 text-sm ${theme === 'dark' ? 'text-red-400 hover:text-red-300' : 'text-red-600 hover:text-red-500'} underline`}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              )}
             </form>
           </Card>
         </div>
       </div>
     </div>
   );
-};
+}
 
-export default StudentRegistrationPage;
+export default StudentRegistrationFormPage;

@@ -7,6 +7,7 @@ import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';
 import { Eye, EyeOff, Lock, Shield, Crown, User, KeyRound } from 'lucide-react';
 import { toast } from '../hooks/use-toast';
+import { storeEncryptedUserData } from '../lib/encryption';
 import axios from 'axios';
 
 const LoginPage = () => {
@@ -62,13 +63,14 @@ const LoginPage = () => {
     const tokenKey = `${userType}token`;
     localStorage.setItem(tokenKey, responseData.token);
     
-    // Store user data
-    // localStorage.setItem(`${userType}UserData`, JSON.stringify({
-    //   id: responseData.id,
-    //   username: responseData.username,
-    //   roles: responseData.roles,
-    //   entityObj: responseData.entityObj
-    // }));
+    // Store encrypted user data
+    storeEncryptedUserData(userType, {
+      id: responseData.id,
+      username: responseData.username,
+      roles: responseData.roles,
+      twoFactorAuthentication: responseData.twoFactorAuthentication,
+      entityObj: responseData.entityObj
+    });
     
     // Store school ID if available
     if (responseData.entityObj && responseData.entityObj.schoolId) {
@@ -115,7 +117,7 @@ const LoginPage = () => {
         return;
       }
 
-      // Store user data in localStorage
+      // Store user data in localStorage (encrypted)
       storeUserData(responseData, userType);
 
       // Check two-factor authentication

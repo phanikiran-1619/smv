@@ -51,7 +51,7 @@ const LiveMap = () => {
   const [showAllRoutes, setShowAllRoutes] = useState(true);
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [busPositions, setBusPositions] = useState({});
+  const [busPositions, setBusPositions] = useState({}); // Now { routeId: [{ deviceId, lat, lng, heading, timestamp, schoolId, isDefault }] }
   const [isFollowingBus, setIsFollowingBus] = useState(false);
   const [followedDeviceId, setFollowedDeviceId] = useState(null);
   
@@ -172,15 +172,14 @@ const LiveMap = () => {
       // Auto-calculate directions for all routes on load and set map center
       if (validRoutes.length > 0 && isLoaded) {
         calculateAllDirections(validRoutes);
-        // Set map center to first route's first point
-        const firstRoute = validRoutes[0];
-        if (firstRoute && firstRoute.routePoints && firstRoute.routePoints.length > 0) {
-          const firstPoint = firstRoute.routePoints[0];
-          setMapCenter({
-            lat: parseCoordinate(firstPoint.latitude),
-            lng: parseCoordinate(firstPoint.longitude)
-          });
-        }
+        // Set map center to average of all starting points
+        const centers = validRoutes.map(route => {
+          const firstPoint = route.routePoints[0];
+          return { lat: parseCoordinate(firstPoint.latitude), lng: parseCoordinate(firstPoint.longitude) };
+        });
+        const avgLat = centers.reduce((sum, c) => sum + c.lat, 0) / centers.length;
+        const avgLng = centers.reduce((sum, c) => sum + c.lng, 0) / centers.length;
+        setMapCenter({ lat: avgLat, lng: avgLng });
         setShowAllRoutes(true);
         setSelectedRouteId('all');
       }
@@ -194,33 +193,37 @@ const LiveMap = () => {
     }
   }, [isLoaded]);
 
-  // Set initial bus positions for each route if no real position
+  // Initialize default bus positions: one per route
   useEffect(() => {
     if (routes.length > 0 && isLoaded) {
       setBusPositions(prev => {
-        let newPositions = { ...prev };
+        const newPositions = { ...prev };
         routes.forEach(route => {
-          const rid = route.smRouteId || route.id;
-          const hasRealBus = Object.entries(prev).some(([id, pos]) => pos.routeId === rid && !id.startsWith('default-'));
-          if (!hasRealBus) {
+          const routeId = route.smRouteId || route.id;
+          if (!newPositions[routeId]) {
+            newPositions[routeId] = [];
+          }
+          // If no buses (real or default), add default
+          if (newPositions[routeId].length === 0) {
             let validPoints = route.routePoints
               .filter(p => isValidCoordinate(p.latitude) && isValidCoordinate(p.longitude))
               .sort((a, b) => a.seqOrder - b.seqOrder);
             if (!isMorningShift()) {
-              validPoints = validPoints.reverse();
+              validPoints = validPoints.reverse(); // Evening: start at school
             }
             if (validPoints.length > 0) {
-              const startPoint = validPoints[0];
-              const defaultDeviceId = `default-${rid}`;
-              newPositions[defaultDeviceId] = {
-                lat: parseCoordinate(startPoint.latitude),
-                lng: parseCoordinate(startPoint.longitude),
+              const defaultPoint = isMorningShift() ? validPoints[0] : validPoints[0]; // Morning: start, Evening: school (after reverse)
+              const defaultDeviceId = `default-${routeId}`;
+              newPositions[routeId].push({
+                deviceId: defaultDeviceId,
+                lat: parseCoordinate(defaultPoint.latitude),
+                lng: parseCoordinate(defaultPoint.longitude),
                 heading: 0,
                 timestamp: Date.now(),
-                routeId: rid,
-                deviceId: defaultDeviceId,
-                schoolId: route.schId || 'unknown'
-              };
+                routeId,
+                schoolId: route.schId || 'unknown',
+                isDefault: true
+              });
             }
           }
         });
@@ -519,33 +522,50 @@ const LiveMap = () => {
           if (data.type === 'gps_location' && data.latitude && data.longitude) {
             const dataTimestamp = Date.parse(data.timestamp);
             const deviceId = data.deviceId;
-            const lastPosition = lastPositionsRef.current[deviceId];
+            const routeId = data.routeId;
 
-            if (lastPosition && dataTimestamp <= lastPosition.timestamp) {
-              console.log(`Ignoring old update for ${deviceId}`);
-              return;
-            }
+            // Find existing bus for this deviceId in the route
+            setBusPositions(prev => {
+              const newPositions = { ...prev };
+              if (!newPositions[routeId]) {
+                newPositions[routeId] = [];
+              }
+              const routeBuses = newPositions[routeId];
+              const existingIndex = routeBuses.findIndex(bus => bus.deviceId === deviceId);
 
-            // Update bus position
-            const newPosition = {
-              lat: Number(data.latitude),
-              lng: Number(data.longitude),
-              heading: data.heading || undefined,
-              timestamp: dataTimestamp,
-              routeId: data.routeId,
-              deviceId: data.deviceId,
-              schoolId: data.schoolId
-            };
+              const lastPosition = existingIndex >= 0 ? routeBuses[existingIndex] : null;
 
-            setBusPositions(prev => ({
-              ...prev,
-              [deviceId]: newPosition
-            }));
+              if (lastPosition && dataTimestamp <= lastPosition.timestamp) {
+                console.log(`Ignoring old update for ${deviceId}`);
+                return prev;
+              }
+
+              const newPosition = {
+                deviceId,
+                lat: Number(data.latitude),
+                lng: Number(data.longitude),
+                heading: data.heading || 0,
+                timestamp: dataTimestamp,
+                routeId,
+                schoolId: data.schoolId,
+                isDefault: false
+              };
+
+              if (existingIndex >= 0) {
+                routeBuses[existingIndex] = newPosition;
+              } else {
+                // Add new real bus, remove default if exists
+                newPositions[routeId] = routeBuses.filter(bus => !bus.isDefault);
+                newPositions[routeId].push(newPosition);
+              }
+
+              return newPositions;
+            });
 
             // If we're following this bus, update the map center
             if (isFollowingBus && followedDeviceId === deviceId && mapRef.current) {
-              setMapCenter({ lat: newPosition.lat, lng: newPosition.lng });
-              mapRef.current.panTo({ lat: newPosition.lat, lng: newPosition.lng });
+              setMapCenter({ lat: Number(data.latitude), lng: Number(data.longitude) });
+              mapRef.current.panTo({ lat: Number(data.latitude), lng: Number(data.longitude) });
             }
           }
         } catch (err) {
@@ -579,7 +599,7 @@ const LiveMap = () => {
   }, [navigate, isFollowingBus, followedDeviceId]);
 
   // Smooth animation for bus movement
-  const animateBusMovement = useCallback((deviceId, start, end) => {
+  const animateBusMovement = useCallback((deviceId, routeId, start, end) => {
     if (animationRefs.current[deviceId]) {
       cancelAnimationFrame(animationRefs.current[deviceId]);
     }
@@ -606,19 +626,26 @@ const LiveMap = () => {
       }
 
       const newPosition = {
+        deviceId,
         lat,
         lng,
         heading,
         timestamp: Date.now(),
-        routeId: end.routeId,
-        deviceId: end.deviceId,
-        schoolId: end.schoolId
+        routeId,
+        schoolId: end.schoolId,
+        isDefault: false
       };
 
-      setBusPositions(prev => ({
-        ...prev,
-        [deviceId]: newPosition
-      }));
+      setBusPositions(prev => {
+        const newPositions = { ...prev };
+        const routeBuses = newPositions[routeId] || [];
+        const index = routeBuses.findIndex(bus => bus.deviceId === deviceId);
+        if (index >= 0) {
+          routeBuses[index] = newPosition;
+          newPositions[routeId] = routeBuses;
+        }
+        return newPositions;
+      });
 
       if (progress < 1) {
         animationRefs.current[deviceId] = requestAnimationFrame(animate);
@@ -632,15 +659,18 @@ const LiveMap = () => {
 
   // Update bus positions with animation
   useEffect(() => {
-    Object.entries(busPositions).forEach(([deviceId, position]) => {
-      const lastPosition = lastPositionsRef.current[deviceId];
-      
-      if (lastPosition && 
-          (lastPosition.lat !== position.lat || lastPosition.lng !== position.lng)) {
-        animateBusMovement(deviceId, lastPosition, position);
-      } else if (!lastPosition) {
-        lastPositionsRef.current[deviceId] = position;
-      }
+    Object.entries(busPositions).forEach(([routeId, buses]) => {
+      buses.forEach(position => {
+        const deviceId = position.deviceId;
+        const lastPosition = lastPositionsRef.current[deviceId];
+        
+        if (lastPosition && 
+            (lastPosition.lat !== position.lat || lastPosition.lng !== position.lng) && !position.isDefault) {
+          animateBusMovement(deviceId, routeId, lastPosition, position);
+        } else if (!lastPosition) {
+          lastPositionsRef.current[deviceId] = position;
+        }
+      });
     });
   }, [busPositions, animateBusMovement]);
 
@@ -660,7 +690,7 @@ const LiveMap = () => {
         calculateDirections(route);
         
         // Center on the bus
-        const busPosition = busPositions[deviceId];
+        const busPosition = busPositions[routeId]?.find(b => b.deviceId === deviceId);
         if (busPosition && mapRef.current) {
           setMapCenter({ lat: busPosition.lat, lng: busPosition.lng });
           mapRef.current.panTo({ lat: busPosition.lat, lng: busPosition.lng });
@@ -670,8 +700,8 @@ const LiveMap = () => {
   };
 
   // Center map on a specific bus
-  const centerMapOnBus = (deviceId) => {
-    const busPosition = busPositions[deviceId];
+  const centerMapOnBus = (deviceId, routeId) => {
+    const busPosition = busPositions[routeId]?.find(b => b.deviceId === deviceId);
     if (busPosition && mapRef.current) {
       setMapCenter({ lat: busPosition.lat, lng: busPosition.lng });
       mapRef.current.panTo({ lat: busPosition.lat, lng: busPosition.lng });
@@ -712,6 +742,15 @@ const LiveMap = () => {
 
   const formattedDate = format(currentTime, 'EEE, MMM d');
   const formattedTime = formatDisplayTime(currentTime);
+
+  // Get buses for current view
+  const getViewBuses = () => {
+    if (showAllRoutes) {
+      return Object.values(busPositions).flat();
+    } else {
+      return busPositions[selectedRouteId] || [];
+    }
+  };
 
   return (
     <div className="h-screen w-screen flex flex-col bg-gradient-to-br dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 from-gray-50 via-gray-100 to-gray-200 dark:text-white text-gray-800 overflow-hidden">
@@ -862,19 +901,19 @@ const LiveMap = () => {
               })}
 
               {/* Bus Markers */}
-              {Object.entries(busPositions).map(([deviceId, position]) => {
+              {getViewBuses().map((position) => {
                 const routeForBus = routes.find(route => 
                   (route.smRouteId || route.id) === position.routeId
                 );
                 
                 if (!routeForBus) return null;
                 
-                const isDefault = deviceId.startsWith('default-');
-                const title = isDefault ? `Awaiting start - ${routeForBus.routeName}` : `Bus ${deviceId} - ${routeForBus.routeName}`;
+                const isDefault = position.isDefault;
+                const title = isDefault ? `Awaiting start - ${routeForBus.routeName}` : `Bus ${position.deviceId} - ${routeForBus.routeName}`;
                 
                 return (
                   <Marker
-                    key={deviceId}
+                    key={position.deviceId}
                     position={{
                       lat: position.lat,
                       lng: position.lng,
@@ -886,7 +925,7 @@ const LiveMap = () => {
                     zIndex={1001}
                     title={title}
                     onClick={() => {
-                      toggleFollowBus(deviceId, position.routeId);
+                      toggleFollowBus(position.deviceId, position.routeId);
                     }}
                   />
                 );
@@ -915,7 +954,7 @@ const LiveMap = () => {
               </div>
 
               {/* Bus Status */}
-              {Object.entries(busPositions).filter(([id, pos]) => pos.routeId === selectedRouteId && !id.startsWith('default-')).length > 0 ? (
+              {busPositions[selectedRouteId]?.some(bus => !bus.isDefault) ? (
                 <div className="mb-4 p-3 bg-green-500/20 border border-green-500/30 rounded-lg shadow-md">
                   <p className="text-green-300 text-sm font-medium text-center">Bus is active and moving</p>
                 </div>
@@ -929,37 +968,36 @@ const LiveMap = () => {
                 <div className="flex justify-between text-sm dark:text-gray-300 text-gray-600 mb-2">
                   <span className="font-medium">Active Buses</span>
                   <span className="font-bold">
-                    {Object.entries(busPositions).filter(([id, pos]) => pos.routeId === selectedRouteId && !id.startsWith('default-')).length}
+                    {busPositions[selectedRouteId]?.filter(bus => !bus.isDefault).length || 0}
                   </span>
                 </div>
                 <div className="space-y-2">
-                  {Object.entries(busPositions)
-                    .filter(([id, pos]) => pos.routeId === selectedRouteId && !id.startsWith('default-'))
-                    .map(([deviceId, position]) => (
-                      <div key={deviceId} className="flex items-center justify-between p-2 dark:bg-slate-700/30 bg-gray-100/50 rounded-lg">
-                        <div className="flex items-center">
-                          <Bus className="w-4 h-4 mr-2 dark:text-yellow-400 text-blue-600" />
-                          <span className="text-sm dark:text-white text-gray-800">Bus {deviceId}</span>
-                        </div>
-                        <div className="flex space-x-2">
-                          <Button
-                            size="sm"
-                            onClick={() => centerMapOnBus(deviceId)}
-                            className="dark:bg-yellow-600 dark:hover:bg-yellow-700 dark:text-black bg-blue-600 hover:bg-blue-700 text-white text-xs"
-                          >
-                            Center
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => toggleFollowBus(deviceId, position.routeId)}
-                            className={`${isFollowingBus && followedDeviceId === deviceId ? 'bg-green-600' : 'dark:bg-slate-600 bg-gray-400'} hover:bg-green-700 text-white text-xs`}
-                          >
-                            {isFollowingBus && followedDeviceId === deviceId ? 'Following' : 'Follow'}
-                          </Button>
-                        </div>
+                  {busPositions[selectedRouteId]?.map((position) => (
+                    <div key={position.deviceId} className="flex items-center justify-between p-2 dark:bg-slate-700/30 bg-gray-100/50 rounded-lg">
+                      <div className="flex items-center">
+                        <Bus className="w-4 h-4 mr-2 dark:text-yellow-400 text-blue-600" />
+                        <span className="text-sm dark:text-white text-gray-800">
+                          {position.isDefault ? 'Default Bus' : `Bus ${position.deviceId}`}
+                        </span>
                       </div>
-                    ))
-                  }
+                      <div className="flex space-x-2">
+                        <Button
+                          size="sm"
+                          onClick={() => centerMapOnBus(position.deviceId, selectedRouteId)}
+                          className="dark:bg-yellow-600 dark:hover:bg-yellow-700 dark:text-black bg-blue-600 hover:bg-blue-700 text-white text-xs"
+                        >
+                          Center
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => toggleFollowBus(position.deviceId, selectedRouteId)}
+                          className={`${isFollowingBus && followedDeviceId === position.deviceId ? 'bg-green-600' : 'dark:bg-slate-600 bg-gray-400'} hover:bg-green-700 text-white text-xs`}
+                        >
+                          {isFollowingBus && followedDeviceId === position.deviceId ? 'Following' : 'Follow'}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -1063,7 +1101,7 @@ const LiveMap = () => {
                           </div>
                           <div className="dark:text-yellow-400 text-orange-500 flex items-center">
                             <AlertCircle className="w-4 h-4 mr-2" />
-                            Status: {Object.entries(busPositions).filter(([id, pos]) => pos.routeId === selectedRouteId && !id.startsWith('default-')).length > 0 ? 'Bus active' : 'Bus not started yet'}
+                            Status: {busPositions[selectedRouteId]?.some(bus => !bus.isDefault) ? 'Bus active' : 'Bus not started yet'}
                           </div>
                           <div className="absolute right-full top-1/2 transform translate-x-1/2 -translate-y-1/2 border-8 border-transparent dark:border-r-slate-800 border-r-white rotate-180"></div>
                         </div>
@@ -1081,7 +1119,7 @@ const LiveMap = () => {
                   <div className="ml-3">
                     <p className="text-sm font-medium dark:text-white text-gray-800">Bus Status</p>
                     <p className="text-xs dark:text-gray-300 text-gray-600">
-                      {Object.entries(busPositions).filter(([id, pos]) => pos.routeId === selectedRouteId && !id.startsWith('default-')).length > 0 
+                      {busPositions[selectedRouteId]?.some(bus => !bus.isDefault) 
                         ? 'Active and moving' 
                         : 'Not started yet'}
                     </p>
@@ -1097,24 +1135,24 @@ const LiveMap = () => {
           <div className="absolute right-4 top-4 w-80 bg-gradient-to-br dark:from-slate-800/95 dark:to-slate-900/95 from-white/95 to-gray-100/95 p-6 rounded-2xl shadow-2xl z-10 dark:border-slate-600/50 border-gray-300/50 border backdrop-blur-md overflow-auto max-h-96">
             <h3 className="font-bold text-lg dark:text-white text-gray-800 mb-4">Active Buses</h3>
             <div className="space-y-3">
-              {Object.entries(busPositions).filter(([id]) => !id.startsWith('default-')).map(([deviceId, position]) => {
+              {getViewBuses().filter(position => !position.isDefault).map((position) => {
                 const routeForBus = routes.find(route => 
                   (route.smRouteId || route.id) === position.routeId
                 );
                 
                 return (
-                  <div key={deviceId} className="p-3 dark:bg-slate-700/30 bg-gray-100/50 rounded-lg dark:border-slate-600/20 border-gray-300/20 border">
+                  <div key={position.deviceId} className="p-3 dark:bg-slate-700/30 bg-gray-100/50 rounded-lg dark:border-slate-600/20 border-gray-300/20 border">
                     <div className="flex justify-between items-center">
                       <div>
-                        <p className="dark:text-white text-gray-800 font-medium">Bus {deviceId}</p>
+                        <p className="dark:text-white text-gray-800 font-medium">Bus {position.deviceId}</p>
                         <p className="dark:text-gray-300 text-gray-600 text-sm">{routeForBus?.routeName || 'Unknown Route'}</p>
                       </div>
                       <Button
                         size="sm"
-                        onClick={() => toggleFollowBus(deviceId, position.routeId)}
+                        onClick={() => toggleFollowBus(position.deviceId, position.routeId)}
                         className="dark:bg-yellow-600 dark:hover:bg-yellow-700 dark:text-black bg-blue-600 hover:bg-blue-700 text-white"
                       >
-                        {isFollowingBus && followedDeviceId === deviceId ? 'Following' : 'Follow'}
+                        {isFollowingBus && followedDeviceId === position.deviceId ? 'Following' : 'Follow'}
                       </Button>
                     </div>
                     <div className="mt-2 text-xs dark:text-gray-400 text-gray-500">
