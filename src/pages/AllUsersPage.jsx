@@ -119,51 +119,17 @@ const AllUsersPage = () => {
       
       switch (selectedOption) {
         case "route":
-          return (
-            item.routeName?.toLowerCase().includes(query) ||
-            item.smRouteId?.toLowerCase().includes(query) ||
-            item.title?.toLowerCase().includes(query) ||
-            (item.cityCode?.toLowerCase().includes(query) || false) ||
-            item.routePoints?.some(rp => 
-              rp.routePointName?.toLowerCase().includes(query) ||
-              rp.smRoutePointId?.toLowerCase().includes(query) ||
-              rp.title?.toLowerCase().includes(query)
-            )
-          );
+          // Search only by Route ID
+          return item.smRouteId?.toLowerCase().includes(query);
         case "student":
-          return (
-            item.firstName?.toLowerCase().includes(query) ||
-            item.lastName?.toLowerCase().includes(query) ||
-            item.parentUsername?.toLowerCase().includes(query) ||
-            item.smParentId?.toLowerCase().includes(query) ||
-            (item.parentFirstName?.toLowerCase().includes(query) || false) ||
-            (item.parentLastName?.toLowerCase().includes(query) || false) ||
-            item.smStudentId?.toLowerCase().includes(query) ||
-            item.routeName?.toLowerCase().includes(query) ||
-            item.schoolName?.toLowerCase().includes(query)
-          );
+          // Search only by Student ID
+          return item.smStudentId?.toLowerCase().includes(query);
         case "driver":
-          return (
-            item.firstName?.toLowerCase().includes(query) ||
-            item.lastName?.toLowerCase().includes(query) ||
-            item.smDriverId?.toLowerCase().includes(query) ||
-            item.user?.phone?.toLowerCase().includes(query) ||
-            item.user?.username?.toLowerCase().includes(query) ||
-            item.routeName?.toLowerCase().includes(query) ||
-            item.schoolName?.toLowerCase().includes(query) ||
-            item.user?.status?.toLowerCase().includes(query)
-          );
+          // Search only by Driver ID
+          return item.smDriverId?.toLowerCase().includes(query);
         case "attender":
-          return (
-            item.firstName?.toLowerCase().includes(query) ||
-            item.lastName?.toLowerCase().includes(query) ||
-            item.smAttenderId?.toLowerCase().includes(query) ||
-            item.phone?.toLowerCase().includes(query) ||
-            item.user?.username?.toLowerCase().includes(query) ||
-            item.routeName?.toLowerCase().includes(query) ||
-            item.schoolName?.toLowerCase().includes(query) ||
-            item.user?.status?.toLowerCase().includes(query)
-          );
+          // Search only by Attender ID
+          return item.smAttenderId?.toLowerCase().includes(query);
         default:
           return true;
       }
@@ -374,7 +340,13 @@ const AllUsersPage = () => {
                     <Search className="absolute left-3 top-2.5 h-5 w-5 dark:text-gray-400 text-gray-500" />
                     <Input
                       type="text"
-                      placeholder={`Search by StudentId...`}
+                      placeholder={
+                        selectedOption === "route" ? "Search by Route ID..." :
+                        selectedOption === "student" ? "Search by Student ID..." :
+                        selectedOption === "driver" ? "Search by Driver ID..." :
+                        selectedOption === "attender" ? "Search by Attender ID..." :
+                        "Select data type to search..."
+                      }
                       value={searchQuery}
                       onChange={(e) => {
                         setSearchQuery(e.target.value);

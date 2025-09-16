@@ -21,6 +21,8 @@ const SwipedListPage = () => {
   const [studentId, setStudentId] = useState("");
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [startDateError, setStartDateError] = useState(false);
+  const [endDateError, setEndDateError] = useState(false);
   const [resultFilter, setResultFilter] = useState("all");
   const [sessionFilter, setSessionFilter] = useState("all");
   const [swipeRecords, setSwipeRecords] = useState([]);
@@ -52,6 +54,51 @@ const SwipedListPage = () => {
     return localStorage.getItem("superadmintoken") || localStorage.getItem("admintoken") || "YOUR_AUTH_TOKEN";
   };
 
+  // Get today's date in YYYY-MM-DD format
+  const getTodayDate = () => {
+    return new Date().toISOString().split('T')[0];
+  };
+
+  // Get yesterday's date in YYYY-MM-DD format
+  const getYesterdayDate = () => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return yesterday.toISOString().split('T')[0];
+  };
+
+  // Handle friendly error messages
+  const getFriendlyErrorMessage = (error) => {
+    if (error.response) {
+      const status = error.response.status;
+      const message = error.response.data?.message || error.message;
+      
+      // Replace HTTP status codes with user-friendly messages
+      switch (status) {
+        case 404:
+          return "No data found for the selected criteria";
+        case 401:
+          return "Authentication required. Please login again";
+        case 402:
+          return "Access restricted. Please contact administrator";
+        case 403:
+          return "Access denied. Insufficient permissions";
+        case 500:
+          return "Server error occurred. Please try again later";
+        case 502:
+          return "Service temporarily unavailable. Please try again";
+        case 503:
+          return "Service maintenance in progress. Please try again later";
+        default:
+          // If the message contains status codes, replace them
+          if (message && /\b(404|401|402|403|500|502|503)\b/.test(message)) {
+            return "No data found. Please check your selection and try again";
+          }
+          return message || "An unexpected error occurred";
+      }
+    }
+    return error.message || "An unexpected error occurred";
+  };
+
   useEffect(() => {
     const fetchSchools = async () => {
       try {
@@ -81,7 +128,7 @@ const SwipedListPage = () => {
         setSchools(response.data);
       } catch (error) {
         console.error('Schools fetch error:', error);
-        setError(error.response?.data?.message || error.message || 'Failed to load schools');
+        setError(getFriendlyErrorMessage(error));
       } finally {
         setSchoolsLoading(false);
       }
@@ -102,9 +149,12 @@ const SwipedListPage = () => {
     setSwipeRecords([]);
     setAnalyticsData(null);
     setRouteIdError(false);
+    setStartDateError(false);
+    setEndDateError(false);
     setSearchRoute("");
     setSearchStudent("");
     setCurrentPage(1);
+    setError(null);
 
     const fetchRoutes = async () => {
       if (!schoolId) {
@@ -128,7 +178,7 @@ const SwipedListPage = () => {
         setRoutes(filteredRoutes);
       } catch (error) {
         console.error('Routes fetch error:', error);
-        setError(error.response?.data?.message || error.message || 'Failed to load routes');
+        setError(getFriendlyErrorMessage(error));
         setRoutes([]);
       }
     };
@@ -160,7 +210,7 @@ const SwipedListPage = () => {
         setStudents(filteredStudents);
       } catch (error) {
         console.error('Students fetch error:', error);
-        setError(error.response?.data?.message || error.message || 'Failed to load students');
+        setError(getFriendlyErrorMessage(error));
         setStudents([]);
       }
     };
@@ -183,22 +233,64 @@ const SwipedListPage = () => {
   };
 
   const fetchSwipeRecords = async () => {
+    // Reset all error states
+    setSchoolIdError(false);
+    setRouteIdError(false);
+    setStartDateError(false);
+    setEndDateError(false);
+    
+    let hasValidationError = false;
+    
     if (!schoolId) {
       setSchoolIdError(true);
-      setError("Please select a School ID");
-      return;
+      setError("School ID is required. Please select a school");
+      hasValidationError = true;
     }
     if (!routeId) {
       setRouteIdError(true);
-      setError("Please select a Route ID");
+      setError("Route ID is required. Please select a route");
+      hasValidationError = true;
+    }
+    if (!startDate) {
+      setStartDateError(true);
+      setError("Start Date is required. Please select a start date");
+      hasValidationError = true;
+    }
+    if (!endDate) {
+      setEndDateError(true);
+      setError("End Date is required. Please select an end date");
+      hasValidationError = true;
+    }
+    
+    // Validate date logic
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const today = new Date(getTodayDate());
+      
+      if (start > end) {
+        setStartDateError(true);
+        setEndDateError(true);
+        setError("Start date cannot be after end date");
+        hasValidationError = true;
+      }
+      
+      if (start > today) {
+        setStartDateError(true);
+        setError("Start date cannot be in the future");
+        hasValidationError = true;
+      }
+      
+      if (end > today) {
+        setEndDateError(true);
+        setError("End date cannot be in the future");
+        hasValidationError = true;
+      }
+    }
+    
+    if (hasValidationError) {
       return;
     }
-    if (!startDate || !endDate) {
-      setError("Please select both Start and End dates");
-      return;
-    }
-    setSchoolIdError(false);
-    setRouteIdError(false);
     setLoading(true);
     setError(null);
     setSwipeRecords([]);
@@ -239,7 +331,7 @@ const SwipedListPage = () => {
 
       if (response.status === 204 || !response.data) {
         setSwipeRecords([]);
-        setError("No records found for the selected filters");
+        setError("No data found for the selected criteria. Please try different filters");
         return;
       }
 
@@ -277,13 +369,13 @@ const SwipedListPage = () => {
       }
 
       if (data.length === 0 || (data.swipes && data.swipes.length === 0)) {
-        setError("No records found for the selected filters");
+        setError("No data found for the selected criteria. Please try different filters");
       } else if (analyticsData) {
         setShowAnalyticsPopup(true);
       }
     } catch (error) {
       console.error("Error fetching swipe records:", error);
-      setError(error.response?.data?.message || error.message || "Failed to load swipe records");
+      setError(getFriendlyErrorMessage(error));
       setSwipeRecords([]);
       setAnalyticsData(null);
     } finally {
@@ -318,7 +410,7 @@ const SwipedListPage = () => {
       XLSX.writeFile(workbook, `Student_Swipe_Records_${startDate}_to_${endDate}.xlsx`);
     } catch (error) {
       console.error('Export failed:', error);
-      setError('Failed to export data to Excel');
+      setError('Unable to export data. Please try again');
     }
   };
 
@@ -519,12 +611,34 @@ const SwipedListPage = () => {
             <p className="dark:text-gray-300 text-gray-600 mb-6">Easily view and manage student swipe records with pagination.</p>
 
             {error && (
-              <div className="mb-4 p-4 bg-red-500/10 border border-red-500 text-red-300 rounded-xl">
-                <p className="font-bold"></p>
-                <p>{error}</p>
-                <button onClick={() => setError(null)} className="mt-2 text-sm text-red-400 hover:text-red-300">
-                  Dismiss
-                </button>
+              <div className="mb-4 p-4 bg-red-500/10 border border-red-500 text-red-700 dark:text-red-300 rounded-xl">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start space-x-2">
+                    <div className="flex-shrink-0">
+                      <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="font-medium text-red-700 dark:text-red-300"></p>
+                      <p className="text-red-600 dark:text-red-400">{error}</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setError(null);
+                      setSchoolIdError(false);
+                      setRouteIdError(false);
+                      setStartDateError(false);
+                      setEndDateError(false);
+                    }} 
+                    className="text-red-400 hover:text-red-300 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             )}
 
@@ -546,7 +660,7 @@ const SwipedListPage = () => {
                     disabled={schoolsLoading} 
                     value={schoolId}
                   >
-                    <SelectTrigger className={`dark:border-gray-600 dark:focus:ring-yellow-400 dark:focus:border-yellow-400 border-gray-300 focus:ring-blue-500 focus:border-blue-500 rounded-xl dark:text-gray-300 text-gray-700 dark:bg-slate-700 bg-gray-100 transition-all w-full ${schoolIdError ? 'border-red-500' : ''}`}>
+                    <SelectTrigger className={`dark:border-gray-600 dark:focus:ring-yellow-400 dark:focus:border-yellow-400 border-gray-300 focus:ring-blue-500 focus:border-blue-500 rounded-xl dark:text-gray-300 text-gray-700 dark:bg-slate-700 bg-gray-100 transition-all w-full ${schoolIdError ? 'border-red-500 ring-1 ring-red-500 dark:border-red-500 dark:ring-red-500' : ''}`}>
                       <SelectValue placeholder={schoolsLoading ? "Loading schools..." : "Select School ID"} />
                     </SelectTrigger>
                     <SelectContent className="max-h-60 overflow-auto">
@@ -582,7 +696,7 @@ const SwipedListPage = () => {
                   disabled={!schoolId || routes.length === 0} 
                   value={routeId}
                 >
-                  <SelectTrigger className={`dark:border-gray-600 dark:focus:ring-yellow-400 dark:focus:border-yellow-400 border-gray-300 focus:ring-blue-500 focus:border-blue-500 rounded-xl dark:text-gray-300 text-gray-700 dark:bg-slate-700 bg-gray-100 transition-all w-full ${routeIdError ? 'border-red-500' : ''}`}>
+                  <SelectTrigger className={`dark:border-gray-600 dark:focus:ring-yellow-400 dark:focus:border-yellow-400 border-gray-300 focus:ring-blue-500 focus:border-blue-500 rounded-xl dark:text-gray-300 text-gray-700 dark:bg-slate-700 bg-gray-100 transition-all w-full ${routeIdError ? 'border-red-500 ring-1 ring-red-500 dark:border-red-500 dark:ring-red-500' : ''}`}>
                     <SelectValue placeholder={routes.length === 0 ? "No routes available" : "Select Route ID"} />
                   </SelectTrigger>
                   <SelectContent className="max-h-60 overflow-auto">
@@ -636,22 +750,43 @@ const SwipedListPage = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium dark:text-gray-300 text-gray-700 mb-2">Start Date</label>
+                <label className="block text-sm font-medium dark:text-gray-300 text-gray-700 mb-2">Start Date *</label>
                 <Input
                   type="date"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="dark:border-gray-600 dark:focus:ring-yellow-400 dark:focus:border-yellow-400 border-gray-300 focus:ring-blue-500 focus:border-blue-500 rounded-xl dark:text-gray-300 text-gray-700 dark:bg-slate-700 bg-gray-100 transition-all w-full"
+                  max={getTodayDate()}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    setStartDateError(false);
+                    // Reset end date if it's before the new start date
+                    if (endDate && e.target.value > endDate) {
+                      setEndDate(e.target.value);
+                    }
+                  }}
+                  className={`dark:border-gray-600 dark:focus:ring-yellow-400 dark:focus:border-yellow-400 border-gray-300 focus:ring-blue-500 focus:border-blue-500 rounded-xl dark:text-gray-300 text-gray-700 dark:bg-slate-700 bg-gray-100 transition-all w-full
+                    [&::-webkit-calendar-picker-indicator]:dark:invert [&::-webkit-calendar-picker-indicator]:dark:brightness-100 
+                    [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-100
+                    [&::-webkit-calendar-picker-indicator]:bg-transparent [&::-webkit-calendar-picker-indicator]:p-1
+                    ${startDateError ? 'border-red-500 ring-1 ring-red-500 dark:border-red-500 dark:ring-red-500' : ''}`}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium dark:text-gray-300 text-gray-700 mb-2">End Date</label>
+                <label className="block text-sm font-medium dark:text-gray-300 text-gray-700 mb-2">End Date *</label>
                 <Input
                   type="date"
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="dark:border-gray-600 dark:focus:ring-yellow-400 dark:focus:border-yellow-400 border-gray-300 focus:ring-blue-500 focus:border-blue-500 rounded-xl dark:text-gray-300 text-gray-700 dark:bg-slate-700 bg-gray-100 transition-all w-full"
+                  min={startDate || getTodayDate()}
+                  max={getTodayDate()}
+                  onChange={(e) => {
+                    setEndDate(e.target.value);
+                    setEndDateError(false);
+                  }}
+                  className={`dark:border-gray-600 dark:focus:ring-yellow-400 dark:focus:border-yellow-400 border-gray-300 focus:ring-blue-500 focus:border-blue-500 rounded-xl dark:text-gray-300 text-gray-700 dark:bg-slate-700 bg-gray-100 transition-all w-full
+                    [&::-webkit-calendar-picker-indicator]:dark:invert [&::-webkit-calendar-picker-indicator]:dark:brightness-100 
+                    [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-100
+                    [&::-webkit-calendar-picker-indicator]:bg-transparent [&::-webkit-calendar-picker-indicator]:p-1
+                    ${endDateError ? 'border-red-500 ring-1 ring-red-500 dark:border-red-500 dark:ring-red-500' : ''}`}
                 />
               </div>
 
@@ -868,9 +1003,20 @@ const SwipedListPage = () => {
 
           {!loading && swipeRecords.length === 0 && analyticsData && (
             <div className="text-center mt-12">
-              <p className="dark:text-gray-400 text-gray-600 text-xl font-semibold dark:bg-slate-800/60 bg-white/80 p-4 rounded-xl border-2 dark:border-yellow-500 border-blue-500 inline-block">
-                No records found
-              </p>
+              <div className="dark:bg-slate-800/60 bg-white/80 p-8 rounded-xl border-2 dark:border-yellow-500 border-blue-500 inline-block">
+                <div className="flex flex-col items-center space-y-4">
+                  <svg className="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <div>
+                    <p className="dark:text-gray-300 text-gray-700 text-xl font-semibold mb-2">No Data Found</p>
+                    <p className="dark:text-gray-400 text-gray-600 text-sm">
+                      No swipe records match your selected criteria.<br />
+                      Please try adjusting your filters and search again.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
