@@ -137,29 +137,102 @@ const HistoricalMap = () => {
     let sortedPoints = [...routePoints].sort((a, b) => a.seqOrder - b.seqOrder);
     let sortedGPSData = [...gpsData].sort((a, b) => new Date(a.eventTime) - new Date(b.eventTime));
     
-    // For evening shift, reverse BOTH route order AND GPS data order
+    // For evening shift, we need to match route points correctly with GPS data
+    let routePointsWithGPS;
+    
     if (selectedShift === 'evening') {
-      sortedPoints = sortedPoints.reverse();
-      sortedGPSData = sortedGPSData.reverse(); // Reverse GPS data timeline too
+      // For evening shift: 
+      // - Display order is reversed (school first, then other stops)
+      // - GPS matching should be: school gets EARLIEST timestamp, last stop gets LATEST timestamp
+      
+      // Reverse the route points for display
+      const reversedPoints = [...sortedPoints].reverse();
+      
+      // Map each reversed point to GPS data in chronological order
+      routePointsWithGPS = reversedPoints.map((point, index) => {
+        // For evening shift, match in chronological order
+        // First point in display (school) gets earliest GPS time
+        // Last point in display gets latest GPS time
+        let targetGPSIndex;
+        if (reversedPoints.length === sortedGPSData.length) {
+          targetGPSIndex = index;
+        } else {
+          // If GPS points don't match exactly, distribute them proportionally
+          targetGPSIndex = Math.min(
+            Math.floor((index / (reversedPoints.length - 1)) * (sortedGPSData.length - 1)),
+            sortedGPSData.length - 1
+          );
+        }
+        
+        const targetGPS = sortedGPSData[targetGPSIndex];
+        const nearestGPS = targetGPS || findNearestGPSCoordinate(point, sortedGPSData);
+        
+        return {
+          ...point,
+          nearestGPS: nearestGPS,
+          arrivalTime: nearestGPS ? nearestGPS.eventTime : null,
+          distance: nearestGPS ? calculateDistance(
+            parseCoordinate(point.latitude),
+            parseCoordinate(point.longitude),
+            parseCoordinate(nearestGPS.latitude),
+            parseCoordinate(nearestGPS.longitude)
+          ) : null,
+          displayOrder: index + 1,
+          isSchoolPoint: point.routePointName.toLowerCase().includes('school'),
+          isFirst: index === 0,
+          isLast: index === reversedPoints.length - 1,
+          isReached: nearestGPS && calculateDistance(
+            parseCoordinate(point.latitude),
+            parseCoordinate(point.longitude),
+            parseCoordinate(nearestGPS.latitude),
+            parseCoordinate(nearestGPS.longitude)
+          ) < 100,
+          originalIndex: sortedPoints.findIndex(p => p.id === point.id),
+          reversedIndex: index
+        };
+      });
+    } else {
+      // Morning shift - normal chronological matching
+      routePointsWithGPS = sortedPoints.map((point, index) => {
+        let targetGPSIndex;
+        if (sortedPoints.length === sortedGPSData.length) {
+          targetGPSIndex = index;
+        } else {
+          targetGPSIndex = Math.min(
+            Math.floor((index / (sortedPoints.length - 1)) * (sortedGPSData.length - 1)),
+            sortedGPSData.length - 1
+          );
+        }
+        
+        const targetGPS = sortedGPSData[targetGPSIndex];
+        const nearestGPS = targetGPS || findNearestGPSCoordinate(point, sortedGPSData);
+        
+        return {
+          ...point,
+          nearestGPS: nearestGPS,
+          arrivalTime: nearestGPS ? nearestGPS.eventTime : null,
+          distance: nearestGPS ? calculateDistance(
+            parseCoordinate(point.latitude),
+            parseCoordinate(point.longitude),
+            parseCoordinate(nearestGPS.latitude),
+            parseCoordinate(nearestGPS.longitude)
+          ) : null,
+          displayOrder: index + 1,
+          isSchoolPoint: point.routePointName.toLowerCase().includes('school'),
+          isFirst: index === 0,
+          isLast: index === sortedPoints.length - 1,
+          isReached: nearestGPS && calculateDistance(
+            parseCoordinate(point.latitude),
+            parseCoordinate(point.longitude),
+            parseCoordinate(nearestGPS.latitude),
+            parseCoordinate(nearestGPS.longitude)
+          ) < 100,
+          originalIndex: index
+        };
+      });
     }
     
-    return sortedPoints.map((point, index) => {
-      // For evening shift, match GPS data in reverse chronological order
-      const nearestGPS = findNearestGPSCoordinate(point, sortedGPSData);
-      
-      return {
-        ...point,
-        nearestGPS: nearestGPS,
-        arrivalTime: nearestGPS ? nearestGPS.eventTime : null,
-        distance: nearestGPS ? nearestGPS.distance : null,
-        displayOrder: index + 1,
-        isSchoolPoint: point.routePointName.toLowerCase().includes('school'),
-        isFirst: index === 0,
-        isLast: index === sortedPoints.length - 1,
-        isReached: nearestGPS && nearestGPS.distance < 100, // Consider reached if within 100 meters
-        originalIndex: selectedShift === 'evening' ? sortedPoints.length - 1 - index : index
-      };
-    });
+    return routePointsWithGPS;
   };
 
   // Calculate time difference between two points
@@ -168,9 +241,6 @@ const HistoricalMap = () => {
     
     const start = new Date(startTime);
     const end = new Date(endTime);
-    
-    // For evening shift, we want the absolute time difference
-    // since we're showing reversed timeline
     const diffMs = Math.abs(end - start);
     const diffMinutes = Math.round(diffMs / (1000 * 60));
     
@@ -186,7 +256,15 @@ const HistoricalMap = () => {
   // Get current time based on bus position
   const getCurrentTimeFromPosition = (position) => {
     if (historicalData.length > 0) {
-      const gpsData = findGPSDataFromPosition(position);
+      let workingData = [...historicalData].sort((a, b) => new Date(a.eventTime) - new Date(b.eventTime));
+      
+      const progress = position / 100;
+      const dataIndex = Math.min(
+        Math.floor(progress * workingData.length), 
+        workingData.length - 1
+      );
+      const gpsData = workingData[dataIndex];
+      
       if (gpsData && gpsData.eventTime) {
         return formatTimeFromISO(gpsData.eventTime);
       }
@@ -197,7 +275,15 @@ const HistoricalMap = () => {
   // Get current date based on bus position
   const getCurrentDateFromPosition = (position) => {
     if (historicalData.length > 0) {
-      const gpsData = findGPSDataFromPosition(position);
+      let workingData = [...historicalData].sort((a, b) => new Date(a.eventTime) - new Date(b.eventTime));
+      
+      const progress = position / 100;
+      const dataIndex = Math.min(
+        Math.floor(progress * workingData.length), 
+        workingData.length - 1
+      );
+      const gpsData = workingData[dataIndex];
+      
       if (gpsData && gpsData.eventTime) {
         return format(new Date(gpsData.eventTime), 'EEE, MMM d');
       }
@@ -209,13 +295,8 @@ const HistoricalMap = () => {
   const calculateBusMapPosition = (progressPercent, historicalGPSData = null) => {
     if (!historicalGPSData || historicalGPSData.length === 0) return null;
 
-    let workingGPSData = [...historicalGPSData];
+    let workingGPSData = [...historicalGPSData].sort((a, b) => new Date(a.eventTime) - new Date(b.eventTime));
     
-    // For evening shift, reverse the GPS data order so bus moves in reverse timeline
-    if (selectedShift === 'evening') {
-      workingGPSData = workingGPSData.reverse();
-    }
-
     const progress = progressPercent / 100;
     const dataIndex = Math.min(
       Math.floor(progress * workingGPSData.length), 
@@ -297,7 +378,6 @@ const HistoricalMap = () => {
   // Refresh map center based on new data
   const refreshMapCenter = (newHistoricalData, route) => {
     if (newHistoricalData && newHistoricalData.length > 0) {
-      // For evening shift, start from the last GPS point (which becomes first in reverse order)
       let startingPoint;
       if (selectedShift === 'evening') {
         startingPoint = newHistoricalData[newHistoricalData.length - 1];
@@ -321,7 +401,6 @@ const HistoricalMap = () => {
         mapRef.current.fitBounds(bounds, { padding: 50 });
       }
     } else if (route && route.routePoints && route.routePoints.length > 0) {
-      // For evening shift, start from school (last point in original order)
       let firstPoint;
       if (selectedShift === 'evening') {
         const sortedPoints = [...route.routePoints].sort((a, b) => a.seqOrder - b.seqOrder);
@@ -353,7 +432,6 @@ const HistoricalMap = () => {
       const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
       const formattedDate = format(selectedDate, 'yyyy-MM-dd');
       
-      // Fixed API URL - remove duplicate /api/v1
       const response = await fetch(
         `${API_BASE_URL}/device-locations?schoolId=${schoolId}&routeId=${selectedRouteId}&date=${formattedDate}&period=${selectedShift}`,
         {
@@ -373,7 +451,6 @@ const HistoricalMap = () => {
       const sortedData = data.sort((a, b) => new Date(a.eventTime) - new Date(b.eventTime));
       setHistoricalData(sortedData);
       
-      // Set device ID from first data point
       if (sortedData.length > 0) {
         setDeviceId(sortedData[0].deviceId);
       }
@@ -383,19 +460,17 @@ const HistoricalMap = () => {
       setRoutePointsWithTiming(routePointsWithGPS);
       
       if (sortedData.length > 1) {
-        // Calculate total journey time (always positive regardless of direction)
         const startTime = new Date(sortedData[0].eventTime);
         const endTime = new Date(sortedData[sortedData.length - 1].eventTime);
         const totalMinutes = Math.round(Math.abs(endTime - startTime) / (1000 * 60));
         setTotalJourneyTime(totalMinutes);
       }
       
-      setBusPosition(0); // Start from beginning
+      setBusPosition(0);
       setRouteCompleted(false);
       setShowHistoricalPreview(true);
       
       if (sortedData.length > 0) {
-        // For evening shift, start from the last GPS point (school)
         let startingData;
         if (selectedShift === 'evening') {
           startingData = sortedData[sortedData.length - 1];
@@ -415,13 +490,13 @@ const HistoricalMap = () => {
       console.error('Historical data fetch error:', error);
       // Use mock data for demonstration
       const baseDate = format(selectedDate, 'yyyy-MM-dd');
-      const startHour = selectedShift === 'morning' ? '08' : '15';
+      const startHour = selectedShift === 'morning' ? '08' : '14';
       const mockHistoricalData = [
-        { id: 1, deviceId: 'DEMO001', latitude: 12.986141, longitude: 77.731219, eventTime: `${baseDate}T${startHour}:30:00` },
-        { id: 2, deviceId: 'DEMO001', latitude: 12.985842, longitude: 77.730631, eventTime: `${baseDate}T${startHour}:35:00` },
-        { id: 3, deviceId: 'DEMO001', latitude: 12.985734, longitude: 77.730410, eventTime: `${baseDate}T${startHour}:42:00` },
-        { id: 4, deviceId: 'DEMO001', latitude: 12.985656, longitude: 77.730406, eventTime: `${baseDate}T${startHour}:48:00` },
-        { id: 5, deviceId: 'DEMO001', latitude: 12.985516, longitude: 77.730314, eventTime: `${baseDate}T${startHour}:55:00` },
+        { id: 1, deviceId: 'DEMO001', latitude: 12.986141, longitude: 77.731219, eventTime: `${baseDate}T${startHour}:43:25` },
+        { id: 2, deviceId: 'DEMO001', latitude: 12.985842, longitude: 77.730631, eventTime: `${baseDate}T${startHour}:49:07` },
+        { id: 3, deviceId: 'DEMO001', latitude: 12.985734, longitude: 77.730410, eventTime: `${baseDate}T${startHour}:51:58` },
+        { id: 4, deviceId: 'DEMO001', latitude: 12.985656, longitude: 77.730406, eventTime: `${baseDate}T${startHour}:58:02` },
+        { id: 5, deviceId: 'DEMO001', latitude: 12.985516, longitude: 77.730314, eventTime: `${baseDate}T15:14:37` },
       ];
       
       setHistoricalData(mockHistoricalData);
@@ -438,7 +513,6 @@ const HistoricalMap = () => {
       setRouteCompleted(false);
       setShowHistoricalPreview(true);
       
-      // For mock data, also respect evening shift starting position
       let mockStartingData;
       if (selectedShift === 'evening') {
         mockStartingData = mockHistoricalData[mockHistoricalData.length - 1];
@@ -521,7 +595,6 @@ const HistoricalMap = () => {
       .filter((point) => isValidCoordinate(point.latitude) && isValidCoordinate(point.longitude))
       .sort((a, b) => a.seqOrder - b.seqOrder);
 
-    // For evening shift, reverse the route order so bus starts from school
     if (selectedShift === 'evening') {
       validPoints = validPoints.reverse();
     }
@@ -596,12 +669,7 @@ const HistoricalMap = () => {
   const findGPSDataFromPosition = (position) => {
     if (!historicalData.length) return null;
     
-    let workingData = [...historicalData];
-    
-    // For evening shift, use reversed GPS data order
-    if (selectedShift === 'evening') {
-      workingData = workingData.reverse();
-    }
+    let workingData = [...historicalData].sort((a, b) => new Date(a.eventTime) - new Date(b.eventTime));
     
     const progress = position / 100;
     const dataIndex = Math.min(
@@ -615,15 +683,15 @@ const HistoricalMap = () => {
   const getElapsedTime = (position) => {
     if (!historicalData.length) return '00:00';
     
-    let workingData = [...historicalData];
-    
-    // For evening shift, calculate elapsed time from reversed timeline
-    if (selectedShift === 'evening') {
-      workingData = workingData.reverse();
-    }
+    let workingData = [...historicalData].sort((a, b) => new Date(a.eventTime) - new Date(b.eventTime));
     
     const startTime = new Date(workingData[0].eventTime);
-    const currentGPS = findGPSDataFromPosition(position);
+    const progress = position / 100;
+    const dataIndex = Math.min(
+      Math.floor(progress * workingData.length), 
+      workingData.length - 1
+    );
+    const currentGPS = workingData[dataIndex];
     
     if (currentGPS && currentGPS.eventTime) {
       const currentTime = new Date(currentGPS.eventTime);
@@ -787,7 +855,7 @@ const HistoricalMap = () => {
                 : 'dark:bg-slate-700/50 dark:text-white dark:hover:bg-slate-700 bg-gray-200/50 text-gray-800 hover:bg-gray-300'
             }`}
           >
-            Morning
+            Pickup
           </Button>
           <Button
             onClick={() => setSelectedShift('evening')}
@@ -797,7 +865,7 @@ const HistoricalMap = () => {
                 : 'dark:bg-slate-700/50 dark:text-white dark:hover:bg-slate-700 bg-gray-200/50 text-gray-800 hover:bg-gray-300'
             }`}
           >
-            Evening
+            Drop
           </Button>
         </div>
         <Button
@@ -860,7 +928,6 @@ const HistoricalMap = () => {
               {/* Route Points */}
               {selectedRoute && selectedRoute.routePoints && (() => {
                 let displayPoints = [...selectedRoute.routePoints].sort((a, b) => a.seqOrder - b.seqOrder);
-                // For evening shift, reverse the display order so school appears first
                 if (selectedShift === 'evening') {
                   displayPoints = displayPoints.reverse();
                 }
@@ -913,21 +980,14 @@ const HistoricalMap = () => {
               {historicalData.length > 1 && (
                 <div>
                   {(() => {
-                    let workingData = [...historicalData];
-                    let trailPoints;
-                    
-                    if (selectedShift === 'evening') {
-                      // For evening, reverse the data and show trail from school
-                      workingData = workingData.reverse();
-                      trailPoints = workingData.slice(0, Math.floor((busPosition / 100) * workingData.length));
-                    } else {
-                      // For morning, normal order
-                      trailPoints = workingData.slice(0, Math.floor((busPosition / 100) * workingData.length));
-                    }
+                    let workingData = [...historicalData].sort((a, b) => new Date(a.eventTime) - new Date(b.eventTime));
+                    const totalPoints = workingData.length;
+                    const progressIndex = Math.floor((busPosition / 100) * totalPoints);
+                    const trailPoints = workingData.slice(0, progressIndex + 1);
                     
                     return trailPoints.map((point, index) => (
                       <Marker
-                        key={`gps-${point.id}-${selectedShift}`}
+                        key={`gps-${point.id}-${selectedShift}-${index}`}
                         position={{
                           lat: parseCoordinate(point.latitude),
                           lng: parseCoordinate(point.longitude),
@@ -948,11 +1008,11 @@ const HistoricalMap = () => {
           )}
         </div>
 
-        {/* Right Side - Compact Scrollable Preview Card (35%) - Responsive for small screens */}
+        {/* Right Side - Compact Scrollable Preview Card (35%) */}
         <div className="w-full md:w-[35%] absolute md:relative top-0 right-0 md:top-auto md:right-auto h-full bg-gradient-to-br dark:from-slate-800/95 dark:to-slate-900/95 from-white/95 to-gray-100/95 backdrop-blur-xl border-l dark:border-slate-600/50 border-gray-300/50 flex flex-col z-20 md:z-auto">
           {selectedRoute && showHistoricalPreview && directionsRequested ? (
             <div className="h-full flex flex-col">
-              {/* Header with close button for mobile */}
+              {/* Header */}
               <div className="bg-gradient-to-r dark:from-slate-700 dark:to-slate-800 from-gray-100 to-gray-200 p-3 dark:text-white text-gray-800 border-b dark:border-slate-600/30 border-gray-300/30">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center space-x-2">
@@ -970,12 +1030,11 @@ const HistoricalMap = () => {
                         ? 'bg-yellow-500/30 text-yellow-800 dark:text-yellow-100 border border-yellow-300/30' 
                         : 'bg-purple-500/30 text-purple-800 dark:text-purple-100 border border-purple-300/30'
                     }`}>
-                      <span>{selectedShift === 'morning' ? 'Morning' : 'Evening'}</span>
+                      <span>{selectedShift === 'morning' ? 'Pickup' : 'Drop'}</span>
                       {routeCompleted && (
                         <span className="text-green-600 dark:text-green-400">✓</span>
                       )}
                     </div>
-                    {/* Close button for mobile */}
                     <button 
                       className="md:hidden w-6 h-6 rounded-full dark:bg-slate-600 bg-gray-300 flex items-center justify-center dark:text-white text-gray-800 hover:bg-opacity-80"
                       onClick={() => setShowHistoricalPreview(false)}
@@ -1015,9 +1074,8 @@ const HistoricalMap = () => {
                 </div>
               </div>
 
-              {/* Fixed Controls Section - Always visible */}
+              {/* Fixed Controls Section */}
               <div className="p-3 dark:bg-slate-800/95 bg-white/95 border-b dark:border-slate-600/30 border-gray-300/30 sticky top-0 z-10">
-                {/* Progress Slider */}
                 <div className="mb-3">
                   <input
                     type="range"
@@ -1029,7 +1087,6 @@ const HistoricalMap = () => {
                   />
                 </div>
                 
-                {/* Control Buttons */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <Button
@@ -1078,13 +1135,28 @@ const HistoricalMap = () => {
                 {routePointsWithTiming.map((point, index) => {
                   const isReached = (busPosition / 100) * routePointsWithTiming.length > index;
                   const isCurrent = Math.floor((busPosition / 100) * routePointsWithTiming.length) === index;
-                  const prevPoint = index > 0 ? routePointsWithTiming[index - 1] : null;
-                  const timeTaken = prevPoint && point.nearestGPS && prevPoint.nearestGPS ? 
-                    calculateTimeDifference(prevPoint.nearestGPS.eventTime, point.nearestGPS.eventTime) : null;
+                  
+                  // Calculate time taken based on chronological order
+                  let prevPoint, timeTaken = null;
+                  if (selectedShift === 'evening') {
+                    // For evening shift, find the chronologically previous point
+                    const allPointsSortedByTime = [...routePointsWithTiming].sort((a, b) => {
+                      if (!a.nearestGPS?.eventTime || !b.nearestGPS?.eventTime) return 0;
+                      return new Date(a.nearestGPS.eventTime) - new Date(b.nearestGPS.eventTime);
+                    });
+                    const currentIndex = allPointsSortedByTime.findIndex(p => p.id === point.id);
+                    prevPoint = currentIndex > 0 ? allPointsSortedByTime[currentIndex - 1] : null;
+                  } else {
+                    prevPoint = index > 0 ? routePointsWithTiming[index - 1] : null;
+                  }
+                  
+                  if (prevPoint && point.nearestGPS && prevPoint.nearestGPS) {
+                    timeTaken = calculateTimeDifference(prevPoint.nearestGPS.eventTime, point.nearestGPS.eventTime);
+                  }
 
                   return (
                     <div
-                      key={point.id}
+                      key={`${point.id}-${selectedShift}`}
                       className={`p-3 rounded-lg border-2 transition-all duration-300 cursor-pointer ${
                         isCurrent
                           ? 'bg-gradient-to-r dark:from-yellow-500/20 dark:to-orange-500/20 dark:border-yellow-400 from-blue-100/50 to-blue-200/50 border-blue-400 shadow-md scale-105'
@@ -1096,7 +1168,6 @@ const HistoricalMap = () => {
                       onMouseLeave={() => setHoveredPoint(null)}
                     >
                       <div className="flex items-center space-x-2">
-                        {/* Point Icon */}
                         <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border-2 ${
                           isCurrent 
                             ? 'bg-gradient-to-r dark:from-yellow-500 dark:to-orange-500 from-blue-500 to-blue-600 text-white dark:border-yellow-300 border-blue-300 animate-pulse' 
@@ -1109,13 +1180,11 @@ const HistoricalMap = () => {
                           {point.isSchoolPoint ? '🏫' : point.displayOrder}
                         </div>
 
-                        {/* Point Details */}
                         <div className="flex-1 min-w-0">
                           <div className="font-semibold text-xs dark:text-white text-gray-800 truncate">
                             {point.routePointName}
                           </div>
                           
-                          {/* Timing Information */}
                           {point.nearestGPS && (
                             <div className="flex items-center space-x-2 mt-1">
                               <div className="flex items-center space-x-1 text-xs text-green-600">
@@ -1132,7 +1201,6 @@ const HistoricalMap = () => {
                             </div>
                           )}
 
-                          {/* Distance Information */}
                           {point.distance !== null && (
                             <div className="text-xs dark:text-gray-400 text-gray-500 mt-1">
                               {point.distance < 100 ? 
@@ -1143,7 +1211,6 @@ const HistoricalMap = () => {
                           )}
                         </div>
 
-                        {/* Status Indicator */}
                         <div className="flex flex-col items-center">
                           {isCurrent && (
                             <div className="w-2 h-2 dark:bg-yellow-500 bg-blue-500 rounded-full animate-ping"></div>
@@ -1154,7 +1221,6 @@ const HistoricalMap = () => {
                         </div>
                       </div>
 
-                      {/* Hover Tooltip */}
                       {hoveredPoint && hoveredPoint.id === point.id && (
                         <div className="absolute left-full ml-2 z-20 px-3 py-2 dark:bg-slate-900/95 bg-white/95 backdrop-blur-md dark:text-white text-gray-800 text-xs rounded-lg shadow-xl whitespace-nowrap dark:border-slate-600 border-gray-300 border">
                           <div className="font-bold dark:text-yellow-400 text-blue-600 mb-1">{point.routePointName}</div>
@@ -1189,7 +1255,6 @@ const HistoricalMap = () => {
               </div>
             </div>
           ) : (
-            /* Empty State */
             <div className="h-full flex items-center justify-center p-6">
               <div className="text-center">
                 <div className="text-3xl mb-3">🚌</div>
@@ -1213,7 +1278,6 @@ const HistoricalMap = () => {
         </div>
       </div>
 
-      {/* Enhanced Error Message */}
       {error && (
         <div className="absolute top-20 right-4 max-w-md z-50">
           <Card className="dark:bg-red-900/95 bg-red-100/95 dark:border-red-700 border-red-300 backdrop-blur-md p-4 rounded-xl">
@@ -1227,7 +1291,6 @@ const HistoricalMap = () => {
         </div>
       )}
 
-      {/* Enhanced Custom Styles */}
       <style jsx>{`
         .slider::-webkit-slider-thumb {
           appearance: none;
@@ -1265,7 +1328,6 @@ const HistoricalMap = () => {
           background: #9CA3AF;
         }
 
-        /* Small screen responsive design */
         @media (max-width: 768px) {
           .w-\\[35\\%\\] {
             width: 100% !important;

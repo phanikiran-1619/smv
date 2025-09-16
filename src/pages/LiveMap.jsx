@@ -71,24 +71,98 @@ const LiveMap = () => {
     libraries,
   });
 
-  // Set up icons when loaded
+  // Helper function to get proper asset URL for production and development
+  const getAssetUrl = (assetPath) => {
+    // For production builds, use the full URL path
+    const basePath = process.env.PUBLIC_URL || '';
+    return `${basePath}${assetPath}`;
+  };
+
+  // Create SVG-based icons for better production compatibility
+  const createBusIcon = (size = 48) => {
+    const svgIcon = `data:image/svg+xml;charset=UTF-8,%3csvg width='${size}' height='${size}' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3e%3cdefs%3e%3clinearGradient id='busGrad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3e%3cstop offset='0%25' style='stop-color:%23FFD700;stop-opacity:1' /%3e%3cstop offset='100%25' style='stop-color:%23FFA500;stop-opacity:1' /%3e%3c/linearGradient%3e%3c/defs%3e%3crect x='15' y='25' width='70' height='40' rx='8' ry='8' fill='url(%23busGrad)' stroke='%23333' stroke-width='2'/%3e%3crect x='20' y='30' width='15' height='12' fill='%2387CEEB' stroke='%23333' stroke-width='1'/%3e%3crect x='40' y='30' width='15' height='12' fill='%2387CEEB' stroke='%23333' stroke-width='1'/%3e%3crect x='60' y='30' width='15' height='12' fill='%2387CEEB' stroke='%23333' stroke-width='1'/%3e%3crect x='22' y='47' width='11' height='8' fill='%23333'/%3e%3crect x='42' y='47' width='11' height='8' fill='%23333'/%3e%3crect x='62' y='47' width='11' height='8' fill='%23333'/%3e%3ccircle cx='27' cy='70' r='8' fill='%23333'/%3e%3ccircle cx='73' cy='70' r='8' fill='%23333'/%3e%3ccircle cx='27' cy='70' r='5' fill='%23666'/%3e%3ccircle cx='73' cy='70' r='5' fill='%23666'/%3e%3crect x='45' y='20' width='10' height='5' fill='%23FF0000'/%3e%3ctext x='50' y='90' text-anchor='middle' font-family='Arial, sans-serif' font-size='10' fill='%23333'%3eBUS%3c/text%3e%3c/svg%3e`;
+    
+    return {
+      url: svgIcon,
+      scaledSize: new window.google.maps.Size(size, size),
+      anchor: new window.google.maps.Point(size / 2, size / 2),
+    };
+  };
+
+  const createSchoolIcon = (size = 40) => {
+    const svgIcon = `data:image/svg+xml;charset=UTF-8,%3csvg width='${size}' height='${size}' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3e%3cdefs%3e%3clinearGradient id='schoolGrad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3e%3cstop offset='0%25' style='stop-color:%23FF6B6B;stop-opacity:1' /%3e%3cstop offset='100%25' style='stop-color:%23FF8E53;stop-opacity:1' /%3e%3c/linearGradient%3e%3c/defs%3e%3cpolygon points='50,10 20,35 80,35' fill='url(%23schoolGrad)' stroke='%23333' stroke-width='2'/%3e%3crect x='25' y='35' width='50' height='40' fill='%23FFF8DC' stroke='%23333' stroke-width='2'/%3e%3crect x='40' y='55' width='20' height='20' fill='%238B4513' stroke='%23333' stroke-width='1'/%3e%3ccircle cx='46' cy='63' r='2' fill='%23333'/%3e%3crect x='30' y='45' width='8' height='8' fill='%2387CEEB' stroke='%23333' stroke-width='1'/%3e%3crect x='62' y='45' width='8' height='8' fill='%2387CEEB' stroke='%23333' stroke-width='1'/%3e%3crect x='47' y='20' width='6' height='15' fill='%23333'/%3e%3ccircle cx='50' cy='17' r='3' fill='%23FFD700'/%3e%3ctext x='50' y='90' text-anchor='middle' font-family='Arial, sans-serif' font-size='8' fill='%23333'%3eSCHOOL%3c/text%3e%3c/svg%3e`;
+    
+    return {
+      url: svgIcon,
+      scaledSize: new window.google.maps.Size(size, size),
+      anchor: new window.google.maps.Point(size / 2, size),
+    };
+  };
+
+  const createMapPinIcon = (size = 40) => {
+    const svgIcon = `data:image/svg+xml;charset=UTF-8,%3csvg width='${size}' height='${size}' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3e%3cdefs%3e%3clinearGradient id='pinGrad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3e%3cstop offset='0%25' style='stop-color:%234285F4;stop-opacity:1' /%3e%3cstop offset='100%25' style='stop-color:%23285DA1;stop-opacity:1' /%3e%3c/linearGradient%3e%3c/defs%3e%3ccircle cx='50' cy='35' r='25' fill='url(%23pinGrad)' stroke='%23fff' stroke-width='3'/%3e%3ccircle cx='50' cy='35' r='12' fill='%23fff'/%3e%3cpolygon points='50,60 35,85 65,85' fill='url(%23pinGrad)' stroke='%23fff' stroke-width='2'/%3e%3c/svg%3e`;
+    
+    return {
+      url: svgIcon,
+      scaledSize: new window.google.maps.Size(size, size),
+      anchor: new window.google.maps.Point(size / 2, size),
+    };
+  };
+
+  // Set up icons when loaded - Using both image fallback and SVG icons
   useEffect(() => {
     if (isLoaded && window.google && window.google.maps) {
-      mapPinIconRef.current = {
-        url: '/assets/map.png',
-        scaledSize: new window.google.maps.Size(40, 40),
-        anchor: new window.google.maps.Point(20, 40),
+      // Try to use PNG images first, fallback to SVG if they fail
+      const mapPinImg = new Image();
+      const schoolImg = new Image();
+      const busImg = new Image();
+
+      // Map Pin Icon
+      mapPinImg.onload = () => {
+        mapPinIconRef.current = {
+          url: getAssetUrl('/assets/map.png'),
+          scaledSize: new window.google.maps.Size(40, 40),
+          anchor: new window.google.maps.Point(20, 40),
+        };
       };
-      schoolIconRef.current = {
-        url: '/assets/school2.png',
-        scaledSize: new window.google.maps.Size(40, 40),
-        anchor: new window.google.maps.Point(20, 40),
+      mapPinImg.onerror = () => {
+        console.warn('Map pin image failed to load, using SVG fallback');
+        mapPinIconRef.current = createMapPinIcon(40);
       };
-      busIconRef.current = {
-        url: '/assets/bus.png',
-        scaledSize: new window.google.maps.Size(48, 48),
-        anchor: new window.google.maps.Point(24, 24),
+      mapPinImg.src = getAssetUrl('/assets/map.png');
+
+      // School Icon
+      schoolImg.onload = () => {
+        schoolIconRef.current = {
+          url: getAssetUrl('/assets/school2.png'),
+          scaledSize: new window.google.maps.Size(40, 40),
+          anchor: new window.google.maps.Point(20, 40),
+        };
       };
+      schoolImg.onerror = () => {
+        console.warn('School image failed to load, using SVG fallback');
+        schoolIconRef.current = createSchoolIcon(40);
+      };
+      schoolImg.src = getAssetUrl('/assets/school2.png');
+
+      // Bus Icon - Most important one!
+      busImg.onload = () => {
+        busIconRef.current = {
+          url: getAssetUrl('/assets/bus.png'),
+          scaledSize: new window.google.maps.Size(48, 48),
+          anchor: new window.google.maps.Point(24, 24),
+        };
+      };
+      busImg.onerror = () => {
+        console.warn('Bus image failed to load, using SVG fallback');
+        busIconRef.current = createBusIcon(48);
+      };
+      busImg.src = getAssetUrl('/assets/bus.png');
+
+      // Set default SVG icons immediately for faster initial load
+      if (!mapPinIconRef.current) mapPinIconRef.current = createMapPinIcon(40);
+      if (!schoolIconRef.current) schoolIconRef.current = createSchoolIcon(40);
+      if (!busIconRef.current) busIconRef.current = createBusIcon(48);
     }
   }, [isLoaded]);
 
@@ -900,7 +974,7 @@ const LiveMap = () => {
                 );
               })}
 
-              {/* Bus Markers */}
+              {/* Bus Markers - FIXED WITH PROPER ICON HANDLING */}
               {getViewBuses().map((position) => {
                 const routeForBus = routes.find(route => 
                   (route.smRouteId || route.id) === position.routeId
@@ -911,6 +985,9 @@ const LiveMap = () => {
                 const isDefault = position.isDefault;
                 const title = isDefault ? `Awaiting start - ${routeForBus.routeName}` : `Bus ${position.deviceId} - ${routeForBus.routeName}`;
                 
+                // Ensure bus icon is available - use fallback if needed
+                const busIcon = busIconRef.current || createBusIcon(48);
+                
                 return (
                   <Marker
                     key={position.deviceId}
@@ -919,7 +996,7 @@ const LiveMap = () => {
                       lng: position.lng,
                     }}
                     icon={{
-                      ...busIconRef.current,
+                      ...busIcon,
                       rotation: position.heading || 0,
                     }}
                     zIndex={1001}
@@ -949,7 +1026,7 @@ const LiveMap = () => {
                     isMorningShift() ? 'dark:bg-yellow-500/20 dark:text-yellow-300 bg-yellow-100 text-yellow-800' : 'dark:bg-purple-500/20 dark:text-purple-300 bg-purple-100 text-purple-800'
                   } px-3 py-1 rounded-full text-xs font-semibold border border-current shadow-sm animate-pulse`}
                 >
-                  {isMorningShift() ? 'Morning Shift' : 'Evening Shift'}
+                  {isMorningShift() ? 'Pickup Shift' : 'Drop Shift'}
                 </div>
               </div>
 
