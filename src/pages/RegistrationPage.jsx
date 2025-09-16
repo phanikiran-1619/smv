@@ -87,7 +87,7 @@ const RegistrationPage = () => {
         <div className="max-w-6xl mx-auto">
           {/* Header */}
           <div className="text-center mb-12">
-            <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r dark:from-yellow-400 dark:via-orange-500 dark:to-red-500 from-blue-600 via-purple-600 to-blue-800 bg-clip-text text-transparent mb-4">Registration Forms</h1>
+            <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r dark:from-yellow-400 dark:via-orange-500 dark:to-red-500 from-blue-600 via-purple-600 to-blue-800 bg-clip-text text-transparent mb-4">REGISTRATION FORMS</h1>
             <p className="dark:text-gray-300 text-gray-600">Select a category to register new users or entities</p>
           </div>
 
@@ -97,17 +97,19 @@ const RegistrationPage = () => {
               <Card
                 key={index}
                 onClick={() => handleCategoryClick(category)}
-                className="dark:bg-slate-700/40 dark:border-slate-600 dark:hover:border-slate-500 dark:hover:bg-slate-700/60 bg-white/80 border-gray-200 hover:border-gray-300 hover:bg-white p-8 text-center transition-all duration-300 cursor-pointer group transform hover:scale-105 backdrop-blur-sm shadow-lg"
+                className="dark:bg-slate-700/40 dark:border-slate-600 dark:hover:border-yellow-400 dark:hover:bg-slate-700/60 bg-white/80 border-gray-200 hover:border-blue-400 hover:bg-white p-8 text-center transition-all duration-300 cursor-pointer group transform hover:scale-105 backdrop-blur-sm shadow-lg hover:shadow-xl"
               >
                 <div className="mb-6">
                   <div className="w-20 h-20 mx-auto mb-4 rounded-full dark:bg-slate-600/50 bg-gray-100/70 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
-                    <div className={`text-white bg-gradient-to-br dark:${category.color} ${category.lightColor} p-3 rounded-full shadow-lg`}>
-                      {category.icon}
+                    <div className={`text-white bg-gradient-to-br dark:${category.color} ${category.lightColor} p-3 rounded-full shadow-lg group-hover:shadow-xl transition-all duration-200`}>
+                      <div className="group-hover:scale-110 transition-transform duration-200">
+                        {category.icon}
+                      </div>
                     </div>
                   </div>
                 </div>
                 
-                <h3 className="text-xl font-bold dark:text-white dark:group-hover:text-yellow-400 text-gray-800 group-hover:text-blue-600 transition-colors duration-200">
+                <h3 className="text-xl font-bold dark:text-white dark:group-hover:text-yellow-400 text-gray-800 group-hover:text-blue-600 transition-colors duration-200 leading-relaxed py-1">
                   {category.title}
                 </h3>
               </Card>

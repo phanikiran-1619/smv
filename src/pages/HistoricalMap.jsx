@@ -297,6 +297,11 @@ const HistoricalMap = () => {
 
     let workingGPSData = [...historicalGPSData].sort((a, b) => new Date(a.eventTime) - new Date(b.eventTime));
     
+    // For evening shift, reverse the GPS data order for map display (start from school)
+    if (selectedShift === 'evening') {
+      workingGPSData = workingGPSData.reverse();
+    }
+    
     const progress = progressPercent / 100;
     const dataIndex = Math.min(
       Math.floor(progress * workingGPSData.length), 
@@ -981,6 +986,12 @@ const HistoricalMap = () => {
                 <div>
                   {(() => {
                     let workingData = [...historicalData].sort((a, b) => new Date(a.eventTime) - new Date(b.eventTime));
+                    
+                    // For evening shift, reverse the GPS data order for map display (start from school)
+                    if (selectedShift === 'evening') {
+                      workingData = workingData.reverse();
+                    }
+                    
                     const totalPoints = workingData.length;
                     const progressIndex = Math.floor((busPosition / 100) * totalPoints);
                     const trailPoints = workingData.slice(0, progressIndex + 1);
