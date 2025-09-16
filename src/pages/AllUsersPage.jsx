@@ -374,7 +374,7 @@ const AllUsersPage = () => {
                     <Search className="absolute left-3 top-2.5 h-5 w-5 dark:text-gray-400 text-gray-500" />
                     <Input
                       type="text"
-                      placeholder={`Search ${selectedOption}s...`}
+                      placeholder={`Search by StudentId...`}
                       value={searchQuery}
                       onChange={(e) => {
                         setSearchQuery(e.target.value);

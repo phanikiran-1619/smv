@@ -25,6 +25,36 @@ const mapOptions = {
 
 const DEFAULT_CENTER = { lat: 37.7749, lng: -122.4194 };
 
+// Asset paths with fallbacks - using process.env.PUBLIC_URL for production compatibility
+const getAssetUrl = (filename) => {
+  const baseUrl = process.env.PUBLIC_URL || '';
+  return `${baseUrl}/assets/${filename}`;
+};
+
+// Asset configurations with multiple possible paths for robustness
+const ASSET_CONFIGS = {
+  bus: {
+    paths: [getAssetUrl('bus.png'), '/assets/bus.png', './assets/bus.png'],
+    size: { width: 48, height: 48 },
+    anchor: { x: 24, y: 24 }
+  },
+  mapPin: {
+    paths: [getAssetUrl('map.png'), '/assets/map.png', './assets/map.png'],
+    size: { width: 40, height: 40 },
+    anchor: { x: 20, y: 40 }
+  },
+  boarding: {
+    paths: [getAssetUrl('Boarding.png'), getAssetUrl('boarding.png'), '/assets/Boarding.png', '/assets/boarding.png'],
+    size: { width: 40, height: 40 },
+    anchor: { x: 20, y: 40 }
+  },
+  school: {
+    paths: [getAssetUrl('school2.png'), '/assets/school2.png', './assets/school2.png'],
+    size: { width: 40, height: 40 },
+    anchor: { x: 20, y: 40 }
+  }
+};
+
 const StudentMap = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -44,6 +74,7 @@ const StudentMap = () => {
   const [isMorningShift, setIsMorningShift] = useState(true);
   const [routeSegments, setRouteSegments] = useState([]);
   const [busStatusMessage, setBusStatusMessage] = useState('');
+  const [boardingPointId, setBoardingPointId] = useState(null);
 
   const mapRef = useRef(null);
   const stompClientRef = useRef(null);
@@ -54,32 +85,84 @@ const StudentMap = () => {
   const stopPathIndicesRef = useRef([]);
   const timeIntervalRef = useRef(null);
 
-  const busIconRef = useRef({
-    url: '/assets/bus.png',
-    scaledSize: undefined,
-    anchor: undefined,
-  });
-  const mapPinIconRef = useRef({
-    url: '/assets/map.png',
-    scaledSize: undefined,
-    anchor: undefined,
-  });
-  const boardingPointIconRef = useRef({
-    url: '/assets/boarding.png',
-    scaledSize: undefined,
-    anchor: undefined,
-  });
-  const schoolIconRef = useRef({
-    url: '/assets/school2.png',
-    scaledSize: undefined,
-    anchor: undefined,
-  });
+  const busIconRef = useRef(null);
+  const mapPinIconRef = useRef(null);
+  const boardingPointIconRef = useRef(null);
+  const schoolIconRef = useRef(null);
 
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY || '',
     libraries,
   });
+
+  // Function to test if an image URL is accessible
+  const testImageUrl = (url) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(url);
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+  };
+
+  // Function to get the first working asset URL
+  const getWorkingAssetUrl = async (assetConfig) => {
+    for (const path of assetConfig.paths) {
+      const workingUrl = await testImageUrl(path);
+      if (workingUrl) {
+        console.log(`Using working asset URL: ${workingUrl}`);
+        return workingUrl;
+      }
+    }
+    console.warn(`No working URL found for asset with paths: ${assetConfig.paths.join(', ')}`);
+    return assetConfig.paths[0]; // Fallback to first path
+  };
+
+  // Function to determine boarding point more robustly
+  const determineBoardingPoint = useCallback((routePoints) => {
+    if (!routePoints || routePoints.length === 0) return null;
+
+    // Method 1: Look for point names that contain "boarding" (case insensitive)
+    const boardingByName = routePoints.find(point => 
+      point.routePointName && 
+      point.routePointName.toLowerCase().includes('boarding')
+    );
+    if (boardingByName) {
+      console.log(`Found boarding point by name: ${boardingByName.routePointName} (ID: ${boardingByName.id})`);
+      return boardingByName.id;
+    }
+
+    // Method 2: Look for specific known boarding point names
+    const boardingNames = ['boarding point', 'pickup point', 'student pickup', 'bus stop'];
+    const boardingByKnownName = routePoints.find(point => 
+      point.routePointName && 
+      boardingNames.some(name => 
+        point.routePointName.toLowerCase().includes(name.toLowerCase())
+      )
+    );
+    if (boardingByKnownName) {
+      console.log(`Found boarding point by known name: ${boardingByKnownName.routePointName} (ID: ${boardingByKnownName.id})`);
+      return boardingByKnownName.id;
+    }
+
+    // Method 3: Use the original hard-coded ID as fallback
+    const originalBoardingPoint = routePoints.find(point => point.id === 226);
+    if (originalBoardingPoint) {
+      console.log(`Found boarding point by original ID: ${originalBoardingPoint.routePointName} (ID: 226)`);
+      return 226;
+    }
+
+    // Method 4: If no boarding point found, use the second point (assuming first is school/start)
+    if (routePoints.length > 2) {
+      const fallbackPoint = routePoints[1];
+      console.log(`Using fallback boarding point: ${fallbackPoint.routePointName} (ID: ${fallbackPoint.id})`);
+      return fallbackPoint.id;
+    }
+
+    console.warn('No boarding point could be determined');
+    return null;
+  }, []);
 
   const findClosestPointOnRoute = useCallback((busPosition) => {
     if (routePathRef.current.length === 0) return 0;
@@ -333,33 +416,84 @@ const StudentMap = () => {
     setIsMorningShift(hours < 12);
   }, [currentTime]);
 
+  // Initialize icons with error handling and asset testing
   useEffect(() => {
     if (isLoaded && window.google && window.google.maps) {
-      busIconRef.current = {
-        url: '/assets/bus.png',
-        scaledSize: new window.google.maps.Size(48, 48),
-        anchor: new window.google.maps.Point(24, 24),
+      const initializeIcons = async () => {
+        try {
+          console.log('Initializing map icons...');
+          
+          // Initialize all icons with working URLs
+          const [busUrl, mapPinUrl, boardingUrl, schoolUrl] = await Promise.all([
+            getWorkingAssetUrl(ASSET_CONFIGS.bus),
+            getWorkingAssetUrl(ASSET_CONFIGS.mapPin),
+            getWorkingAssetUrl(ASSET_CONFIGS.boarding),
+            getWorkingAssetUrl(ASSET_CONFIGS.school)
+          ]);
+
+          busIconRef.current = {
+            url: busUrl,
+            scaledSize: new window.google.maps.Size(
+              ASSET_CONFIGS.bus.size.width, 
+              ASSET_CONFIGS.bus.size.height
+            ),
+            anchor: new window.google.maps.Point(
+              ASSET_CONFIGS.bus.anchor.x, 
+              ASSET_CONFIGS.bus.anchor.y
+            ),
+          };
+
+          mapPinIconRef.current = {
+            url: mapPinUrl,
+            scaledSize: new window.google.maps.Size(
+              ASSET_CONFIGS.mapPin.size.width, 
+              ASSET_CONFIGS.mapPin.size.height
+            ),
+            anchor: new window.google.maps.Point(
+              ASSET_CONFIGS.mapPin.anchor.x, 
+              ASSET_CONFIGS.mapPin.anchor.y
+            ),
+          };
+
+          boardingPointIconRef.current = {
+            url: boardingUrl,
+            scaledSize: new window.google.maps.Size(
+              ASSET_CONFIGS.boarding.size.width, 
+              ASSET_CONFIGS.boarding.size.height
+            ),
+            anchor: new window.google.maps.Point(
+              ASSET_CONFIGS.boarding.anchor.x, 
+              ASSET_CONFIGS.boarding.anchor.y
+            ),
+          };
+
+          schoolIconRef.current = {
+            url: schoolUrl,
+            scaledSize: new window.google.maps.Size(
+              ASSET_CONFIGS.school.size.width, 
+              ASSET_CONFIGS.school.size.height
+            ),
+            anchor: new window.google.maps.Point(
+              ASSET_CONFIGS.school.anchor.x, 
+              ASSET_CONFIGS.school.anchor.y
+            ),
+          };
+
+          directionsServiceRef.current = new window.google.maps.DirectionsService();
+          
+          console.log('Map icons initialized successfully');
+        } catch (error) {
+          console.error('Error initializing map icons:', error);
+          toast({
+            title: 'Warning',
+            description: 'Some map icons may not load properly.',
+            variant: 'destructive',
+            duration: 3000,
+          });
+        }
       };
 
-      mapPinIconRef.current = {
-        url: '/assets/map.png',
-        scaledSize: new window.google.maps.Size(40, 40),
-        anchor: new window.google.maps.Point(20, 40),
-      };
-
-      boardingPointIconRef.current = {
-        url: '/assets/boarding.png',
-        scaledSize: new window.google.maps.Size(40, 40),
-        anchor: new window.google.maps.Point(20, 40),
-      };
-
-      schoolIconRef.current = {
-        url: '/assets/school2.png',
-        scaledSize: new window.google.maps.Size(40, 40),
-        anchor: new window.google.maps.Point(20, 40),
-      };
-
-      directionsServiceRef.current = new window.google.maps.DirectionsService();
+      initializeIcons();
     }
   }, [isLoaded]);
 
@@ -401,7 +535,8 @@ const StudentMap = () => {
       }
 
       try {
-        const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/route/${routeId}`, {
+        const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || process.env.REACT_APP_BACKEND_URL;
+        const response = await fetch(`${apiBaseUrl}/route/${routeId}`, {
           headers: {
             Authorization: `Bearer ${token}`,
             'Client-Type': 'web',
@@ -426,6 +561,11 @@ const StudentMap = () => {
           throw new Error('No valid coordinates found in route points');
         }
 
+        // Determine boarding point ID
+        const determinedBoardingPointId = determineBoardingPoint(validPoints);
+        setBoardingPointId(determinedBoardingPointId);
+        console.log('Determined boarding point ID:', determinedBoardingPointId);
+
         setRouteData({ ...data, routePoints: validPoints });
         setMapCenter({
           lat: Number(validPoints[isMorningShift ? 0 : validPoints.length - 1].latitude),
@@ -446,7 +586,7 @@ const StudentMap = () => {
     };
 
     fetchRouteData();
-  }, [routeId, navigate, loadError, isMorningShift, generateRoadRoute]);
+  }, [routeId, navigate, loadError, isMorningShift, generateRoadRoute, determineBoardingPoint]);
 
   useEffect(() => {
     if (!currentPosition) {
@@ -470,7 +610,7 @@ const StudentMap = () => {
         return;
       }
 
-      const apiBase = process.env.REACT_APP_API_BASE_URL;
+      const apiBase = process.env.REACT_APP_API_BASE_URL || process.env.REACT_APP_BACKEND_URL;
       if (!apiBase) {
         console.error('API base URL is not defined');
         toast({
@@ -693,7 +833,7 @@ const StudentMap = () => {
             {displayPoints.map((point, index) => {
               const isStart = isMorningShift ? index === 0 : index === 0;
               const isEnd = isMorningShift ? index === displayPoints.length - 1 : index === displayPoints.length - 1;
-              const isBoardingPoint = point.id === 226;
+              const isBoardingPoint = boardingPointId && point.id === boardingPointId;
               const isCompleted = index < currentStopIndex;
               const isCurrent = index === currentStopIndex;
 
@@ -786,7 +926,7 @@ const StudentMap = () => {
             <div className="mt-6 p-4 bg-gradient-to-r dark:from-blue-900/30 dark:to-purple-900/30 from-blue-100/50 to-purple-100/50 rounded-xl dark:border-blue-500/20 border-blue-500/30 border shadow-lg dark:shadow-blue-500/10 shadow-blue-500/10">
               <div className="flex items-center">
                 <div className="dark:bg-blue-500/20 dark:border-blue-400/30 bg-blue-400/20 border-blue-500/30 p-2 rounded-full border shadow-md">
-                  <img src="/assets/bus.png" alt="Bus" width={24} height={24} />
+                  <img src={busIconRef.current?.url || getAssetUrl('bus.png')} alt="Bus" width={24} height={24} />
                 </div>
                 <div className="ml-3">
                   <p className="text-sm font-medium dark:text-white text-gray-800">Bus Status</p>
@@ -848,14 +988,20 @@ const StudentMap = () => {
           )}
 
           {displayPoints.map((point, index) => {
-            const isBoardingPoint = point.id === 226;
+            const isBoardingPoint = boardingPointId && point.id === boardingPointId;
             const isSchool = index === (isMorningShift ? displayPoints.length - 1 : 0);
 
             return (
               <Marker
                 key={point.id}
                 position={{ lat: Number(point.latitude), lng: Number(point.longitude) }}
-                icon={isBoardingPoint ? boardingPointIconRef.current : isSchool ? schoolIconRef.current : mapPinIconRef.current}
+                icon={
+                  isBoardingPoint 
+                    ? boardingPointIconRef.current 
+                    : isSchool 
+                    ? schoolIconRef.current 
+                    : mapPinIconRef.current
+                }
                 label={{
                   text: point.seqOrder.toString(),
                   color: '#ffffff',

@@ -601,7 +601,7 @@ const RouteAssignPage = () => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 dark:text-gray-400 text-gray-500 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Search routes or drivers..."
+                placeholder="Search routes..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 dark:bg-slate-700/50 dark:border-slate-600 bg-gray-100 border-gray-300 border rounded-lg dark:text-white dark:placeholder-gray-400 text-gray-800 placeholder-gray-500 focus:outline-none dark:focus:ring-2 dark:focus:ring-yellow-500 dark:focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"

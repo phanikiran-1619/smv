@@ -520,7 +520,7 @@ const SwipedListPage = () => {
 
             {error && (
               <div className="mb-4 p-4 bg-red-500/10 border border-red-500 text-red-300 rounded-xl">
-                <p className="font-bold">Error:</p>
+                <p className="font-bold"></p>
                 <p>{error}</p>
                 <button onClick={() => setError(null)} className="mt-2 text-sm text-red-400 hover:text-red-300">
                   Dismiss

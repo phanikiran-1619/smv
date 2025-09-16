@@ -18,24 +18,6 @@ const ProfilePopup = ({ isOpen, onClose, userType }) => {
       const currentUserType = userType || location.pathname.split('/')[2] || 'parent';
       let decryptedData = getDecryptedUserData(currentUserType);
       
-      // For demo purposes, if no data exists, use mock data
-      if (!decryptedData) {
-        decryptedData = {
-          id: 976,
-          username: "vinaykumar2",
-          roles: ["ADMIN"],
-          twoFactorAuthentication: false,
-          entityObj: {
-            id: 3,
-            firstName: "Vinay",
-            lastName: "Kumar",
-            status: null,
-            schoolId: "SC2F0001",
-            schoolName: "GreenwoodHS"
-          }
-        };
-      }
-      
       setUserData(decryptedData);
       setLoading(false);
     }

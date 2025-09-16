@@ -109,7 +109,7 @@ const LoginPage = () => {
       if (!validateUserRole(responseData.roles, currentLoginType.expectedRole)) {
         toast({
           title: "Access Denied",
-          description: `Credentials are not for ${currentLoginType.title.toLowerCase()}. Please use the correct login type.`,
+          description: `User Not Found.`,
           variant: "destructive",
           duration: 5000,
         });
