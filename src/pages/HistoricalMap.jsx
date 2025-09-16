@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { GoogleMap, Marker, DirectionsRenderer, useJsApiLoader } from '@react-google-maps/api';
-import { Search, Calendar, Bus, Navigation, Clock, Play, Pause, RotateCcw, Route, AlertCircle, ArrowLeft, MapPin, Timer, TrendingUp, User } from 'lucide-react';
+import { Search, Calendar, Bus, Navigation, Clock, Play, Pause, RotateCcw, Route, AlertCircle, ArrowLeft, MapPin, Timer, TrendingUp, User, History } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -134,10 +134,17 @@ const HistoricalMap = () => {
   const calculateRoutePointsWithTiming = (routePoints, gpsData) => {
     if (!routePoints || !gpsData || gpsData.length === 0) return [];
     
-    const sortedPoints = [...routePoints].sort((a, b) => a.seqOrder - b.seqOrder);
-    const sortedGPSData = [...gpsData].sort((a, b) => new Date(a.eventTime) - new Date(b.eventTime));
+    let sortedPoints = [...routePoints].sort((a, b) => a.seqOrder - b.seqOrder);
+    let sortedGPSData = [...gpsData].sort((a, b) => new Date(a.eventTime) - new Date(b.eventTime));
+    
+    // For evening shift, reverse BOTH route order AND GPS data order
+    if (selectedShift === 'evening') {
+      sortedPoints = sortedPoints.reverse();
+      sortedGPSData = sortedGPSData.reverse(); // Reverse GPS data timeline too
+    }
     
     return sortedPoints.map((point, index) => {
+      // For evening shift, match GPS data in reverse chronological order
       const nearestGPS = findNearestGPSCoordinate(point, sortedGPSData);
       
       return {
@@ -149,7 +156,8 @@ const HistoricalMap = () => {
         isSchoolPoint: point.routePointName.toLowerCase().includes('school'),
         isFirst: index === 0,
         isLast: index === sortedPoints.length - 1,
-        isReached: nearestGPS && nearestGPS.distance < 100 // Consider reached if within 100 meters
+        isReached: nearestGPS && nearestGPS.distance < 100, // Consider reached if within 100 meters
+        originalIndex: selectedShift === 'evening' ? sortedPoints.length - 1 - index : index
       };
     });
   };
@@ -160,10 +168,13 @@ const HistoricalMap = () => {
     
     const start = new Date(startTime);
     const end = new Date(endTime);
-    const diffMs = end - start;
+    
+    // For evening shift, we want the absolute time difference
+    // since we're showing reversed timeline
+    const diffMs = Math.abs(end - start);
     const diffMinutes = Math.round(diffMs / (1000 * 60));
     
-    return diffMinutes;
+    return diffMinutes > 0 ? diffMinutes : null;
   };
 
   // Format time from ISO string
@@ -198,12 +209,19 @@ const HistoricalMap = () => {
   const calculateBusMapPosition = (progressPercent, historicalGPSData = null) => {
     if (!historicalGPSData || historicalGPSData.length === 0) return null;
 
+    let workingGPSData = [...historicalGPSData];
+    
+    // For evening shift, reverse the GPS data order so bus moves in reverse timeline
+    if (selectedShift === 'evening') {
+      workingGPSData = workingGPSData.reverse();
+    }
+
     const progress = progressPercent / 100;
     const dataIndex = Math.min(
-      Math.floor(progress * historicalGPSData.length), 
-      historicalGPSData.length - 1
+      Math.floor(progress * workingGPSData.length), 
+      workingGPSData.length - 1
     );
-    const gpsPoint = historicalGPSData[dataIndex];
+    const gpsPoint = workingGPSData[dataIndex];
     
     return {
       lat: parseCoordinate(gpsPoint.latitude),
@@ -279,7 +297,14 @@ const HistoricalMap = () => {
   // Refresh map center based on new data
   const refreshMapCenter = (newHistoricalData, route) => {
     if (newHistoricalData && newHistoricalData.length > 0) {
-      const startingPoint = newHistoricalData[0];
+      // For evening shift, start from the last GPS point (which becomes first in reverse order)
+      let startingPoint;
+      if (selectedShift === 'evening') {
+        startingPoint = newHistoricalData[newHistoricalData.length - 1];
+      } else {
+        startingPoint = newHistoricalData[0];
+      }
+      
       setMapCenter({
         lat: parseCoordinate(startingPoint.latitude),
         lng: parseCoordinate(startingPoint.longitude)
@@ -296,7 +321,15 @@ const HistoricalMap = () => {
         mapRef.current.fitBounds(bounds, { padding: 50 });
       }
     } else if (route && route.routePoints && route.routePoints.length > 0) {
-      const firstPoint = route.routePoints[0];
+      // For evening shift, start from school (last point in original order)
+      let firstPoint;
+      if (selectedShift === 'evening') {
+        const sortedPoints = [...route.routePoints].sort((a, b) => a.seqOrder - b.seqOrder);
+        firstPoint = sortedPoints[sortedPoints.length - 1]; // School point for evening
+      } else {
+        firstPoint = route.routePoints[0];
+      }
+      
       setMapCenter({
         lat: parseCoordinate(firstPoint.latitude),
         lng: parseCoordinate(firstPoint.longitude)
@@ -350,9 +383,10 @@ const HistoricalMap = () => {
       setRoutePointsWithTiming(routePointsWithGPS);
       
       if (sortedData.length > 1) {
+        // Calculate total journey time (always positive regardless of direction)
         const startTime = new Date(sortedData[0].eventTime);
         const endTime = new Date(sortedData[sortedData.length - 1].eventTime);
-        const totalMinutes = Math.round((endTime - startTime) / (1000 * 60));
+        const totalMinutes = Math.round(Math.abs(endTime - startTime) / (1000 * 60));
         setTotalJourneyTime(totalMinutes);
       }
       
@@ -361,10 +395,17 @@ const HistoricalMap = () => {
       setShowHistoricalPreview(true);
       
       if (sortedData.length > 0) {
-        const firstData = sortedData[0];
+        // For evening shift, start from the last GPS point (school)
+        let startingData;
+        if (selectedShift === 'evening') {
+          startingData = sortedData[sortedData.length - 1];
+        } else {
+          startingData = sortedData[0];
+        }
+        
         setBusMapPosition({
-          lat: parseCoordinate(firstData.latitude),
-          lng: parseCoordinate(firstData.longitude)
+          lat: parseCoordinate(startingData.latitude),
+          lng: parseCoordinate(startingData.longitude)
         });
       }
       
@@ -390,16 +431,24 @@ const HistoricalMap = () => {
       
       const startTime = new Date(mockHistoricalData[0].eventTime);
       const endTime = new Date(mockHistoricalData[mockHistoricalData.length - 1].eventTime);
-      const totalMinutes = Math.round((endTime - startTime) / (1000 * 60));
+      const totalMinutes = Math.round(Math.abs(endTime - startTime) / (1000 * 60));
       setTotalJourneyTime(totalMinutes);
       
       setBusPosition(0);
       setRouteCompleted(false);
       setShowHistoricalPreview(true);
       
+      // For mock data, also respect evening shift starting position
+      let mockStartingData;
+      if (selectedShift === 'evening') {
+        mockStartingData = mockHistoricalData[mockHistoricalData.length - 1];
+      } else {
+        mockStartingData = mockHistoricalData[0];
+      }
+      
       setBusMapPosition({
-        lat: parseCoordinate(mockHistoricalData[0].latitude),
-        lng: parseCoordinate(mockHistoricalData[0].longitude)
+        lat: parseCoordinate(mockStartingData.latitude),
+        lng: parseCoordinate(mockStartingData.longitude)
       });
 
       refreshMapCenter(mockHistoricalData, selectedRoute);
@@ -468,9 +517,14 @@ const HistoricalMap = () => {
   const calculateDirections = async (route) => {
     if (!isLoaded || !route || !route.routePoints) return;
 
-    const validPoints = route.routePoints
+    let validPoints = route.routePoints
       .filter((point) => isValidCoordinate(point.latitude) && isValidCoordinate(point.longitude))
       .sort((a, b) => a.seqOrder - b.seqOrder);
+
+    // For evening shift, reverse the route order so bus starts from school
+    if (selectedShift === 'evening') {
+      validPoints = validPoints.reverse();
+    }
 
     if (validPoints.length < 2) {
       setRouteDirections([]);
@@ -542,24 +596,38 @@ const HistoricalMap = () => {
   const findGPSDataFromPosition = (position) => {
     if (!historicalData.length) return null;
     
+    let workingData = [...historicalData];
+    
+    // For evening shift, use reversed GPS data order
+    if (selectedShift === 'evening') {
+      workingData = workingData.reverse();
+    }
+    
     const progress = position / 100;
     const dataIndex = Math.min(
-      Math.floor(progress * historicalData.length), 
-      historicalData.length - 1
+      Math.floor(progress * workingData.length), 
+      workingData.length - 1
     );
-    return historicalData[dataIndex] || null;
+    return workingData[dataIndex] || null;
   };
 
   // Get elapsed time from start of journey
   const getElapsedTime = (position) => {
     if (!historicalData.length) return '00:00';
     
-    const startTime = new Date(historicalData[0].eventTime);
+    let workingData = [...historicalData];
+    
+    // For evening shift, calculate elapsed time from reversed timeline
+    if (selectedShift === 'evening') {
+      workingData = workingData.reverse();
+    }
+    
+    const startTime = new Date(workingData[0].eventTime);
     const currentGPS = findGPSDataFromPosition(position);
     
     if (currentGPS && currentGPS.eventTime) {
       const currentTime = new Date(currentGPS.eventTime);
-      const elapsedMinutes = Math.floor((currentTime - startTime) / (1000 * 60));
+      const elapsedMinutes = Math.floor(Math.abs(currentTime - startTime) / (1000 * 60));
       const hours = Math.floor(elapsedMinutes / 60);
       const minutes = elapsedMinutes % 60;
       return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
@@ -609,12 +677,12 @@ const HistoricalMap = () => {
 
   if (loadError) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
+      <div className="min-h-screen bg-gradient-to-br dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 from-gray-50 via-gray-100 to-gray-200 dark:text-white text-gray-800">
         <Navbar showBackButton={true} />
         <div className="pt-24 flex items-center justify-center h-full">
-          <div className="text-center p-6 bg-slate-800/90 backdrop-blur-sm rounded-lg shadow-xl border border-slate-600">
+          <div className="text-center p-6 dark:bg-slate-800/60 dark:border-slate-600 bg-white/80 border-gray-200 backdrop-blur-sm rounded-lg shadow-xl border">
             <p className="text-red-400 font-semibold">Google Maps API Error</p>
-            <p className="text-gray-300">{loadError.message}</p>
+            <p className="dark:text-gray-300 text-gray-600">{loadError.message}</p>
           </div>
         </div>
       </div>
@@ -622,22 +690,22 @@ const HistoricalMap = () => {
   }
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white overflow-hidden">
+    <div className="h-screen w-screen flex flex-col bg-gradient-to-br dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 from-gray-50 via-gray-100 to-gray-200 dark:text-white text-gray-800 overflow-hidden">
       {/* Enhanced Top Controls */}
-      <div className="bg-white/10 backdrop-blur-xl p-4 lg:p-6 flex items-center justify-between border-b border-white/20 flex-wrap gap-4">
+      <div className="dark:bg-slate-800/80 bg-white/80 backdrop-blur-xl p-4 lg:p-6 flex items-center justify-between border-b dark:border-slate-600 border-gray-200 flex-wrap gap-4">
         <div className="flex items-center space-x-4 min-w-0">
-          <div className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-purple-400 via-pink-500 to-purple-600 bg-clip-text text-transparent truncate">
+          <div className="text-2xl lg:text-3xl font-bold bg-gradient-to-r dark:from-yellow-400 dark:via-orange-500 dark:to-red-500 from-blue-500 via-blue-600 to-blue-700 bg-clip-text text-transparent truncate">
             📊 {selectedRoute?.routeName || 'HISTORICAL MAP'}
           </div>
           {deviceId && (
-            <div className="flex items-center space-x-2 bg-blue-500/20 px-3 py-1 rounded-full">
-              <User className="w-4 h-4 text-blue-300" />
-              <span className="text-blue-200 text-sm font-medium">{deviceId}</span>
+            <div className="flex items-center space-x-2 dark:bg-yellow-500/20 bg-blue-500/20 px-3 py-1 rounded-full dark:border-yellow-500/30 border-blue-500/30 border">
+              <User className="w-4 h-4 dark:text-yellow-300 text-blue-600" />
+              <span className="dark:text-yellow-200 text-blue-700 text-sm font-medium">{deviceId}</span>
             </div>
           )}
           {loading && (
-            <div className="text-sm text-gray-300 flex items-center">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-400 mr-2"></div>
+            <div className="text-sm dark:text-gray-300 text-gray-600 flex items-center">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 dark:border-yellow-400 border-blue-500 mr-2"></div>
               Loading routes...
             </div>
           )}
@@ -648,35 +716,35 @@ const HistoricalMap = () => {
             onClick={() => navigate('/live-map', { 
               state: { pageTitle: 'Live Map', userType, username } 
             })}
-            className="px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600 font-semibold rounded-full shadow-lg transform hover:scale-105 transition-all duration-200 flex items-center space-x-2"
+            className="px-6 py-2 bg-gradient-to-r dark:from-yellow-500 dark:to-orange-500 dark:text-black from-blue-500 to-blue-600 text-white dark:hover:from-yellow-600 dark:hover:to-orange-600 hover:from-blue-600 hover:to-blue-700 font-semibold rounded-full shadow-lg transform hover:scale-105 transition-all duration-200 flex items-center space-x-2"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Live Map</span>
           </Button>
           <div className="w-48">
             <Select value={selectedRouteId} onValueChange={handleRouteSelect}>
-              <SelectTrigger className="bg-white/10 backdrop-blur-md border-white/30 text-white rounded-xl py-4 font-medium hover:bg-white/20 transition-all">
+              <SelectTrigger className="dark:bg-slate-700/50 dark:border-slate-600 bg-gray-200/50 border-gray-300 dark:text-white text-gray-800 rounded-xl py-4 font-medium dark:hover:bg-slate-700 hover:bg-gray-300 transition-all">
                 <div className="flex items-center">
-                  <Route className="w-4 h-4 mr-2 text-purple-400" />
+                  <Route className="w-4 h-4 mr-2 dark:text-yellow-400 text-blue-600" />
                   <SelectValue placeholder="Select Route" />
                 </div>
               </SelectTrigger>
-              <SelectContent className="bg-slate-800/95 backdrop-blur-xl border-slate-600 rounded-xl">
-                <div className="p-3">
+              <SelectContent className="dark:bg-slate-700 dark:border-slate-600 bg-white border-gray-200 rounded-xl dark:text-white text-gray-800">
+                <div className="p-3 dark:bg-slate-800 bg-gray-50">
                   <div className="relative mb-3">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 dark:text-gray-400 text-gray-500 w-4 h-4" />
                     <Input
                       placeholder="Search routes..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 bg-slate-700/80 backdrop-blur-md border-slate-500 text-white placeholder-gray-400 rounded-lg"
+                      className="pl-10 dark:bg-slate-700 dark:border-slate-600 dark:text-white dark:placeholder-gray-400 bg-white border-gray-300 text-gray-800 placeholder-gray-500 rounded-lg"
                       onClick={(e) => e.stopPropagation()}
                     />
                   </div>
                 </div>
-                <SelectItem value="all" className="text-yellow-400 font-semibold">
+                <SelectItem value="all" className="font-semibold dark:hover:bg-slate-600 hover:bg-gray-100">
                   <div className="flex items-center">
-                    <Navigation className="w-4 h-4 mr-2" />
+                    <Navigation className="w-4 h-4 mr-2 dark:text-yellow-400 text-blue-600" />
                     All Routes
                   </div>
                 </SelectItem>
@@ -684,10 +752,10 @@ const HistoricalMap = () => {
                   <SelectItem 
                     key={route.smRouteId || route.id} 
                     value={route.smRouteId || route.id}
-                    className="hover:bg-slate-700/50"
+                    className="dark:hover:bg-slate-600 hover:bg-gray-100"
                   >
                     <div className="flex items-center">
-                      <Bus className="w-4 h-4 mr-2 text-purple-400" />
+                      <Bus className="w-4 h-4 mr-2 dark:text-yellow-400 text-blue-600" />
                       {route.routeName}
                     </div>
                   </SelectItem>
@@ -699,15 +767,15 @@ const HistoricalMap = () => {
       </div>
 
       {/* Compact Controls for Date and Shift */}
-      <div className="bg-white/10 backdrop-blur-xl p-4 border-b border-white/20 flex items-center justify-center space-x-4">
+      <div className="dark:bg-slate-800/80 bg-white/80 backdrop-blur-xl p-4 border-b dark:border-slate-600 border-gray-200 flex items-center justify-center space-x-4">
         <div className="flex items-center space-x-2">
-          <Calendar className="w-5 h-5 text-purple-400" />
+          <Calendar className="w-5 h-5 dark:text-yellow-400 text-blue-600" />
           <input
             type="date"
             value={format(selectedDate, 'yyyy-MM-dd')}
             max={getTodayDateString()}
             onChange={handleDateChange}
-            className="px-3 py-2 bg-white/10 backdrop-blur-md border border-white/30 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="px-3 py-2 dark:bg-slate-700/50 dark:border-slate-600 bg-gray-200/50 border-gray-300 border rounded-xl dark:text-white text-gray-800 focus:outline-none focus:ring-2 dark:focus:ring-yellow-500 focus:ring-blue-500"
           />
         </div>
         <div className="flex space-x-2">
@@ -716,7 +784,7 @@ const HistoricalMap = () => {
             className={`px-4 py-2 rounded-xl font-semibold transition-all ${
               selectedShift === 'morning' 
                 ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-black shadow-lg' 
-                : 'bg-white/10 text-white hover:bg-white/20'
+                : 'dark:bg-slate-700/50 dark:text-white dark:hover:bg-slate-700 bg-gray-200/50 text-gray-800 hover:bg-gray-300'
             }`}
           >
             Morning
@@ -726,7 +794,7 @@ const HistoricalMap = () => {
             className={`px-4 py-2 rounded-xl font-semibold transition-all ${
               selectedShift === 'evening' 
                 ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg' 
-                : 'bg-white/10 text-white hover:bg-white/20'
+                : 'dark:bg-slate-700/50 dark:text-white dark:hover:bg-slate-700 bg-gray-200/50 text-gray-800 hover:bg-gray-300'
             }`}
           >
             Evening
@@ -735,9 +803,9 @@ const HistoricalMap = () => {
         <Button
           onClick={fetchHistoricalData}
           disabled={historicalLoading || selectedRouteId === 'all'}
-          className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 text-white font-semibold rounded-xl shadow-lg transform hover:scale-105 transition-all duration-200 flex items-center space-x-2"
+          className="px-6 py-2 bg-gradient-to-r dark:from-yellow-600 dark:to-orange-600 dark:text-black from-blue-600 to-blue-700 text-white dark:hover:from-yellow-700 dark:hover:to-orange-700 hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 font-semibold rounded-xl shadow-lg transform hover:scale-105 transition-all duration-200 flex items-center space-x-2"
         >
-          <Route className="w-4 h-4" />
+          <History className="w-4 h-4" />
           <span>{historicalLoading ? 'Loading...' : 'Get Historical Data'}</span>
         </Button>
       </div>
@@ -778,7 +846,7 @@ const HistoricalMap = () => {
                     directions={routeDir.directions}
                     options={{
                       polylineOptions: {
-                        strokeColor: '#8B5CF6',
+                        strokeColor: selectedShift === 'evening' ? '#EC4899' : '#3B82F6',
                         strokeWeight: 5,
                         strokeOpacity: 0.8,
                       },
@@ -790,31 +858,39 @@ const HistoricalMap = () => {
               })}
 
               {/* Route Points */}
-              {selectedRoute && selectedRoute.routePoints && selectedRoute.routePoints.map((point, index) => {
-                const isSchool = point.routePointName.toLowerCase().includes('school');
-                const isFirst = index === 0;
-                const markerSize = isSchool ? 36 : 28;
+              {selectedRoute && selectedRoute.routePoints && (() => {
+                let displayPoints = [...selectedRoute.routePoints].sort((a, b) => a.seqOrder - b.seqOrder);
+                // For evening shift, reverse the display order so school appears first
+                if (selectedShift === 'evening') {
+                  displayPoints = displayPoints.reverse();
+                }
                 
-                return (
-                  <Marker
-                    key={point.smRoutePointId || point.id}
-                    position={{
-                      lat: parseCoordinate(point.latitude),
-                      lng: parseCoordinate(point.longitude),
-                    }}
-                    icon={{
-                      url: isSchool 
-                        ? "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='36' viewBox='0 0 24 24' fill='%23FFD700'%3E%3Cpath d='M12 2L13.09 8.26L22 9L14.5 13.03L17.18 21.02L12 17L6.82 21.02L9.5 13.03L2 9L10.91 8.26L12 2Z'/%3E%3C/svg%3E"
-                        : isFirst 
-                        ? "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='%2322C55E'%3E%3Ccircle cx='12' cy='12' r='10' stroke='%23ffffff' stroke-width='2'/%3E%3C/svg%3E"
-                        : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='%23F59E0B'%3E%3Ccircle cx='12' cy='12' r='8' stroke='%23ffffff' stroke-width='2'/%3E%3Ctext x='12' y='16' text-anchor='middle' fill='%23ffffff' font-size='8' font-weight='bold'%3E" + (index + 1) + "%3C/text%3E%3C/svg%3E",
-                      scaledSize: new window.google.maps.Size(markerSize, markerSize),
-                    }}
-                    title={point.routePointName}
-                    zIndex={isSchool ? 1000 : 100}
-                  />
-                );
-              })}
+                return displayPoints.map((point, index) => {
+                  const isSchool = point.routePointName.toLowerCase().includes('school');
+                  const isFirst = index === 0;
+                  const markerSize = isSchool ? 36 : 28;
+                  
+                  return (
+                    <Marker
+                      key={point.smRoutePointId || point.id}
+                      position={{
+                        lat: parseCoordinate(point.latitude),
+                        lng: parseCoordinate(point.longitude),
+                      }}
+                      icon={{
+                        url: isSchool 
+                          ? "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='36' viewBox='0 0 24 24' fill='%23FFD700'%3E%3Cpath d='M12 2L13.09 8.26L22 9L14.5 13.03L17.18 21.02L12 17L6.82 21.02L9.5 13.03L2 9L10.91 8.26L12 2Z'/%3E%3C/svg%3E"
+                          : isFirst 
+                          ? "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='%2322C55E'%3E%3Ccircle cx='12' cy='12' r='10' stroke='%23ffffff' stroke-width='2'/%3E%3C/svg%3E"
+                          : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='%23F59E0B'%3E%3Ccircle cx='12' cy='12' r='8' stroke='%23ffffff' stroke-width='2'/%3E%3Ctext x='12' y='16' text-anchor='middle' fill='%23ffffff' font-size='8' font-weight='bold'%3E" + (index + 1) + "%3C/text%3E%3C/svg%3E",
+                        scaledSize: new window.google.maps.Size(markerSize, markerSize),
+                      }}
+                      title={point.routePointName}
+                      zIndex={isSchool ? 1000 : 100}
+                    />
+                  );
+                });
+              })()}
 
               {/* Bus Position */}
               {busMapPosition && (
@@ -823,68 +899,96 @@ const HistoricalMap = () => {
                   icon={{
                     url: routeCompleted 
                       ? "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24' fill='%2322C55E'%3E%3Cpath d='M4,16C4,16.88 4.39,17.67 5,18.22V20A1,1 0 0,0 6,21H7A1,1 0 0,0 8,20V19H16V20A1,1 0 0,0 17,21H18A1,1 0 0,0 19,20V18.22C19.61,17.67 20,16.88 20,16V6C20,2.5 16.42,2 12,2C7.58,2 4,2.5 4,6V16M6.5,17A1.5,1.5 0 0,1 5,15.5A1.5,1.5 0 0,1 6.5,14A1.5,1.5 0 0,1 8,15.5A1.5,1.5 0 0,1 6.5,17M17.5,17A1.5,1.5 0 0,1 16,15.5A1.5,1.5 0 0,1 17.5,14A1.5,1.5 0 0,1 19,15.5A1.5,1.5 0 0,1 17.5,17M6,13V6H18V13H6Z'/%3E%3C/svg%3E"
-                      : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24' fill='%238B5CF6'%3E%3Cpath d='M4,16C4,16.88 4.39,17.67 5,18.22V20A1,1 0 0,0 6,21H7A1,1 0 0,0 8,20V19H16V20A1,1 0 0,0 17,21H18A1,1 0 0,0 19,20V18.22C19.61,17.67 20,16.88 20,16V6C20,2.5 16.42,2 12,2C7.58,2 4,2.5 4,6V16M6.5,17A1.5,1.5 0 0,1 5,15.5A1.5,1.5 0 0,1 6.5,14A1.5,1.5 0 0,1 8,15.5A1.5,1.5 0 0,1 6.5,17M17.5,17A1.5,1.5 0 0,1 16,15.5A1.5,1.5 0 0,1 17.5,14A1.5,1.5 0 0,1 19,15.5A1.5,1.5 0 0,1 17.5,17M6,13V6H18V13H6Z'/%3E%3C/svg%3E",
+                      : selectedShift === 'evening'
+                      ? "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24' fill='%23EC4899'%3E%3Cpath d='M4,16C4,16.88 4.39,17.67 5,18.22V20A1,1 0 0,0 6,21H7A1,1 0 0,0 8,20V19H16V20A1,1 0 0,0 17,21H18A1,1 0 0,0 19,20V18.22C19.61,17.67 20,16.88 20,16V6C20,2.5 16.42,2 12,2C7.58,2 4,2.5 4,6V16M6.5,17A1.5,1.5 0 0,1 5,15.5A1.5,1.5 0 0,1 6.5,14A1.5,1.5 0 0,1 8,15.5A1.5,1.5 0 0,1 6.5,17M17.5,17A1.5,1.5 0 0,1 16,15.5A1.5,1.5 0 0,1 17.5,14A1.5,1.5 0 0,1 19,15.5A1.5,1.5 0 0,1 17.5,17M6,13V6H18V13H6Z'/%3E%3C/svg%3E"
+                      : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24' fill='%23F59E0B'%3E%3Cpath d='M4,16C4,16.88 4.39,17.67 5,18.22V20A1,1 0 0,0 6,21H7A1,1 0 0,0 8,20V19H16V20A1,1 0 0,0 17,21H18A1,1 0 0,0 19,20V18.22C19.61,17.67 20,16.88 20,16V6C20,2.5 16.42,2 12,2C7.58,2 4,2.5 4,6V16M6.5,17A1.5,1.5 0 0,1 5,15.5A1.5,1.5 0 0,1 6.5,14A1.5,1.5 0 0,1 8,15.5A1.5,1.5 0 0,1 6.5,17M17.5,17A1.5,1.5 0 0,1 16,15.5A1.5,1.5 0 0,1 17.5,14A1.5,1.5 0 0,1 19,15.5A1.5,1.5 0 0,1 17.5,17M6,13V6H18V13H6Z'/%3E%3C/svg%3E",
                     scaledSize: new window.google.maps.Size(32, 32),
                   }}
                   animation={!routeCompleted ? window.google.maps.Animation.BOUNCE : null}
+                  zIndex={2000}
                 />
               )}
 
               {/* Historical GPS Trail */}
               {historicalData.length > 1 && (
                 <div>
-                  {historicalData.slice(0, Math.floor((busPosition / 100) * historicalData.length)).map((point, index) => (
-                    <Marker
-                      key={`gps-${point.id}`}
-                      position={{
-                        lat: parseCoordinate(point.latitude),
-                        lng: parseCoordinate(point.longitude),
-                      }}
-                      icon={{
-                        url: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 24 24' fill='%2322C55E'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3C/svg%3E",
-                        scaledSize: new window.google.maps.Size(6, 6),
-                      }}
-                      opacity={0.6}
-                    />
-                  ))}
+                  {(() => {
+                    let workingData = [...historicalData];
+                    let trailPoints;
+                    
+                    if (selectedShift === 'evening') {
+                      // For evening, reverse the data and show trail from school
+                      workingData = workingData.reverse();
+                      trailPoints = workingData.slice(0, Math.floor((busPosition / 100) * workingData.length));
+                    } else {
+                      // For morning, normal order
+                      trailPoints = workingData.slice(0, Math.floor((busPosition / 100) * workingData.length));
+                    }
+                    
+                    return trailPoints.map((point, index) => (
+                      <Marker
+                        key={`gps-${point.id}-${selectedShift}`}
+                        position={{
+                          lat: parseCoordinate(point.latitude),
+                          lng: parseCoordinate(point.longitude),
+                        }}
+                        icon={{
+                          url: selectedShift === 'evening' 
+                            ? "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 24 24' fill='%23EC4899'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3C/svg%3E"
+                            : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 24 24' fill='%2322C55E'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3C/svg%3E",
+                          scaledSize: new window.google.maps.Size(6, 6),
+                        }}
+                        opacity={0.6}
+                      />
+                    ));
+                  })()}
                 </div>
               )}
             </GoogleMap>
           )}
         </div>
 
-        {/* Right Side - Compact Scrollable Preview Card (35%) */}
-        <div className="w-[35%] bg-gradient-to-br from-slate-800/95 to-purple-900/95 backdrop-blur-xl border-l border-white/20 flex flex-col">
+        {/* Right Side - Compact Scrollable Preview Card (35%) - Responsive for small screens */}
+        <div className="w-full md:w-[35%] absolute md:relative top-0 right-0 md:top-auto md:right-auto h-full bg-gradient-to-br dark:from-slate-800/95 dark:to-slate-900/95 from-white/95 to-gray-100/95 backdrop-blur-xl border-l dark:border-slate-600/50 border-gray-300/50 flex flex-col z-20 md:z-auto">
           {selectedRoute && showHistoricalPreview && directionsRequested ? (
             <div className="h-full flex flex-col">
-              {/* Header */}
-              <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-3 text-white border-b border-purple-500/30">
+              {/* Header with close button for mobile */}
+              <div className="bg-gradient-to-r dark:from-slate-700 dark:to-slate-800 from-gray-100 to-gray-200 p-3 dark:text-white text-gray-800 border-b dark:border-slate-600/30 border-gray-300/30">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center space-x-2">
-                    <Clock className="w-4 h-4 text-purple-200" />
+                    <Clock className="w-4 h-4 dark:text-yellow-300 text-blue-600" />
                     <div className="text-xs">
                       {getCurrentDateFromPosition(busPosition)} • 
-                      <span className="text-purple-200 font-bold ml-1">
+                      <span className="dark:text-yellow-200 text-blue-700 font-bold ml-1">
                         {getCurrentTimeFromPosition(busPosition)}
                       </span>
                     </div>
                   </div>
-                  <div className={`px-2 py-1 backdrop-blur-md rounded-full text-xs font-semibold flex items-center space-x-1 ${
-                    selectedShift === 'morning' 
-                      ? 'bg-yellow-500/30 text-yellow-100 border border-yellow-300/30' 
-                      : 'bg-purple-500/30 text-purple-100 border border-purple-300/30'
-                  }`}>
-                    <span>{selectedShift === 'morning' ? 'Morning' : 'Evening'}</span>
-                    {routeCompleted && (
-                      <span className="text-green-200">✓</span>
-                    )}
+                  <div className="flex items-center space-x-2">
+                    <div className={`px-2 py-1 backdrop-blur-md rounded-full text-xs font-semibold flex items-center space-x-1 ${
+                      selectedShift === 'morning' 
+                        ? 'bg-yellow-500/30 text-yellow-800 dark:text-yellow-100 border border-yellow-300/30' 
+                        : 'bg-purple-500/30 text-purple-800 dark:text-purple-100 border border-purple-300/30'
+                    }`}>
+                      <span>{selectedShift === 'morning' ? 'Morning' : 'Evening'}</span>
+                      {routeCompleted && (
+                        <span className="text-green-600 dark:text-green-400">✓</span>
+                      )}
+                    </div>
+                    {/* Close button for mobile */}
+                    <button 
+                      className="md:hidden w-6 h-6 rounded-full dark:bg-slate-600 bg-gray-300 flex items-center justify-center dark:text-white text-gray-800 hover:bg-opacity-80"
+                      onClick={() => setShowHistoricalPreview(false)}
+                    >
+                      ×
+                    </button>
                   </div>
                 </div>
 
                 <div className="text-center">
                   <div className="text-sm font-bold flex items-center justify-center mb-1">
-                    <Bus className="w-4 h-4 mr-1 text-purple-200" />
-                    <span className="bg-gradient-to-r from-white to-purple-100 bg-clip-text text-transparent">
+                    <Bus className="w-4 h-4 mr-1 dark:text-yellow-300 text-blue-600" />
+                    <span className="bg-gradient-to-r dark:from-yellow-400 dark:to-orange-500 from-blue-600 to-blue-700 bg-clip-text text-transparent">
                       {selectedRoute.routeName}
                     </span>
                   </div>
@@ -892,142 +996,27 @@ const HistoricalMap = () => {
               </div>
 
               {/* Journey Statistics */}
-              <div className="p-3 bg-gradient-to-r from-slate-50 to-purple-50 text-gray-800 border-b border-gray-200">
+              <div className="p-3 bg-gradient-to-r dark:from-slate-700/50 dark:to-slate-800/50 from-gray-100/50 to-gray-200/50 dark:text-white text-gray-800 border-b dark:border-slate-600/30 border-gray-300/30">
                 <div className="grid grid-cols-3 gap-2 text-center text-xs">
                   <div>
-                    <span className="text-gray-600 block mb-1">Total Time</span>
-                    <div className="font-bold text-purple-600 text-sm">
+                    <span className="dark:text-gray-300 text-gray-600 block mb-1">Total Time</span>
+                    <div className="font-bold dark:text-yellow-400 text-blue-600 text-sm">
                       {totalJourneyTime > 0 ? `${Math.floor(totalJourneyTime / 60)}h ${totalJourneyTime % 60}m` : '--'}
                     </div>
                   </div>
                   <div>
-                    <span className="text-gray-600 block mb-1">Elapsed</span>
+                    <span className="dark:text-gray-300 text-gray-600 block mb-1">Elapsed</span>
                     <div className="font-bold text-green-600 text-sm">{getElapsedTime(busPosition)}</div>
                   </div>
                   <div>
-                    <span className="text-gray-600 block mb-1">GPS Points</span>
+                    <span className="dark:text-gray-300 text-gray-600 block mb-1">GPS Points</span>
                     <div className="font-bold text-orange-600 text-sm">{historicalData.length}</div>
                   </div>
                 </div>
               </div>
 
-              {/* Scrollable Route Points Cards */}
-              <div className="flex-1 overflow-y-auto p-3 space-y-2" style={{ maxHeight: 'calc(100vh - 320px)' }}>
-                {routePointsWithTiming.map((point, index) => {
-                  const isReached = (busPosition / 100) * routePointsWithTiming.length > index;
-                  const isCurrent = Math.floor((busPosition / 100) * routePointsWithTiming.length) === index;
-                  const prevPoint = index > 0 ? routePointsWithTiming[index - 1] : null;
-                  const timeTaken = prevPoint && point.nearestGPS && prevPoint.nearestGPS ? 
-                    calculateTimeDifference(prevPoint.nearestGPS.eventTime, point.nearestGPS.eventTime) : null;
-
-                  return (
-                    <div
-                      key={point.id}
-                      className={`p-3 rounded-lg border-2 transition-all duration-300 cursor-pointer ${
-                        isCurrent
-                          ? 'bg-gradient-to-r from-purple-100 to-pink-100 border-purple-400 shadow-md scale-105'
-                          : isReached
-                          ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300'
-                          : 'bg-white/90 border-gray-200 hover:border-purple-300'
-                      }`}
-                      onMouseEnter={() => setHoveredPoint(point)}
-                      onMouseLeave={() => setHoveredPoint(null)}
-                    >
-                      <div className="flex items-center space-x-2">
-                        {/* Point Icon */}
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border-2 ${
-                          isCurrent 
-                            ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white border-purple-300 animate-pulse' 
-                            : isReached
-                            ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white border-green-300'
-                            : point.isSchoolPoint
-                            ? 'bg-gradient-to-r from-yellow-400 to-yellow-600 text-white border-yellow-300'
-                            : 'bg-gradient-to-r from-gray-300 to-gray-400 text-gray-700 border-gray-200'
-                        }`}>
-                          {point.isSchoolPoint ? '🏫' : point.displayOrder}
-                        </div>
-
-                        {/* Point Details */}
-                        <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-xs text-gray-800 truncate">
-                            {point.routePointName}
-                          </div>
-                          
-                          {/* Timing Information */}
-                          {point.nearestGPS && (
-                            <div className="flex items-center space-x-2 mt-1">
-                              <div className="flex items-center space-x-1 text-xs text-green-600">
-                                <Timer className="w-3 h-3" />
-                                <span>{formatTimeFromISO(point.nearestGPS.eventTime)}</span>
-                              </div>
-                              
-                              {timeTaken && timeTaken > 0 && (
-                                <div className="flex items-center space-x-1 text-xs text-blue-600">
-                                  <TrendingUp className="w-3 h-3" />
-                                  <span>{timeTaken}min</span>
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Distance Information */}
-                          {point.distance !== null && (
-                            <div className="text-xs text-gray-500 mt-1">
-                              {point.distance < 100 ? 
-                                `✓ Reached (${point.distance.toFixed(0)}m)` : 
-                                `Distance: ${point.distance.toFixed(0)}m`
-                              }
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Status Indicator */}
-                        <div className="flex flex-col items-center">
-                          {isCurrent && (
-                            <div className="w-2 h-2 bg-purple-500 rounded-full animate-ping"></div>
-                          )}
-                          {isReached && !isCurrent && (
-                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Hover Tooltip */}
-                      {hoveredPoint && hoveredPoint.id === point.id && (
-                        <div className="absolute left-full ml-2 z-20 px-3 py-2 bg-gray-900/95 backdrop-blur-md text-white text-xs rounded-lg shadow-xl whitespace-nowrap border border-gray-700">
-                          <div className="font-bold text-purple-400 mb-1">{point.routePointName}</div>
-                          
-                          {point.nearestGPS && (
-                            <>
-                              <div className="text-green-400 mb-1 flex items-center">
-                                <Clock className="w-3 h-3 mr-1" />
-                                Reached: {formatTimeFromISO(point.nearestGPS.eventTime)}
-                              </div>
-                              
-                              <div className="text-yellow-400 mb-1 flex items-center">
-                                <MapPin className="w-3 h-3 mr-1" />
-                                GPS: {parseCoordinate(point.nearestGPS.latitude).toFixed(4)}, {parseCoordinate(point.nearestGPS.longitude).toFixed(4)}
-                              </div>
-                            </>
-                          )}
-                          
-                          {timeTaken && (
-                            <div className="text-blue-400 flex items-center">
-                              <Timer className="w-3 h-3 mr-1" />
-                              Travel time: {timeTaken} min
-                            </div>
-                          )}
-                          
-                          <div className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-full border-4 border-transparent border-r-gray-900"></div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Controls */}
-              <div className="p-3 bg-white/95 border-t border-gray-200">
+              {/* Fixed Controls Section - Always visible */}
+              <div className="p-3 dark:bg-slate-800/95 bg-white/95 border-b dark:border-slate-600/30 border-gray-300/30 sticky top-0 z-10">
                 {/* Progress Slider */}
                 <div className="mb-3">
                   <input
@@ -1036,7 +1025,7 @@ const HistoricalMap = () => {
                     max="100"
                     value={busPosition}
                     onChange={(e) => handleBusPositionChange(parseInt(e.target.value))}
-                    className="w-full h-2 bg-gradient-to-r from-purple-200 to-pink-200 rounded-lg appearance-none cursor-pointer slider"
+                    className="w-full h-2 bg-gradient-to-r dark:from-yellow-200 dark:to-orange-200 from-blue-200 to-blue-300 rounded-lg appearance-none cursor-pointer slider"
                   />
                 </div>
                 
@@ -1046,7 +1035,7 @@ const HistoricalMap = () => {
                     <Button
                       onClick={() => setIsHistoricalPlaying(!isHistoricalPlaying)}
                       size="sm"
-                      className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 flex items-center space-x-1 px-3 py-2 text-white font-semibold rounded-lg shadow-md transform hover:scale-105 transition-all duration-200"
+                      className="bg-gradient-to-r dark:from-yellow-600 dark:to-orange-600 dark:text-black from-blue-600 to-blue-700 text-white dark:hover:from-yellow-700 dark:hover:to-orange-700 hover:from-blue-700 hover:to-blue-800 flex items-center space-x-1 px-3 py-2 font-semibold rounded-lg shadow-md transform hover:scale-105 transition-all duration-200"
                       disabled={historicalData.length === 0}
                     >
                       {isHistoricalPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
@@ -1061,7 +1050,7 @@ const HistoricalMap = () => {
                       }}
                       size="sm"
                       variant="outline"
-                      className="border border-gray-300 text-gray-700 hover:bg-gray-100 flex items-center space-x-1 px-3 py-2 font-semibold rounded-lg shadow-md transform hover:scale-105 transition-all duration-200"
+                      className="dark:border-slate-600 dark:text-white dark:hover:bg-slate-700 border-gray-300 text-gray-700 hover:bg-gray-100 flex items-center space-x-1 px-3 py-2 font-semibold rounded-lg shadow-md transform hover:scale-105 transition-all duration-200"
                     >
                       <RotateCcw className="w-3 h-3" />
                       <span className="text-xs">Reset</span>
@@ -1070,8 +1059,8 @@ const HistoricalMap = () => {
                   
                   <div className="flex items-center space-x-2 text-xs">
                     {historicalLoading && (
-                      <div className="text-purple-600 flex items-center">
-                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-purple-600 mr-1"></div>
+                      <div className="dark:text-yellow-600 text-blue-600 flex items-center">
+                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 dark:border-yellow-600 border-blue-600 mr-1"></div>
                         <span className="font-semibold">Loading...</span>
                       </div>
                     )}
@@ -1083,6 +1072,121 @@ const HistoricalMap = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Scrollable Route Points Cards */}
+              <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar" style={{ maxHeight: 'calc(100vh - 420px)' }}>
+                {routePointsWithTiming.map((point, index) => {
+                  const isReached = (busPosition / 100) * routePointsWithTiming.length > index;
+                  const isCurrent = Math.floor((busPosition / 100) * routePointsWithTiming.length) === index;
+                  const prevPoint = index > 0 ? routePointsWithTiming[index - 1] : null;
+                  const timeTaken = prevPoint && point.nearestGPS && prevPoint.nearestGPS ? 
+                    calculateTimeDifference(prevPoint.nearestGPS.eventTime, point.nearestGPS.eventTime) : null;
+
+                  return (
+                    <div
+                      key={point.id}
+                      className={`p-3 rounded-lg border-2 transition-all duration-300 cursor-pointer ${
+                        isCurrent
+                          ? 'bg-gradient-to-r dark:from-yellow-500/20 dark:to-orange-500/20 dark:border-yellow-400 from-blue-100/50 to-blue-200/50 border-blue-400 shadow-md scale-105'
+                          : isReached
+                          ? 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 border-green-300 dark:border-green-600'
+                          : 'dark:bg-slate-700/30 bg-white/90 dark:border-slate-600 border-gray-200 dark:hover:border-yellow-400 hover:border-blue-400'
+                      }`}
+                      onMouseEnter={() => setHoveredPoint(point)}
+                      onMouseLeave={() => setHoveredPoint(null)}
+                    >
+                      <div className="flex items-center space-x-2">
+                        {/* Point Icon */}
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border-2 ${
+                          isCurrent 
+                            ? 'bg-gradient-to-r dark:from-yellow-500 dark:to-orange-500 from-blue-500 to-blue-600 text-white dark:border-yellow-300 border-blue-300 animate-pulse' 
+                            : isReached
+                            ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white border-green-300'
+                            : point.isSchoolPoint
+                            ? 'bg-gradient-to-r from-yellow-400 to-yellow-600 text-white border-yellow-300'
+                            : 'bg-gradient-to-r dark:from-slate-500 dark:to-slate-600 from-gray-300 to-gray-400 text-white dark:text-gray-200 text-gray-700 dark:border-slate-400 border-gray-200'
+                        }`}>
+                          {point.isSchoolPoint ? '🏫' : point.displayOrder}
+                        </div>
+
+                        {/* Point Details */}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-xs dark:text-white text-gray-800 truncate">
+                            {point.routePointName}
+                          </div>
+                          
+                          {/* Timing Information */}
+                          {point.nearestGPS && (
+                            <div className="flex items-center space-x-2 mt-1">
+                              <div className="flex items-center space-x-1 text-xs text-green-600">
+                                <Timer className="w-3 h-3" />
+                                <span>{formatTimeFromISO(point.nearestGPS.eventTime)}</span>
+                              </div>
+                              
+                              {timeTaken && timeTaken > 0 && (
+                                <div className="flex items-center space-x-1 text-xs dark:text-yellow-400 text-blue-600">
+                                  <TrendingUp className="w-3 h-3" />
+                                  <span>{timeTaken}min</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Distance Information */}
+                          {point.distance !== null && (
+                            <div className="text-xs dark:text-gray-400 text-gray-500 mt-1">
+                              {point.distance < 100 ? 
+                                `✓ Reached (${point.distance.toFixed(0)}m)` : 
+                                `Distance: ${point.distance.toFixed(0)}m`
+                              }
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Status Indicator */}
+                        <div className="flex flex-col items-center">
+                          {isCurrent && (
+                            <div className="w-2 h-2 dark:bg-yellow-500 bg-blue-500 rounded-full animate-ping"></div>
+                          )}
+                          {isReached && !isCurrent && (
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Hover Tooltip */}
+                      {hoveredPoint && hoveredPoint.id === point.id && (
+                        <div className="absolute left-full ml-2 z-20 px-3 py-2 dark:bg-slate-900/95 bg-white/95 backdrop-blur-md dark:text-white text-gray-800 text-xs rounded-lg shadow-xl whitespace-nowrap dark:border-slate-600 border-gray-300 border">
+                          <div className="font-bold dark:text-yellow-400 text-blue-600 mb-1">{point.routePointName}</div>
+                          
+                          {point.nearestGPS && (
+                            <>
+                              <div className="text-green-400 mb-1 flex items-center">
+                                <Clock className="w-3 h-3 mr-1" />
+                                Reached: {formatTimeFromISO(point.nearestGPS.eventTime)}
+                              </div>
+                              
+                              <div className="dark:text-yellow-400 text-orange-500 mb-1 flex items-center">
+                                <MapPin className="w-3 h-3 mr-1" />
+                                GPS: {parseCoordinate(point.nearestGPS.latitude).toFixed(4)}, {parseCoordinate(point.nearestGPS.longitude).toFixed(4)}
+                              </div>
+                            </>
+                          )}
+                          
+                          {timeTaken && (
+                            <div className="dark:text-blue-400 text-blue-600 flex items-center">
+                              <Timer className="w-3 h-3 mr-1" />
+                              Travel time: {timeTaken} min
+                            </div>
+                          )}
+                          
+                          <div className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-full border-4 border-transparent dark:border-r-slate-900 border-r-white"></div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           ) : (
             /* Empty State */
@@ -1091,16 +1195,16 @@ const HistoricalMap = () => {
                 <div className="text-3xl mb-3">🚌</div>
                 {selectedRouteId === 'all' ? (
                   <>
-                    <div className="text-lg font-bold text-white mb-2">Select a Route</div>
-                    <div className="text-gray-300 mb-3 text-sm">Choose a specific route to view historical data</div>
+                    <div className="text-lg font-bold dark:text-white text-gray-800 mb-2">Select a Route</div>
+                    <div className="dark:text-gray-300 text-gray-600 mb-3 text-sm">Choose a specific route to view historical data</div>
                   </>
                 ) : (
                   <>
-                    <div className="text-lg font-bold text-white mb-2">Load Historical Data</div>
-                    <div className="text-gray-300 mb-3 text-sm">Click "Get Historical Data" to view bus journey</div>
+                    <div className="text-lg font-bold dark:text-white text-gray-800 mb-2">Load Historical Data</div>
+                    <div className="dark:text-gray-300 text-gray-600 mb-3 text-sm">Click "Get Historical Data" to view bus journey</div>
                   </>
                 )}
-                <div className="text-purple-300 text-xs bg-purple-800/30 p-3 rounded-lg">
+                <div className="dark:text-yellow-300 dark:bg-yellow-800/30 text-blue-700 bg-blue-100/30 text-xs p-3 rounded-lg">
                   Historical tracking shows past bus movements with GPS precision
                 </div>
               </div>
@@ -1112,8 +1216,8 @@ const HistoricalMap = () => {
       {/* Enhanced Error Message */}
       {error && (
         <div className="absolute top-20 right-4 max-w-md z-50">
-          <Card className="bg-red-100/95 backdrop-blur-md border-red-300 p-4 rounded-xl">
-            <div className="text-red-800 text-sm flex items-center">
+          <Card className="dark:bg-red-900/95 bg-red-100/95 dark:border-red-700 border-red-300 backdrop-blur-md p-4 rounded-xl">
+            <div className="dark:text-red-300 text-red-800 text-sm flex items-center">
               <AlertCircle className="w-5 h-5 mr-2" />
               <div>
                 <strong>Error:</strong> {error}
@@ -1124,15 +1228,15 @@ const HistoricalMap = () => {
       )}
 
       {/* Enhanced Custom Styles */}
-      <style>{`
+      <style jsx>{`
         .slider::-webkit-slider-thumb {
           appearance: none;
           width: 18px;
           height: 18px;
           border-radius: 50%;
-          background: linear-gradient(45deg, #8B5CF6, #EC4899);
+          background: linear-gradient(45deg, #F59E0B, #EF4444);
           cursor: pointer;
-          box-shadow: 0 0 8px rgba(139, 92, 246, 0.6);
+          box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
           border: 2px solid white;
         }
         
@@ -1140,10 +1244,41 @@ const HistoricalMap = () => {
           width: 18px;
           height: 18px;
           border-radius: 50%;
-          background: linear-gradient(45deg, #8B5CF6, #EC4899);
+          background: linear-gradient(45deg, #F59E0B, #EF4444);
           cursor: pointer;
           border: 2px solid white;
-          box-shadow: 0 0 8px rgba(139, 92, 246, 0.6);
+          box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #374151;
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #6B7280;
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #9CA3AF;
+        }
+
+        /* Small screen responsive design */
+        @media (max-width: 768px) {
+          .w-\\[35\\%\\] {
+            width: 100% !important;
+            position: fixed !important;
+            top: 0 !important;
+            right: 0 !important;
+            height: 100vh !important;
+            z-index: 30 !important;
+          }
+          
+          .w-\\[65\\%\\] {
+            width: 100% !important;
+          }
         }
       `}</style>
     </div>
