@@ -73,5 +73,3 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/t
 
 
 
-
-i want both HistoricalMap.jsx and LiveMap.jsx codes should match with our website theme colors all should be in our websote theme only these 2pages are in different colors i want htese page in my website theme colors so give full update HistoricalMap.jsx,LiveMap.jsx code i want best attrative and one thing in preview in HistoricalMap.jsx school should be first in eveing shift and last at moring shift .in map  keep bus icon according to preview card give best output to me and suprise me
