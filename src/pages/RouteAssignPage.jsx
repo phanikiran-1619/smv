@@ -18,7 +18,7 @@ import {
 
 // Skeleton Components
 const SkeletonCard = ({ className = "" }) => (
-  <Card className={`dark:bg-slate-800/60 dark:border-slate-700 bg-white/80 border-gray-200 p-6 text-center rounded-xl shadow-lg ${className}`}>
+  <Card className={`dark:bg-slate-800 bg-white p-6 text-center rounded-xl shadow-lg ${className}`}>
     <div className="animate-pulse">
       <div className="w-8 h-8 dark:bg-slate-700 bg-gray-300 rounded mx-auto mb-2"></div>
       <div className="h-8 dark:bg-slate-700 bg-gray-300 rounded mb-2"></div>
@@ -28,7 +28,7 @@ const SkeletonCard = ({ className = "" }) => (
 );
 
 const SkeletonTable = () => (
-  <Card className="dark:bg-slate-800/60 dark:border-slate-700 bg-white/80 border-gray-200 overflow-hidden rounded-xl shadow-lg">
+  <Card className="dark:bg-slate-800 bg-white overflow-hidden rounded-xl shadow-lg">
     <div className="p-6">
       <div className="animate-pulse">
         <div className="flex justify-between items-center mb-4">
@@ -196,16 +196,11 @@ const RouteAssignPage = () => {
       setDrivers(driversData || []);
       setAttenders(attendersData || []);
 
-      // Try to fetch assignments, but don't fail if endpoint doesn't exist  
-      try {
-        const assignmentsData = await makeApiCall(`${API_BASE_URL}/assignments/active?schoolId=${schoolId}&date=${new Date().toISOString().split('T')[0]}`);
-        setAssignments(assignmentsData || []);
-      } catch (error) {
-        console.log('Assignments endpoint not available, using empty state');
-        setAssignments([]);
-      }
+      // Fetch assignments
+      const assignmentsData = await makeApiCall(`${API_BASE_URL}/assignments/active?schoolId=${schoolId}&date=${new Date().toISOString().split('T')[0]}`);
+      setAssignments(assignmentsData || []);
 
-      setCurrentPage(1); // Reset to first page when data is loaded
+      setCurrentPage(1);
     } catch (error) {
       console.error('Error fetching data:', error);
       setRoutes([]);
@@ -213,33 +208,40 @@ const RouteAssignPage = () => {
       setAttenders([]);
       setAssignments([]);
     } finally {
-      // Remove artificial loading delay for better UX
       setLoading(false);
     }
+  };
+
+  // Prepare payload
+  const preparePayload = (isUpdate = false) => {
+    const payload = {
+      schoolId: formData.schoolId,
+      status: 1
+    };
+    if (formData.smRouteId) payload.smRouteId = formData.smRouteId;
+    if (formData.smDriverID) payload.smDriverID = formData.smDriverID;
+    if (formData.smAttenderId) payload.smAttenderId = formData.smAttenderId;
+    if (!isUpdate) {
+      payload.date = formData.date;
+    }
+    return payload;
   };
 
   // Create new assignment
   const createAssignment = async () => {
     setModalLoading(true);
     try {
-      // For demo purposes, create local assignment since API might not exist
-      const newAssignment = {
-        id: Date.now(),
-        ...formData,
-        routeName: routes.find(r => r.smRouteId === formData.smRouteId)?.routeName || 'Unknown Route',
-        driverName: drivers.find(d => d.smDriverId === formData.smDriverID)?.user?.username || 'Unknown Driver',
-        attenderName: attenders.find(a => a.smAttenderId === formData.smAttenderId)?.user?.username || 'Unknown Attender'
-      };
-
-      setAssignments(prev => [...prev, newAssignment]);
-      setShowModal(false);
-      resetForm();
+      const payload = preparePayload();
+      await makeApiCall(`${API_BASE_URL}/assignments`, 'POST', payload);
       showNotification('Assignment created successfully!');
+      fetchAllData();
     } catch (error) {
       console.error('Error creating assignment:', error);
       showNotification('Failed to create assignment. Please try again.', 'error');
     } finally {
       setModalLoading(false);
+      setShowModal(false);
+      resetForm();
     }
   };
 
@@ -247,37 +249,33 @@ const RouteAssignPage = () => {
   const updateAssignment = async () => {
     setModalLoading(true);
     try {
-      const updatedAssignment = {
-        ...editingAssignment,
-        ...formData,
-        routeName: routes.find(r => r.smRouteId === formData.smRouteId)?.routeName || 'Unknown Route',
-        driverName: drivers.find(d => d.smDriverId === formData.smDriverID)?.user?.username || 'Unknown Driver',
-        attenderName: attenders.find(a => a.smAttenderId === formData.smAttenderId)?.user?.username || 'Unknown Attender'
-      };
-
-      setAssignments(prev => prev.map(a => a.id === editingAssignment.id ? updatedAssignment : a));
-      setShowModal(false);
-      setEditingAssignment(null);
-      resetForm();
+      const payload = preparePayload(true);
+      await makeApiCall(`${API_BASE_URL}/assignments/${editingAssignment.id}`, 'PUT', payload);
       showNotification('Assignment updated successfully!');
+      fetchAllData();
     } catch (error) {
       console.error('Error updating assignment:', error);
       showNotification('Failed to update assignment. Please try again.', 'error');
     } finally {
       setModalLoading(false);
+      setShowModal(false);
+      setEditingAssignment(null);
+      resetForm();
     }
   };
 
   // Delete assignment
   const deleteAssignment = async () => {
     try {
-      setAssignments(prev => prev.filter(a => a.id !== deleteId));
-      setShowDeleteConfirm(false);
-      setDeleteId(null);
+      await makeApiCall(`${API_BASE_URL}/assignments/${deleteId}`, 'DELETE');
       showNotification('Assignment deleted successfully!');
+      fetchAllData();
     } catch (error) {
       console.error('Error deleting assignment:', error);
       showNotification('Failed to delete assignment. Please try again.', 'error');
+    } finally {
+      setShowDeleteConfirm(false);
+      setDeleteId(null);
     }
   };
 
@@ -303,11 +301,10 @@ const RouteAssignPage = () => {
     setFormData({
       date: new Date().toISOString().split('T')[0],
       schoolId: assignment.schoolId,
-      smRouteId: assignment.smRouteId,
-      smDriverID: assignment.smDriverID,
-      smAttenderId: assignment.smAttenderId
+      smRouteId: assignment.smRouteId || '',
+      smDriverID: assignment.smDriverID || '',
+      smAttenderId: assignment.smAttenderId || ''
     });
-    // Set display names but clear search text (will be cleared when dropdown opens)
     setRouteSearch(routes.find(r => r.smRouteId === assignment.smRouteId)?.routeName || '');
     setDriverSearch(drivers.find(d => d.smDriverId === assignment.smDriverID)?.user?.username || '');
     setAttenderSearch(attenders.find(a => a.smAttenderId === assignment.smAttenderId)?.user?.username || '');
@@ -319,11 +316,6 @@ const RouteAssignPage = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.smRouteId || !formData.smDriverID || !formData.smAttenderId) {
-      showNotification('Please fill in all required fields', 'error');
-      return;
-    }
-
     if (editingAssignment) {
       updateAssignment();
     } else {
@@ -331,9 +323,9 @@ const RouteAssignPage = () => {
     }
   };
 
-  // Filter functions - show only available (unassigned) routes
+  // Filter functions
   const assignedRouteIds = assignments
-    .filter(a => !editingAssignment || a.id !== editingAssignment.id) // Exclude current assignment when editing
+    .filter(a => !editingAssignment || a.id !== editingAssignment.id)
     .map(a => a.smRouteId);
   const availableRoutes = routes.filter(route => !assignedRouteIds.includes(route.smRouteId));
   
@@ -341,7 +333,6 @@ const RouteAssignPage = () => {
     route.routeName?.toLowerCase().includes(routeSearch.toLowerCase())
   );
 
-  // Exclude drivers and attenders assigned to other routes (except current assignment in edit mode)
   const assignedDriverIds = assignments
     .filter(a => !editingAssignment || a.id !== editingAssignment.id)
     .map(a => a.smDriverID);
@@ -398,7 +389,6 @@ const RouteAssignPage = () => {
         );
       }
     } else {
-      // Always show first page
       items.push(
         <PaginationItem key={1}>
           <PaginationLink
@@ -414,7 +404,6 @@ const RouteAssignPage = () => {
         </PaginationItem>
       );
 
-      // Show ellipsis if needed
       if (currentPage > 3) {
         items.push(
           <PaginationItem key="ellipsis1">
@@ -423,7 +412,6 @@ const RouteAssignPage = () => {
         );
       }
 
-      // Show pages around current page
       const start = Math.max(2, currentPage - 1);
       const end = Math.min(totalPages - 1, currentPage + 1);
       
@@ -444,7 +432,6 @@ const RouteAssignPage = () => {
         );
       }
 
-      // Show ellipsis if needed
       if (currentPage < totalPages - 2) {
         items.push(
           <PaginationItem key="ellipsis2">
@@ -453,7 +440,6 @@ const RouteAssignPage = () => {
         );
       }
 
-      // Always show last page
       if (totalPages > 1) {
         items.push(
           <PaginationItem key={totalPages}>
@@ -481,7 +467,6 @@ const RouteAssignPage = () => {
   const totalAttenders = attenders.length;
   const activeAssignments = assignments.length;
   
-  // Calculate assigned vs available counts
   const assignedRoutes = assignments.length;
   const availableRoutesCount = totalRoutes - assignedRoutes;
   
@@ -491,17 +476,14 @@ const RouteAssignPage = () => {
   const assignedAttenders = assignments.length;
   const availableAttendersCount = totalAttenders - assignedAttenders;
 
-  // Reset pagination when search term changes
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm]);
 
-  // Fetch data on component mount
   useEffect(() => {
     fetchAllData();
   }, []);
 
-  // Show skeleton loading
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 from-gray-50 via-gray-100 to-gray-200 dark:text-white text-gray-800">
@@ -509,7 +491,6 @@ const RouteAssignPage = () => {
         
         <div className="pt-24 px-4 pb-8">
           <div className="max-w-7xl mx-auto">
-            {/* Header skeleton */}
             <div className="text-center mb-8">
               <div className="animate-pulse">
                 <div className="h-12 dark:bg-slate-700 bg-gray-300 rounded-lg mb-4 mx-auto w-1/2"></div>
@@ -517,7 +498,6 @@ const RouteAssignPage = () => {
               </div>
             </div>
 
-            {/* Stats Cards skeleton */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
               <SkeletonCard />
               <SkeletonCard />
@@ -525,7 +505,6 @@ const RouteAssignPage = () => {
               <SkeletonCard />
             </div>
 
-            {/* Controls skeleton */}
             <div className="flex flex-col sm:flex-row gap-4 mb-8">
               <div className="animate-pulse flex-1">
                 <div className="h-12 dark:bg-slate-700 bg-gray-300 rounded-lg"></div>
@@ -535,7 +514,6 @@ const RouteAssignPage = () => {
               </div>
             </div>
 
-            {/* Table skeleton */}
             <SkeletonTable />
           </div>
         </div>
@@ -549,7 +527,6 @@ const RouteAssignPage = () => {
       
       <div className="pt-24 px-4 pb-8">
         <div className="max-w-7xl mx-auto">
-          {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold bg-gradient-to-r dark:from-yellow-400 dark:via-orange-500 dark:to-red-500 from-blue-600 via-purple-600 to-blue-800 bg-clip-text text-transparent mb-4 tracking-wide">
               {pageTitle.toUpperCase()}
@@ -557,43 +534,41 @@ const RouteAssignPage = () => {
             <p className="dark:text-gray-300 text-gray-700 text-lg font-medium">Manage route assignments for drivers and students</p>
           </div>
 
-          {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <Card className="bg-gradient-to-br dark:from-blue-500/20 dark:to-blue-600/20 from-blue-50 to-blue-100 dark:border-blue-500/30 border-blue-200 p-6 text-center rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-              <MapPin className="w-8 h-8 text-blue-500 mx-auto mb-3" />
-              <h3 className="text-3xl font-bold dark:text-white text-gray-800 mb-1">{totalRoutes}</h3>
-              <p className="text-blue-600 font-semibold mb-2">Total Routes</p>
-              <div className="text-sm dark:text-blue-400 text-blue-600 bg-blue-100 dark:bg-blue-900/30 px-3 py-1 rounded-full">
+            <Card className="dark:bg-blue-800 bg-blue-500 dark:border-blue-700 border-blue-300 p-6 text-center rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+              <MapPin className="w-8 h-8 text-blue-100 mx-auto mb-3" />
+              <h3 className="text-3xl font-bold dark:text-white text-white mb-1">{totalRoutes}</h3>
+              <p className="text-blue-100 font-semibold mb-2">Total Routes</p>
+              <div className="text-sm dark:text-blue-200 text-blue-50 dark:bg-blue-900 bg-blue-600 px-3 py-1 rounded-full">
                 {assignedRoutes} assigned, {availableRoutesCount} available
               </div>
             </Card>
-            <Card className="bg-gradient-to-br dark:from-green-500/20 dark:to-green-600/20 from-green-50 to-green-100 dark:border-green-500/30 border-green-200 p-6 text-center rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-              <Users className="w-8 h-8 text-green-500 mx-auto mb-3" />
-              <h3 className="text-3xl font-bold dark:text-white text-gray-800 mb-1">{totalDrivers}</h3>
-              <p className="text-green-600 font-semibold mb-2">Total Drivers</p>
-              <div className="text-sm dark:text-green-400 text-green-600 bg-green-100 dark:bg-green-900/30 px-3 py-1 rounded-full">
+            <Card className="dark:bg-green-800 bg-green-500 dark:border-green-700 border-green-300 p-6 text-center rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+              <Users className="w-8 h-8 text-green-100 mx-auto mb-3" />
+              <h3 className="text-3xl font-bold dark:text-white text-white mb-1">{totalDrivers}</h3>
+              <p className="text-green-100 font-semibold mb-2">Total Drivers</p>
+              <div className="text-sm dark:text-green-200 text-green-50 dark:bg-green-900 bg-green-600 px-3 py-1 rounded-full">
                 {assignedDrivers} assigned, {availableDriversCount} available
               </div>
             </Card>
-            <Card className="bg-gradient-to-br dark:from-purple-500/20 dark:to-purple-600/20 from-purple-50 to-purple-100 dark:border-purple-500/30 border-purple-200 p-6 text-center rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-              <UserCheck className="w-8 h-8 text-purple-500 mx-auto mb-3" />
-              <h3 className="text-3xl font-bold dark:text-white text-gray-800 mb-1">{totalAttenders}</h3>
-              <p className="text-purple-600 font-semibold mb-2">Total Attenders</p>
-              <div className="text-sm dark:text-purple-400 text-purple-600 bg-purple-100 dark:bg-purple-900/30 px-3 py-1 rounded-full">
+            <Card className="dark:bg-purple-800 bg-purple-500 dark:border-purple-700 border-purple-300 p-6 text-center rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+              <UserCheck className="w-8 h-8 text-purple-100 mx-auto mb-3" />
+              <h3 className="text-3xl font-bold dark:text-white text-white mb-1">{totalAttenders}</h3>
+              <p className="text-purple-100 font-semibold mb-2">Total Attenders</p>
+              <div className="text-sm dark:text-purple-200 text-purple-50 dark:bg-purple-900 bg-purple-600 px-3 py-1 rounded-full">
                 {assignedAttenders} assigned, {availableAttendersCount} available
               </div>
             </Card>
-            <Card className="bg-gradient-to-br dark:from-orange-500/20 dark:to-orange-600/20 from-orange-50 to-orange-100 dark:border-orange-500/30 border-orange-200 p-6 text-center rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-              <Bus className="w-8 h-8 text-orange-500 mx-auto mb-3" />
-              <h3 className="text-3xl font-bold dark:text-white text-gray-800 mb-1">{activeAssignments}</h3>
-              <p className="text-orange-600 font-semibold mb-2">Active Assignments</p>
-              <div className="text-sm dark:text-orange-400 text-orange-600 bg-orange-100 dark:bg-orange-900/30 px-3 py-1 rounded-full">
+            <Card className="dark:bg-orange-800 bg-orange-500 dark:border-orange-700 border-orange-300 p-6 text-center rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+              <Bus className="w-8 h-8 text-orange-100 mx-auto mb-3" />
+              <h3 className="text-3xl font-bold dark:text-white text-white mb-1">{activeAssignments}</h3>
+              <p className="text-orange-100 font-semibold mb-2">Active Assignments</p>
+              <div className="text-sm dark:text-orange-200 text-orange-50 dark:bg-orange-900 bg-orange-600 px-3 py-1 rounded-full">
                 Currently assigned today
               </div>
             </Card>
           </div>
 
-          {/* Controls */}
           <div className="flex flex-col sm:flex-row gap-4 mb-8">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 dark:text-gray-400 text-gray-500 w-5 h-5" />
@@ -618,7 +593,6 @@ const RouteAssignPage = () => {
             </button>
           </div>
 
-          {/* Assignments Table */}
           <Card className="dark:bg-slate-800/60 dark:border-slate-700 bg-white border-gray-200 overflow-hidden rounded-xl shadow-lg">
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
@@ -650,28 +624,28 @@ const RouteAssignPage = () => {
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-3">
                               <MapPin className="w-5 h-5 text-blue-500" />
-                              <span className="dark:text-white text-gray-800 font-medium">{route?.routeName || 'Unknown Route'}</span>
+                              <span className="dark:text-white text-gray-800 font-medium">{route?.routeName || 'No Route'}</span>
                             </div>
                           </td>
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-3">
                               <Users className="w-5 h-5 text-green-500" />
-                              <span className="dark:text-gray-300 text-gray-700">{driver?.user?.username || 'Unknown Driver'}</span>
+                              <span className="dark:text-gray-300 text-gray-700">{driver?.user?.username || 'No Driver'}</span>
                             </div>
                           </td>
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-3">
                               <UserCheck className="w-5 h-5 text-purple-500" />
-                              <span className="dark:text-gray-300 text-gray-700">{attender?.user?.username || 'Unknown Attender'}</span>
+                              <span className="dark:text-gray-300 text-gray-700">{attender?.user?.username || 'No Attender'}</span>
                             </div>
                           </td>
                           <td className="py-4 px-4">
                             <div className="flex gap-2">
                               <button 
                                 onClick={() => handleEdit(assignment)}
-                                className="px-3 py-1 bg-blue-500/20 text-blue-500 rounded-lg hover:bg-blue-500/30 dark:hover:bg-blue-500/40 transition-colors text-sm flex items-center gap-1 shadow-sm font-medium"
+                                className="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 dark:bg-blue-700 dark:hover:bg-blue-800 transition-colors text-sm flex items-center gap-1 shadow-sm font-medium"
                               >
-                                <Edit className="w-4 h-4" />
+                                <Edit className="w-4 h-4 text-white" />
                                 Edit
                               </button>
                               <button 
@@ -679,9 +653,9 @@ const RouteAssignPage = () => {
                                   setDeleteId(assignment.id);
                                   setShowDeleteConfirm(true);
                                 }}
-                                className="px-3 py-1 bg-red-500/20 text-red-500 rounded-lg hover:bg-red-500/30 dark:hover:bg-red-500/40 transition-colors text-sm flex items-center gap-1 shadow-sm font-medium"
+                                className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 dark:bg-red-700 dark:hover:bg-red-800 transition-colors text-sm flex items-center gap-1 shadow-sm font-medium"
                               >
-                                <Trash2 className="w-4 h-4" />
+                                <Trash2 className="w-4 h-4 text-white" />
                                 Delete
                               </button>
                             </div>
@@ -700,7 +674,6 @@ const RouteAssignPage = () => {
             </div>
           </Card>
 
-          {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex justify-center mt-6">
               <Pagination>
@@ -735,7 +708,6 @@ const RouteAssignPage = () => {
         </div>
       </div>
 
-      {/* Modal with Skeleton Loading */}
       {showModal && (
         <>
           {modalLoading && <SkeletonModal />}
@@ -759,14 +731,12 @@ const RouteAssignPage = () => {
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
-                  {/* Route Selection */}
                   <div>
-                    <label className="block text-sm font-medium dark:text-gray-200 text-gray-700 mb-2">Route *</label>
+                    <label className="block text-sm font-medium dark:text-gray-200 text-gray-700 mb-2">Route</label>
                     <div className="relative">
                       <div 
                         onClick={() => {
                           setShowRouteDropdown(!showRouteDropdown);
-                          // Clear search text when opening dropdown in edit mode
                           if (editingAssignment && !showRouteDropdown) {
                             setRouteSearch('');
                           }
@@ -811,14 +781,12 @@ const RouteAssignPage = () => {
                     </div>
                   </div>
 
-                  {/* Driver Selection */}
                   <div>
-                    <label className="block text-sm font-medium dark:text-gray-200 text-gray-700 mb-2">Driver *</label>
+                    <label className="block text-sm font-medium dark:text-gray-200 text-gray-700 mb-2">Driver</label>
                     <div className="relative">
                       <div 
                         onClick={() => {
                           setShowDriverDropdown(!showDriverDropdown);
-                          // Clear search text when opening dropdown in edit mode
                           if (editingAssignment && !showDriverDropdown) {
                             setDriverSearch('');
                           }
@@ -863,14 +831,12 @@ const RouteAssignPage = () => {
                     </div>
                   </div>
 
-                  {/* Attender Selection */}
                   <div>
-                    <label className="block text-sm font-medium dark:text-gray-200 text-gray-700 mb-2">Attender *</label>
+                    <label className="block text-sm font-medium dark:text-gray-200 text-gray-700 mb-2">Attender</label>
                     <div className="relative">
                       <div 
                         onClick={() => {
                           setShowAttenderDropdown(!showAttenderDropdown);
-                          // Clear search text when opening dropdown in edit mode
                           if (editingAssignment && !showAttenderDropdown) {
                             setAttenderSearch('');
                           }
@@ -915,7 +881,6 @@ const RouteAssignPage = () => {
                     </div>
                   </div>
 
-                  {/* Submit Button */}
                   <div className="flex justify-end gap-4 pt-6">
                     <button
                       type="button"
@@ -924,7 +889,7 @@ const RouteAssignPage = () => {
                         setEditingAssignment(null);
                         resetForm();
                       }}
-                      className="px-6 py-3 dark:bg-slate-600 dark:text-white bg-gray-300 text-gray-700 rounded-xl dark:hover:bg-slate-500 hover:bg-gray-400 transition-all duration-200 font-medium shadow-md"
+                      className="px-6 py-3 dark:bg-gray-600 dark:text-white bg-gray-400 text-gray-800 rounded-xl dark:hover:bg-gray-500 hover:bg-gray-500 transition-all duration-200 font-medium shadow-md"
                     >
                       Cancel
                     </button>
@@ -942,7 +907,6 @@ const RouteAssignPage = () => {
         </>
       )}
 
-      {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="dark:bg-slate-800 bg-white rounded-xl p-6 w-full max-w-sm mx-4 shadow-2xl">
@@ -954,13 +918,13 @@ const RouteAssignPage = () => {
                   setShowDeleteConfirm(false);
                   setDeleteId(null);
                 }}
-                className="px-6 py-3 dark:bg-slate-600 dark:text-white bg-gray-300 text-gray-700 rounded-xl dark:hover:bg-slate-500 hover:bg-gray-400 transition-all duration-200 font-medium shadow-md"
+                className="px-6 py-3 dark:bg-gray-600 dark:text-white bg-gray-400 text-gray-800 rounded-xl dark:hover:bg-gray-500 hover:bg-gray-500 transition-all duration-200 font-medium shadow-md"
               >
                 Cancel
               </button>
               <button
                 onClick={deleteAssignment}
-                className="px-6 py-3 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-all duration-200 font-medium shadow-md"
+                className="px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800 transition-all duration-200 font-medium shadow-md"
               >
                 Delete
               </button>
@@ -969,13 +933,12 @@ const RouteAssignPage = () => {
         </div>
       )}
 
-      {/* Notification Popup */}
       {notification.show && (
         <div className="fixed top-20 right-4 z-50">
           <div className={`rounded-xl p-4 max-w-sm w-full shadow-xl transform transition-all duration-300 ${
             notification.type === 'success' 
-              ? 'bg-green-500/90 text-white' 
-              : 'bg-red-500/90 text-white'
+              ? 'bg-green-600 text-white' 
+              : 'bg-red-600 text-white'
           }`}>
             <p className="font-medium">{notification.message}</p>
           </div>
