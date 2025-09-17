@@ -213,10 +213,8 @@ const RouteAssignPage = () => {
       setAttenders([]);
       setAssignments([]);
     } finally {
-      // Add minimum loading time for better UX
-      setTimeout(() => {
-        setLoading(false);
-      }, 1000);
+      // Remove artificial loading delay for better UX
+      setLoading(false);
     }
   };
 
@@ -553,43 +551,43 @@ const RouteAssignPage = () => {
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="text-center mb-8">
-            <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r dark:from-yellow-400 dark:via-orange-500 dark:to-red-500 from-blue-500 via-blue-600 to-blue-700 bg-clip-text text-transparent mb-4">
-              {pageTitle}
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold bg-gradient-to-r dark:from-yellow-400 dark:via-orange-500 dark:to-red-500 from-blue-600 via-purple-600 to-blue-800 bg-clip-text text-transparent mb-4 tracking-wide">
+              {pageTitle.toUpperCase()}
             </h1>
-            <p className="dark:text-gray-300 text-gray-600 text-lg">Manage route assignments for drivers and students</p>
+            <p className="dark:text-gray-300 text-gray-700 text-lg font-medium">Manage route assignments for drivers and students</p>
           </div>
 
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <Card className="bg-gradient-to-br from-blue-500/20 to-blue-600/20 border-blue-500/30 p-6 text-center rounded-xl shadow-lg">
-              <MapPin className="w-8 h-8 text-blue-400 mx-auto mb-2" />
-              <h3 className="text-2xl font-bold dark:text-white text-gray-800">{totalRoutes}</h3>
-              <p className="text-blue-600">Total Routes</p>
-              <div className="text-sm text-blue-500 mt-1">
+            <Card className="bg-gradient-to-br dark:from-blue-500/20 dark:to-blue-600/20 from-blue-50 to-blue-100 dark:border-blue-500/30 border-blue-200 p-6 text-center rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+              <MapPin className="w-8 h-8 text-blue-500 mx-auto mb-3" />
+              <h3 className="text-3xl font-bold dark:text-white text-gray-800 mb-1">{totalRoutes}</h3>
+              <p className="text-blue-600 font-semibold mb-2">Total Routes</p>
+              <div className="text-sm dark:text-blue-400 text-blue-600 bg-blue-100 dark:bg-blue-900/30 px-3 py-1 rounded-full">
                 {assignedRoutes} assigned, {availableRoutesCount} available
               </div>
             </Card>
-            <Card className="bg-gradient-to-br from-green-500/20 to-green-600/20 border-green-500/30 p-6 text-center rounded-xl shadow-lg">
-              <Users className="w-8 h-8 text-green-400 mx-auto mb-2" />
-              <h3 className="text-2xl font-bold dark:text-white text-gray-800">{totalDrivers}</h3>
-              <p className="text-green-600">Total Drivers</p>
-              <div className="text-sm text-green-500 mt-1">
+            <Card className="bg-gradient-to-br dark:from-green-500/20 dark:to-green-600/20 from-green-50 to-green-100 dark:border-green-500/30 border-green-200 p-6 text-center rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+              <Users className="w-8 h-8 text-green-500 mx-auto mb-3" />
+              <h3 className="text-3xl font-bold dark:text-white text-gray-800 mb-1">{totalDrivers}</h3>
+              <p className="text-green-600 font-semibold mb-2">Total Drivers</p>
+              <div className="text-sm dark:text-green-400 text-green-600 bg-green-100 dark:bg-green-900/30 px-3 py-1 rounded-full">
                 {assignedDrivers} assigned, {availableDriversCount} available
               </div>
             </Card>
-            <Card className="bg-gradient-to-br from-purple-500/20 to-purple-600/20 border-purple-500/30 p-6 text-center rounded-xl shadow-lg">
-              <UserCheck className="w-8 h-8 text-purple-400 mx-auto mb-2" />
-              <h3 className="text-2xl font-bold dark:text-white text-gray-800">{totalAttenders}</h3>
-              <p className="text-purple-600">Total Attenders</p>
-              <div className="text-sm text-purple-500 mt-1">
+            <Card className="bg-gradient-to-br dark:from-purple-500/20 dark:to-purple-600/20 from-purple-50 to-purple-100 dark:border-purple-500/30 border-purple-200 p-6 text-center rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+              <UserCheck className="w-8 h-8 text-purple-500 mx-auto mb-3" />
+              <h3 className="text-3xl font-bold dark:text-white text-gray-800 mb-1">{totalAttenders}</h3>
+              <p className="text-purple-600 font-semibold mb-2">Total Attenders</p>
+              <div className="text-sm dark:text-purple-400 text-purple-600 bg-purple-100 dark:bg-purple-900/30 px-3 py-1 rounded-full">
                 {assignedAttenders} assigned, {availableAttendersCount} available
               </div>
             </Card>
-            <Card className="bg-gradient-to-br from-orange-500/20 to-orange-600/20 border-orange-500/30 p-6 text-center rounded-xl shadow-lg">
-              <Bus className="w-8 h-8 text-orange-400 mx-auto mb-2" />
-              <h3 className="text-2xl font-bold dark:text-white text-gray-800">{activeAssignments}</h3>
-              <p className="text-orange-600">Active Assignments</p>
-              <div className="text-sm text-orange-500 mt-1">
+            <Card className="bg-gradient-to-br dark:from-orange-500/20 dark:to-orange-600/20 from-orange-50 to-orange-100 dark:border-orange-500/30 border-orange-200 p-6 text-center rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+              <Bus className="w-8 h-8 text-orange-500 mx-auto mb-3" />
+              <h3 className="text-3xl font-bold dark:text-white text-gray-800 mb-1">{activeAssignments}</h3>
+              <p className="text-orange-600 font-semibold mb-2">Active Assignments</p>
+              <div className="text-sm dark:text-orange-400 text-orange-600 bg-orange-100 dark:bg-orange-900/30 px-3 py-1 rounded-full">
                 Currently assigned today
               </div>
             </Card>
@@ -604,7 +602,7 @@ const RouteAssignPage = () => {
                 placeholder="Search routes..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 dark:bg-slate-700/50 dark:border-slate-600 bg-gray-100 border-gray-300 border rounded-lg dark:text-white dark:placeholder-gray-400 text-gray-800 placeholder-gray-500 focus:outline-none dark:focus:ring-2 dark:focus:ring-yellow-500 dark:focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                className="w-full pl-10 pr-4 py-3 dark:bg-slate-700/50 dark:border-slate-600 bg-white border-gray-300 border rounded-lg dark:text-white dark:placeholder-gray-400 text-gray-800 placeholder-gray-500 focus:outline-none dark:focus:ring-2 dark:focus:ring-yellow-500 dark:focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-md"
               />
             </div>
             <button 
@@ -621,7 +619,7 @@ const RouteAssignPage = () => {
           </div>
 
           {/* Assignments Table */}
-          <Card className="dark:bg-slate-800/60 dark:border-slate-700 bg-white/80 border-gray-200 overflow-hidden rounded-xl shadow-lg">
+          <Card className="dark:bg-slate-800/60 dark:border-slate-700 bg-white border-gray-200 overflow-hidden rounded-xl shadow-lg">
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold dark:text-white text-gray-800">Current Route Assignments</h2>
@@ -635,10 +633,10 @@ const RouteAssignPage = () => {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b dark:border-slate-600 border-gray-300">
-                      <th className="text-left py-3 px-4 dark:text-gray-300 text-gray-700 font-semibold">Route</th>
-                      <th className="text-left py-3 px-4 dark:text-gray-300 text-gray-700 font-semibold">Driver</th>
-                      <th className="text-left py-3 px-4 dark:text-gray-300 text-gray-700 font-semibold">Attender</th>
-                      <th className="text-left py-3 px-4 dark:text-gray-300 text-gray-700 font-semibold">Actions</th>
+                      <th className="text-left py-3 px-4 dark:text-gray-300 text-gray-800 font-semibold">Route</th>
+                      <th className="text-left py-3 px-4 dark:text-gray-300 text-gray-800 font-semibold">Driver</th>
+                      <th className="text-left py-3 px-4 dark:text-gray-300 text-gray-800 font-semibold">Attender</th>
+                      <th className="text-left py-3 px-4 dark:text-gray-300 text-gray-800 font-semibold">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -648,22 +646,22 @@ const RouteAssignPage = () => {
                       const attender = attenders.find(a => a.smAttenderId === assignment.smAttenderId);
 
                       return (
-                        <tr key={assignment.id} className="border-b dark:border-slate-600/50 border-gray-300/50 dark:hover:bg-slate-700/30 hover:bg-gray-100/30 transition-colors">
+                        <tr key={assignment.id} className="border-b dark:border-slate-600/50 border-gray-300/50 dark:hover:bg-slate-700/30 hover:bg-gray-50 transition-colors">
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-3">
-                              <MapPin className="w-5 h-5 text-blue-400" />
+                              <MapPin className="w-5 h-5 text-blue-500" />
                               <span className="dark:text-white text-gray-800 font-medium">{route?.routeName || 'Unknown Route'}</span>
                             </div>
                           </td>
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-3">
-                              <Users className="w-5 h-5 text-green-400" />
+                              <Users className="w-5 h-5 text-green-500" />
                               <span className="dark:text-gray-300 text-gray-700">{driver?.user?.username || 'Unknown Driver'}</span>
                             </div>
                           </td>
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-3">
-                              <UserCheck className="w-5 h-5 text-purple-400" />
+                              <UserCheck className="w-5 h-5 text-purple-500" />
                               <span className="dark:text-gray-300 text-gray-700">{attender?.user?.username || 'Unknown Attender'}</span>
                             </div>
                           </td>
@@ -671,7 +669,7 @@ const RouteAssignPage = () => {
                             <div className="flex gap-2">
                               <button 
                                 onClick={() => handleEdit(assignment)}
-                                className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors text-sm flex items-center gap-1 shadow-sm"
+                                className="px-3 py-1 bg-blue-500/20 text-blue-500 rounded-lg hover:bg-blue-500/30 dark:hover:bg-blue-500/40 transition-colors text-sm flex items-center gap-1 shadow-sm font-medium"
                               >
                                 <Edit className="w-4 h-4" />
                                 Edit
@@ -681,7 +679,7 @@ const RouteAssignPage = () => {
                                   setDeleteId(assignment.id);
                                   setShowDeleteConfirm(true);
                                 }}
-                                className="px-3 py-1 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors text-sm flex items-center gap-1 shadow-sm"
+                                className="px-3 py-1 bg-red-500/20 text-red-500 rounded-lg hover:bg-red-500/30 dark:hover:bg-red-500/40 transition-colors text-sm flex items-center gap-1 shadow-sm font-medium"
                               >
                                 <Trash2 className="w-4 h-4" />
                                 Delete
