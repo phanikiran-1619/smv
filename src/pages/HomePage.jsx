@@ -32,44 +32,23 @@ const HomePage = () => {
                 </h3>
               </div>
               
-              <p className="text-xl sm:text-2xl dark:text-gray-300 text-gray-600 max-w-2xl mx-auto lg:mx-0 leading-relaxed font-medium">
-                Experience the future of school transportation with our cutting-edge tracking system. 
-                Ensuring student safety, real-time monitoring, and seamless communication for modern education.
-              </p>
-              
-              {/* Feature Highlights */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 pt-8">
-                <div className="flex flex-col items-center space-y-3 p-6 dark:bg-gray-800/60 bg-white/90 rounded-2xl backdrop-blur-sm border dark:border-gray-700 border-sky-200 hover:scale-105 transition-all duration-300 group">
-                  <div className="w-12 h-12 rounded-xl dark:bg-yellow-500/20 bg-sky-100 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
-                    <svg className="w-6 h-6 dark:text-yellow-400 text-sky-600" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
-                    </svg>
+              {/* Students Image Section */}
+              <div className="flex justify-center lg:justify-start pt-8">
+                <div className="relative group">
+                  <div className="absolute inset-0 dark:bg-yellow-400/8 bg-sky-400/8 rounded-3xl blur-md group-hover:blur-lg transition-all duration-500"></div>
+                  <div className="relative overflow-hidden rounded-3xl shadow-xl dark:shadow-yellow-500/5 shadow-sky-500/10 border-2 dark:border-yellow-400/20 border-sky-400/20 group-hover:scale-102 transition-all duration-500">
+                    <img 
+                      src="/students.png" 
+                      alt="Students enjoying safe school transportation" 
+                      className="w-full max-w-md h-auto object-cover group-hover:scale-105 transition-transform duration-700"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <div className="absolute bottom-4 left-4 right-4 opacity-0 group-hover:opacity-100 transition-all duration-500 transform translate-y-2 group-hover:translate-y-0">
+                      <p className="text-sm font-bold dark:text-yellow-400 text-black drop-shadow-2xl dark:bg-black/40 bg-white/80 px-4 py-3 rounded-xl backdrop-blur-md border dark:border-yellow-400/30 border-gray-300/50">
+                        Experience the future of school transportation with cutting-edge safety and real-time tracking
+                      </p>
+                    </div>
                   </div>
-                  <span className="text-sm font-bold dark:text-gray-200 text-gray-700 group-hover:dark:text-yellow-400 group-hover:text-sky-600 transition-colors">Safe&Secure</span>
-                </div>
-                <div className="flex flex-col items-center space-y-3 p-6 dark:bg-gray-800/60 bg-white/90 rounded-2xl backdrop-blur-sm border dark:border-gray-700 border-sky-200 hover:scale-105 transition-all duration-300 group">
-                  <div className="w-12 h-12 rounded-xl dark:bg-yellow-500/20 bg-sky-100 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
-                    <svg className="w-6 h-6 dark:text-yellow-400 text-sky-600" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                    </svg>
-                  </div>
-                  <span className="text-sm font-bold dark:text-gray-200 text-gray-700 group-hover:dark:text-yellow-400 group-hover:text-sky-600 transition-colors">LiveTracking</span>
-                </div>
-                <div className="flex flex-col items-center space-y-3 p-6 dark:bg-gray-800/60 bg-white/90 rounded-2xl backdrop-blur-sm border dark:border-gray-700 border-sky-200 hover:scale-105 transition-all duration-300 group">
-                  <div className="w-12 h-12 rounded-xl dark:bg-yellow-500/20 bg-sky-100 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
-                    <svg className="w-6 h-6 dark:text-yellow-400 text-sky-600" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6h1.5v-6zm0 8H11v1.5h1.5V15z"/>
-                    </svg>
-                  </div>
-                  <span className="text-sm font-bold dark:text-gray-200 text-gray-700 group-hover:dark:text-yellow-400 group-hover:text-sky-600 transition-colors">Real-time</span>
-                </div>
-                <div className="flex flex-col items-center space-y-3 p-6 dark:bg-gray-800/60 bg-white/90 rounded-2xl backdrop-blur-sm border dark:border-gray-700 border-sky-200 hover:scale-105 transition-all duration-300 group">
-                  <div className="w-12 h-12 rounded-xl dark:bg-yellow-500/20 bg-sky-100 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
-                    <svg className="w-6 h-6 dark:text-yellow-400 text-sky-600" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
-                    </svg>
-                  </div>
-                  <span className="text-sm font-bold dark:text-gray-200 text-gray-700 group-hover:dark:text-yellow-400 group-hover:text-sky-600 transition-colors">Connect</span>
                 </div>
               </div>
             </div>

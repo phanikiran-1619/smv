@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { Card } from '../components/ui/card';
@@ -15,6 +15,23 @@ import {
   MapPin, Users, Bus, UserCheck, 
   Plus, Search, ChevronDown, X, Trash2, Edit
 } from 'lucide-react';
+
+// Custom hooks for debouncing
+const useDebounce = (value, delay) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+};
 
 // Skeleton Components
 const SkeletonCard = ({ className = "" }) => (
@@ -106,7 +123,12 @@ const RouteAssignPage = () => {
   const [drivers, setDrivers] = useState([]);
   const [attenders, setAttenders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [modalLoading, setModalLoading] = useState(false);
+  
+  // Individual operation loading states
+  const [createLoading, setCreateLoading] = useState(false);
+  const [updateLoading, setUpdateLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState(null);
@@ -119,6 +141,14 @@ const RouteAssignPage = () => {
   const [driverSearch, setDriverSearch] = useState('');
   const [attenderSearch, setAttenderSearch] = useState('');
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
+
+  // Form validation errors
+  const [formErrors, setFormErrors] = useState({
+    route: '',
+    driver: '',
+    attender: '',
+    general: ''
+  });
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -136,14 +166,50 @@ const RouteAssignPage = () => {
   // API base URL from environment
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
+  // Debounced search term
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
+
   // Helper functions
   const getAuthToken = () => localStorage.getItem("admintoken");
   const getSchoolId = () => localStorage.getItem("adminSchoolId") || localStorage.getItem("schoolId");
 
-  const showNotification = (message, type = 'success') => {
+  const showNotification = useCallback((message, type = 'success') => {
     setNotification({ show: true, message, type });
-    setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
-  };
+    setTimeout(() => setNotification({ show: false, message: '', type: '' }), 4000);
+  }, []);
+
+  const clearFormErrors = useCallback(() => {
+    setFormErrors({
+      route: '',
+      driver: '',
+      attender: '',
+      general: ''
+    });
+  }, []);
+
+  const validateForm = useCallback(() => {
+    const errors = {
+      route: '',
+      driver: '',
+      attender: '',
+      general: ''
+    };
+
+    // Check if route is selected
+    if (!formData.smRouteId) {
+      errors.route = 'Please select a route';
+    }
+
+    // Check if at least driver or attender is selected
+    if (!formData.smDriverID && !formData.smAttenderId) {
+      errors.general = 'Either driver or attender must be provided';
+    }
+
+    setFormErrors(errors);
+
+    // Return true if no errors
+    return !errors.route && !errors.driver && !errors.attender && !errors.general;
+  }, [formData]);
 
   const makeApiCall = async (url, method = 'GET', body = null) => {
     const token = getAuthToken();
@@ -168,14 +234,24 @@ const RouteAssignPage = () => {
     const response = await fetch(url, config);
     
     if (!response.ok) {
-      throw new Error(`API call failed: ${response.status}`);
+      // Parse error response
+      let errorMessage = `API call failed: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        if (errorData.message) {
+          errorMessage = errorData.message;
+        }
+      } catch (e) {
+        // If can't parse JSON, use default message
+      }
+      throw new Error(errorMessage);
     }
 
     return method === 'DELETE' ? response : response.json();
   };
 
-  // Fetch all data
-  const fetchAllData = async () => {
+  // Fetch all data (only called on initial load)
+  const fetchAllData = useCallback(async () => {
     setLoading(true);
     try {
       const schoolId = getSchoolId();
@@ -203,6 +279,7 @@ const RouteAssignPage = () => {
       setCurrentPage(1);
     } catch (error) {
       console.error('Error fetching data:', error);
+      showNotification('Failed to load data. Please refresh the page.', 'error');
       setRoutes([]);
       setDrivers([]);
       setAttenders([]);
@@ -210,10 +287,10 @@ const RouteAssignPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_BASE_URL, showNotification]);
 
   // Prepare payload
-  const preparePayload = (isUpdate = false) => {
+  const preparePayload = useCallback((isUpdate = false) => {
     const payload = {
       schoolId: formData.schoolId,
       status: 1
@@ -225,62 +302,199 @@ const RouteAssignPage = () => {
       payload.date = formData.date;
     }
     return payload;
-  };
+  }, [formData]);
 
-  // Create new assignment
-  const createAssignment = async () => {
-    setModalLoading(true);
+  // Optimistic create assignment
+  const createAssignment = useCallback(async () => {
+    if (createLoading) return;
+    
+    // Clear previous errors
+    clearFormErrors();
+    
+    // Validate form
+    if (!validateForm()) {
+      showNotification('Please fill in all required fields correctly', 'error');
+      return;
+    }
+    
+    setCreateLoading(true);
+    
+    // Create temporary assignment for optimistic update
+    const tempAssignment = {
+      id: `temp_${Date.now()}`,
+      ...preparePayload(),
+      isOptimistic: true
+    };
+
+    // Optimistically add to assignments
+    setAssignments(prev => [tempAssignment, ...prev]);
+    
+    // Show success message immediately
+    showNotification('Assignment created successfully!');
+    
+    // Close modal immediately
+    setShowModal(false);
+    resetForm();
+
     try {
       const payload = preparePayload();
-      await makeApiCall(`${API_BASE_URL}/assignments`, 'POST', payload);
-      showNotification('Assignment created successfully!');
-      fetchAllData();
+      const newAssignment = await makeApiCall(`${API_BASE_URL}/assignments`, 'POST', payload);
+      
+      // Replace temp assignment with real one
+      setAssignments(prev => prev.map(a => 
+        a.id === tempAssignment.id ? { ...newAssignment, isOptimistic: false } : a
+      ));
+      
     } catch (error) {
       console.error('Error creating assignment:', error);
-      showNotification('Failed to create assignment. Please try again.', 'error');
+      // Remove optimistic assignment and show error
+      setAssignments(prev => prev.filter(a => a.id !== tempAssignment.id));
+      
+      // Show specific API error message
+      const errorMessage = error.message || 'Failed to create assignment. Please try again.';
+      showNotification(errorMessage, 'error');
+      
+      // Reopen modal with error
+      setShowModal(true);
+      setFormData(prev => ({ ...prev, ...tempAssignment }));
+      
+      // Set route search if route was selected
+      if (tempAssignment.smRouteId) {
+        const route = routes.find(r => r.smRouteId === tempAssignment.smRouteId);
+        setRouteSearch(route?.routeName || '');
+      }
+      
+      // Set driver search if driver was selected
+      if (tempAssignment.smDriverID) {
+        const driver = drivers.find(d => d.smDriverId === tempAssignment.smDriverID);
+        setDriverSearch(driver?.user?.username || '');
+      }
+      
+      // Set attender search if attender was selected
+      if (tempAssignment.smAttenderId) {
+        const attender = attenders.find(a => a.smAttenderId === tempAssignment.smAttenderId);
+        setAttenderSearch(attender?.user?.username || '');
+      }
+      
+      // Set form error for display
+      setFormErrors(prev => ({
+        ...prev,
+        general: errorMessage
+      }));
+      
     } finally {
-      setModalLoading(false);
-      setShowModal(false);
-      resetForm();
+      setCreateLoading(false);
     }
-  };
+  }, [createLoading, clearFormErrors, validateForm, preparePayload, showNotification, API_BASE_URL, routes, drivers, attenders]);
 
-  // Update assignment
-  const updateAssignment = async () => {
-    setModalLoading(true);
+  // Optimistic update assignment
+  const updateAssignment = useCallback(async () => {
+    if (updateLoading || !editingAssignment) return;
+    
+    // Clear previous errors
+    clearFormErrors();
+    
+    // Validate form
+    if (!validateForm()) {
+      showNotification('Please fill in all required fields correctly', 'error');
+      return;
+    }
+    
+    setUpdateLoading(true);
+    
+    // Store original assignment for rollback
+    const originalAssignment = editingAssignment;
+    const updatedAssignment = {
+      ...editingAssignment,
+      ...preparePayload(true),
+      isOptimistic: true
+    };
+
+    // Optimistically update assignments
+    setAssignments(prev => prev.map(a => 
+      a.id === editingAssignment.id ? updatedAssignment : a
+    ));
+    
+    // Show success message immediately
+    showNotification('Assignment updated successfully!');
+    
+    // Close modal immediately
+    setShowModal(false);
+    setEditingAssignment(null);
+    resetForm();
+
     try {
       const payload = preparePayload(true);
-      await makeApiCall(`${API_BASE_URL}/assignments/${editingAssignment.id}`, 'PUT', payload);
-      showNotification('Assignment updated successfully!');
-      fetchAllData();
+      const updated = await makeApiCall(`${API_BASE_URL}/assignments/${editingAssignment.id}`, 'PUT', payload);
+      
+      // Replace optimistic update with real data
+      setAssignments(prev => prev.map(a => 
+        a.id === editingAssignment.id ? { ...updated, isOptimistic: false } : a
+      ));
+      
     } catch (error) {
       console.error('Error updating assignment:', error);
-      showNotification('Failed to update assignment. Please try again.', 'error');
+      // Rollback to original assignment and show error
+      setAssignments(prev => prev.map(a => 
+        a.id === editingAssignment.id ? originalAssignment : a
+      ));
+      
+      // Show specific API error message
+      const errorMessage = error.message || 'Failed to update assignment. Please try again.';
+      showNotification(errorMessage, 'error');
+      
+      // Reopen modal with error
+      setEditingAssignment(originalAssignment);
+      handleEdit(originalAssignment);
+      
+      // Set form error for display
+      setFormErrors(prev => ({
+        ...prev,
+        general: errorMessage
+      }));
+      
     } finally {
-      setModalLoading(false);
-      setShowModal(false);
-      setEditingAssignment(null);
-      resetForm();
+      setUpdateLoading(false);
     }
-  };
+  }, [updateLoading, editingAssignment, clearFormErrors, validateForm, preparePayload, showNotification, API_BASE_URL]);
 
-  // Delete assignment
-  const deleteAssignment = async () => {
+  // Optimistic delete assignment
+  const deleteAssignment = useCallback(async () => {
+    if (deleteLoading || !deleteId) return;
+    
+    setDeleteLoading(true);
+
+    // Store original assignment for rollback
+    const assignmentToDelete = assignments.find(a => a.id === deleteId);
+    if (!assignmentToDelete) return;
+
+    // Optimistically remove from assignments
+    setAssignments(prev => prev.filter(a => a.id !== deleteId));
+    
+    // Show success message immediately
+    showNotification('Assignment deleted successfully!');
+    
+    // Close modal immediately
+    setShowDeleteConfirm(false);
+    setDeleteId(null);
+
     try {
       await makeApiCall(`${API_BASE_URL}/assignments/${deleteId}`, 'DELETE');
-      showNotification('Assignment deleted successfully!');
-      fetchAllData();
     } catch (error) {
       console.error('Error deleting assignment:', error);
-      showNotification('Failed to delete assignment. Please try again.', 'error');
+      // Rollback - add assignment back and show error
+      setAssignments(prev => [assignmentToDelete, ...prev]);
+      
+      // Show specific API error message
+      const errorMessage = error.message || 'Failed to delete assignment. Please try again.';
+      showNotification(errorMessage, 'error');
     } finally {
-      setShowDeleteConfirm(false);
-      setDeleteId(null);
+      setDeleteLoading(false);
     }
-  };
+  }, [deleteLoading, deleteId, assignments, showNotification, API_BASE_URL]);
 
   // Form handlers
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setFormData({
       date: new Date().toISOString().split('T')[0],
       schoolId: getSchoolId() || '',
@@ -294,9 +508,10 @@ const RouteAssignPage = () => {
     setShowRouteDropdown(false);
     setShowDriverDropdown(false);
     setShowAttenderDropdown(false);
-  };
+    clearFormErrors();
+  }, [clearFormErrors]);
 
-  const handleEdit = (assignment) => {
+  const handleEdit = useCallback((assignment) => {
     setEditingAssignment(assignment);
     setFormData({
       date: new Date().toISOString().split('T')[0],
@@ -312,50 +527,77 @@ const RouteAssignPage = () => {
     setShowRouteDropdown(false);
     setShowDriverDropdown(false);
     setShowAttenderDropdown(false);
-  };
+    clearFormErrors();
+  }, [routes, drivers, attenders, clearFormErrors]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = useCallback((e) => {
     e.preventDefault();
     if (editingAssignment) {
       updateAssignment();
     } else {
       createAssignment();
     }
-  };
+  }, [editingAssignment, updateAssignment, createAssignment]);
 
-  // Filter functions
-  const assignedRouteIds = assignments
-    .filter(a => !editingAssignment || a.id !== editingAssignment.id)
-    .map(a => a.smRouteId);
-  const availableRoutes = routes.filter(route => !assignedRouteIds.includes(route.smRouteId));
+  // Memoized filter functions for better performance
+  const assignedRouteIds = useMemo(() => 
+    assignments
+      .filter(a => !editingAssignment || a.id !== editingAssignment.id)
+      .map(a => a.smRouteId),
+    [assignments, editingAssignment]
+  );
+
+  const availableRoutes = useMemo(() => 
+    routes.filter(route => !assignedRouteIds.includes(route.smRouteId)),
+    [routes, assignedRouteIds]
+  );
   
-  const filteredRoutes = availableRoutes.filter(route =>
-    route.routeName?.toLowerCase().includes(routeSearch.toLowerCase())
+  const filteredRoutes = useMemo(() => 
+    availableRoutes.filter(route =>
+      route.routeName?.toLowerCase().includes(routeSearch.toLowerCase())
+    ),
+    [availableRoutes, routeSearch]
   );
 
-  const assignedDriverIds = assignments
-    .filter(a => !editingAssignment || a.id !== editingAssignment.id)
-    .map(a => a.smDriverID);
-  const assignedAttenderIds = assignments
-    .filter(a => !editingAssignment || a.id !== editingAssignment.id)
-    .map(a => a.smAttenderId);
-
-  const filteredDrivers = drivers.filter(driver => 
-    !assignedDriverIds.includes(driver.smDriverId) && 
-    driver.user?.username?.toLowerCase().includes(driverSearch.toLowerCase())
+  const assignedDriverIds = useMemo(() => 
+    assignments
+      .filter(a => !editingAssignment || a.id !== editingAssignment.id)
+      .map(a => a.smDriverID),
+    [assignments, editingAssignment]
   );
 
-  const filteredAttenders = attenders.filter(attender =>
-    !assignedAttenderIds.includes(attender.smAttenderId) && 
-    attender.user?.username?.toLowerCase().includes(attenderSearch.toLowerCase())
+  const assignedAttenderIds = useMemo(() => 
+    assignments
+      .filter(a => !editingAssignment || a.id !== editingAssignment.id)
+      .map(a => a.smAttenderId),
+    [assignments, editingAssignment]
   );
 
-  const filteredAssignments = assignments.filter(assignment => {
-    const routeName = routes.find(r => r.smRouteId === assignment.smRouteId)?.routeName || '';
-    const driverName = drivers.find(d => d.smDriverID === assignment.smDriverID)?.user?.username || '';
-    return routeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           driverName.toLowerCase().includes(searchTerm.toLowerCase());
-  });
+  const filteredDrivers = useMemo(() => 
+    drivers.filter(driver => 
+      !assignedDriverIds.includes(driver.smDriverId) && 
+      driver.user?.username?.toLowerCase().includes(driverSearch.toLowerCase())
+    ),
+    [drivers, assignedDriverIds, driverSearch]
+  );
+
+  const filteredAttenders = useMemo(() => 
+    attenders.filter(attender =>
+      !assignedAttenderIds.includes(attender.smAttenderId) && 
+      attender.user?.username?.toLowerCase().includes(attenderSearch.toLowerCase())
+    ),
+    [attenders, assignedAttenderIds, attenderSearch]
+  );
+
+  const filteredAssignments = useMemo(() => 
+    assignments.filter(assignment => {
+      const routeName = routes.find(r => r.smRouteId === assignment.smRouteId)?.routeName || '';
+      const driverName = drivers.find(d => d.smDriverID === assignment.smDriverID)?.user?.username || '';
+      return routeName.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+             driverName.toLowerCase().includes(debouncedSearchTerm.toLowerCase());
+    }),
+    [assignments, routes, drivers, debouncedSearchTerm]
+  );
 
   // Pagination logic
   const totalPages = Math.ceil(filteredAssignments.length / itemsPerPage);
@@ -363,11 +605,11 @@ const RouteAssignPage = () => {
   const endIndex = startIndex + itemsPerPage;
   const currentAssignments = filteredAssignments.slice(startIndex, endIndex);
 
-  const handlePageChange = (page) => {
+  const handlePageChange = useCallback((page) => {
     setCurrentPage(page);
-  };
+  }, []);
 
-  const renderPaginationItems = () => {
+  const renderPaginationItems = useCallback(() => {
     const items = [];
     const maxVisiblePages = 5;
     
@@ -459,30 +701,45 @@ const RouteAssignPage = () => {
     }
 
     return items;
-  };
+  }, [totalPages, currentPage, handlePageChange]);
 
   // Calculate stats
-  const totalRoutes = routes.length;
-  const totalDrivers = drivers.length;
-  const totalAttenders = attenders.length;
-  const activeAssignments = assignments.length;
-  
-  const assignedRoutes = assignments.length;
-  const availableRoutesCount = totalRoutes - assignedRoutes;
-  
-  const assignedDrivers = assignments.length;
-  const availableDriversCount = totalDrivers - assignedDrivers;
-  
-  const assignedAttenders = assignments.length;
-  const availableAttendersCount = totalAttenders - assignedAttenders;
+  const stats = useMemo(() => {
+    const totalRoutes = routes.length;
+    const totalDrivers = drivers.length;
+    const totalAttenders = attenders.length;
+    const activeAssignments = assignments.length;
+    
+    const assignedRoutes = assignments.length;
+    const availableRoutesCount = totalRoutes - assignedRoutes;
+    
+    const assignedDrivers = assignments.length;
+    const availableDriversCount = totalDrivers - assignedDrivers;
+    
+    const assignedAttenders = assignments.length;
+    const availableAttendersCount = totalAttenders - assignedAttenders;
+
+    return {
+      totalRoutes,
+      totalDrivers,
+      totalAttenders,
+      activeAssignments,
+      assignedRoutes,
+      availableRoutesCount,
+      assignedDrivers,
+      availableDriversCount,
+      assignedAttenders,
+      availableAttendersCount
+    };
+  }, [routes.length, drivers.length, attenders.length, assignments.length]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [debouncedSearchTerm]);
 
   useEffect(() => {
     fetchAllData();
-  }, []);
+  }, [fetchAllData]);
 
   if (loading) {
     return (
@@ -537,31 +794,31 @@ const RouteAssignPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <Card className="dark:bg-blue-800 bg-blue-500 dark:border-blue-700 border-blue-300 p-6 text-center rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
               <MapPin className="w-8 h-8 text-blue-100 mx-auto mb-3" />
-              <h3 className="text-3xl font-bold dark:text-white text-white mb-1">{totalRoutes}</h3>
+              <h3 className="text-3xl font-bold dark:text-white text-white mb-1">{stats.totalRoutes}</h3>
               <p className="text-blue-100 font-semibold mb-2">Total Routes</p>
               <div className="text-sm dark:text-blue-200 text-blue-50 dark:bg-blue-900 bg-blue-600 px-3 py-1 rounded-full">
-                {assignedRoutes} assigned, {availableRoutesCount} available
+                {stats.assignedRoutes} assigned, {stats.availableRoutesCount} available
               </div>
             </Card>
             <Card className="dark:bg-green-800 bg-green-500 dark:border-green-700 border-green-300 p-6 text-center rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
               <Users className="w-8 h-8 text-green-100 mx-auto mb-3" />
-              <h3 className="text-3xl font-bold dark:text-white text-white mb-1">{totalDrivers}</h3>
+              <h3 className="text-3xl font-bold dark:text-white text-white mb-1">{stats.totalDrivers}</h3>
               <p className="text-green-100 font-semibold mb-2">Total Drivers</p>
               <div className="text-sm dark:text-green-200 text-green-50 dark:bg-green-900 bg-green-600 px-3 py-1 rounded-full">
-                {assignedDrivers} assigned, {availableDriversCount} available
+                {stats.assignedDrivers} assigned, {stats.availableDriversCount} available
               </div>
             </Card>
             <Card className="dark:bg-purple-800 bg-purple-500 dark:border-purple-700 border-purple-300 p-6 text-center rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
               <UserCheck className="w-8 h-8 text-purple-100 mx-auto mb-3" />
-              <h3 className="text-3xl font-bold dark:text-white text-white mb-1">{totalAttenders}</h3>
+              <h3 className="text-3xl font-bold dark:text-white text-white mb-1">{stats.totalAttenders}</h3>
               <p className="text-purple-100 font-semibold mb-2">Total Attenders</p>
               <div className="text-sm dark:text-purple-200 text-purple-50 dark:bg-purple-900 bg-purple-600 px-3 py-1 rounded-full">
-                {assignedAttenders} assigned, {availableAttendersCount} available
+                {stats.assignedAttenders} assigned, {stats.availableAttendersCount} available
               </div>
             </Card>
             <Card className="dark:bg-orange-800 bg-orange-500 dark:border-orange-700 border-orange-300 p-6 text-center rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
               <Bus className="w-8 h-8 text-orange-100 mx-auto mb-3" />
-              <h3 className="text-3xl font-bold dark:text-white text-white mb-1">{activeAssignments}</h3>
+              <h3 className="text-3xl font-bold dark:text-white text-white mb-1">{stats.activeAssignments}</h3>
               <p className="text-orange-100 font-semibold mb-2">Active Assignments</p>
               <div className="text-sm dark:text-orange-200 text-orange-50 dark:bg-orange-900 bg-orange-600 px-3 py-1 rounded-full">
                 Currently assigned today
@@ -586,7 +843,8 @@ const RouteAssignPage = () => {
                 setEditingAssignment(null);
                 setShowModal(true);
               }}
-              className="px-6 py-3 bg-gradient-to-r dark:from-yellow-500 dark:to-orange-500 dark:text-slate-900 from-blue-500 to-blue-600 text-white font-semibold rounded-lg dark:hover:from-yellow-600 dark:hover:to-orange-600 hover:from-blue-600 hover:to-blue-700 transition-all duration-200 flex items-center gap-2 shadow-md"
+              disabled={createLoading}
+              className="px-6 py-3 bg-gradient-to-r dark:from-yellow-500 dark:to-orange-500 dark:text-slate-900 from-blue-500 to-blue-600 text-white font-semibold rounded-lg dark:hover:from-yellow-600 dark:hover:to-orange-600 hover:from-blue-600 hover:to-blue-700 transition-all duration-200 flex items-center gap-2 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="w-5 h-5" />
               New Assignment
@@ -620,7 +878,12 @@ const RouteAssignPage = () => {
                       const attender = attenders.find(a => a.smAttenderId === assignment.smAttenderId);
 
                       return (
-                        <tr key={assignment.id} className="border-b dark:border-slate-600/50 border-gray-300/50 dark:hover:bg-slate-700/30 hover:bg-gray-50 transition-colors">
+                        <tr 
+                          key={assignment.id} 
+                          className={`border-b dark:border-slate-600/50 border-gray-300/50 dark:hover:bg-slate-700/30 hover:bg-gray-50 transition-colors ${
+                            assignment.isOptimistic ? 'opacity-75' : ''
+                          }`}
+                        >
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-3">
                               <MapPin className="w-5 h-5 text-blue-500" />
@@ -643,7 +906,8 @@ const RouteAssignPage = () => {
                             <div className="flex gap-2">
                               <button 
                                 onClick={() => handleEdit(assignment)}
-                                className="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 dark:bg-blue-700 dark:hover:bg-blue-800 transition-colors text-sm flex items-center gap-1 shadow-sm font-medium"
+                                disabled={updateLoading || assignment.isOptimistic}
+                                className="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 dark:bg-blue-700 dark:hover:bg-blue-800 transition-colors text-sm flex items-center gap-1 shadow-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <Edit className="w-4 h-4 text-white" />
                                 Edit
@@ -653,7 +917,8 @@ const RouteAssignPage = () => {
                                   setDeleteId(assignment.id);
                                   setShowDeleteConfirm(true);
                                 }}
-                                className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 dark:bg-red-700 dark:hover:bg-red-800 transition-colors text-sm flex items-center gap-1 shadow-sm font-medium"
+                                disabled={deleteLoading || assignment.isOptimistic}
+                                className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 dark:bg-red-700 dark:hover:bg-red-800 transition-colors text-sm flex items-center gap-1 shadow-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <Trash2 className="w-4 h-4 text-white" />
                                 Delete
@@ -710,8 +975,8 @@ const RouteAssignPage = () => {
 
       {showModal && (
         <>
-          {modalLoading && <SkeletonModal />}
-          {!modalLoading && (
+          {(createLoading || updateLoading) && <SkeletonModal />}
+          {!(createLoading || updateLoading) && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="dark:bg-slate-800 bg-white rounded-xl p-8 w-full max-w-lg mx-4 shadow-2xl">
                 <div className="flex justify-between items-center mb-6">
@@ -730,9 +995,18 @@ const RouteAssignPage = () => {
                   </button>
                 </div>
 
+                {/* Display general error message */}
+                {formErrors.general && (
+                  <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 rounded-lg">
+                    <p className="text-red-700 dark:text-red-300 text-sm font-medium">{formErrors.general}</p>
+                  </div>
+                )}
+
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div>
-                    <label className="block text-sm font-medium dark:text-gray-200 text-gray-700 mb-2">Route</label>
+                    <label className="block text-sm font-medium dark:text-gray-200 text-gray-700 mb-2">
+                      Route <span className="text-red-500">*</span>
+                    </label>
                     <div className="relative">
                       <div 
                         onClick={() => {
@@ -741,11 +1015,16 @@ const RouteAssignPage = () => {
                             setRouteSearch('');
                           }
                         }}
-                        className="w-full px-4 py-3 dark:bg-slate-700/90 dark:border-slate-600 bg-gray-100 border-gray-300 border rounded-xl dark:text-white text-gray-800 flex items-center justify-between cursor-pointer dark:hover:bg-slate-700 hover:bg-gray-200 transition-all duration-200 shadow-md"
+                        className={`w-full px-4 py-3 dark:bg-slate-700/90 dark:border-slate-600 bg-gray-100 border-gray-300 border rounded-xl dark:text-white text-gray-800 flex items-center justify-between cursor-pointer dark:hover:bg-slate-700 hover:bg-gray-200 transition-all duration-200 shadow-md ${
+                          formErrors.route ? 'border-red-500 dark:border-red-500' : ''
+                        }`}
                       >
                         <span className="dark:text-gray-200 text-gray-700">{routeSearch || 'Select Route'}</span>
                         <ChevronDown className={`w-5 h-5 dark:text-gray-400 text-gray-500 transition-transform duration-200 ${showRouteDropdown ? 'rotate-180' : ''}`} />
                       </div>
+                      {formErrors.route && (
+                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">{formErrors.route}</p>
+                      )}
                       {showRouteDropdown && (
                         <div className="absolute z-20 w-full mt-2 dark:bg-slate-700 dark:border-slate-600 bg-white border-gray-300 border rounded-xl max-h-64 shadow-2xl overflow-hidden">
                           <div className="px-4 py-3 sticky top-0 dark:bg-slate-700 dark:border-slate-600 bg-gray-50 border-gray-300 border-b">
@@ -765,6 +1044,10 @@ const RouteAssignPage = () => {
                                   setFormData({...formData, smRouteId: route.smRouteId});
                                   setRouteSearch(route.routeName);
                                   setShowRouteDropdown(false);
+                                  // Clear route error when route is selected
+                                  if (formErrors.route) {
+                                    setFormErrors(prev => ({ ...prev, route: '' }));
+                                  }
                                 }}
                                 className="px-4 py-3 dark:hover:bg-slate-600 hover:bg-gray-100 cursor-pointer dark:text-white text-gray-800 transition-colors duration-150 dark:border-slate-600/30 border-gray-300/30 border-b last:border-b-0"
                               >
@@ -782,7 +1065,7 @@ const RouteAssignPage = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium dark:text-gray-200 text-gray-700 mb-2">Driver</label>
+                    <label className="block text-sm font-medium dark:text-gray-200 text-gray-700 mb-2">Driver (Optional)</label>
                     <div className="relative">
                       <div 
                         onClick={() => {
@@ -793,7 +1076,7 @@ const RouteAssignPage = () => {
                         }}
                         className="w-full px-4 py-3 dark:bg-slate-700/90 dark:border-slate-600 bg-gray-100 border-gray-300 border rounded-xl dark:text-white text-gray-800 flex items-center justify-between cursor-pointer dark:hover:bg-slate-700 hover:bg-gray-200 transition-all duration-200 shadow-md"
                       >
-                        <span className="dark:text-gray-200 text-gray-700">{driverSearch || 'Select Driver'}</span>
+                        <span className="dark:text-gray-200 text-gray-700">{driverSearch || 'Select Driver (Optional)'}</span>
                         <ChevronDown className={`w-5 h-5 dark:text-gray-400 text-gray-500 transition-transform duration-200 ${showDriverDropdown ? 'rotate-180' : ''}`} />
                       </div>
                       {showDriverDropdown && (
@@ -808,6 +1091,21 @@ const RouteAssignPage = () => {
                             />
                           </div>
                           <div className="max-h-48 overflow-y-auto">
+                            {/* Add option to clear driver selection */}
+                            <div
+                              onClick={() => {
+                                setFormData({...formData, smDriverID: ''});
+                                setDriverSearch('');
+                                setShowDriverDropdown(false);
+                                // Clear general error when selection changes
+                                if (formErrors.general) {
+                                  setFormErrors(prev => ({ ...prev, general: '' }));
+                                }
+                              }}
+                              className="px-4 py-3 dark:hover:bg-slate-600 hover:bg-gray-100 cursor-pointer dark:text-white text-gray-800 transition-colors duration-150 dark:border-slate-600/30 border-gray-300/30 border-b italic"
+                            >
+                              Clear Selection
+                            </div>
                             {filteredDrivers.map((driver) => (
                               <div
                                 key={driver.smDriverId}
@@ -815,6 +1113,10 @@ const RouteAssignPage = () => {
                                   setFormData({...formData, smDriverID: driver.smDriverId});
                                   setDriverSearch(driver.user?.username || '');
                                   setShowDriverDropdown(false);
+                                  // Clear general error when selection changes
+                                  if (formErrors.general) {
+                                    setFormErrors(prev => ({ ...prev, general: '' }));
+                                  }
                                 }}
                                 className="px-4 py-3 dark:hover:bg-slate-600 hover:bg-gray-100 cursor-pointer dark:text-white text-gray-800 transition-colors duration-150 dark:border-slate-600/30 border-gray-300/30 border-b last:border-b-0"
                               >
@@ -832,7 +1134,7 @@ const RouteAssignPage = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium dark:text-gray-200 text-gray-700 mb-2">Attender</label>
+                    <label className="block text-sm font-medium dark:text-gray-200 text-gray-700 mb-2">Attender (Optional)</label>
                     <div className="relative">
                       <div 
                         onClick={() => {
@@ -843,7 +1145,7 @@ const RouteAssignPage = () => {
                         }}
                         className="w-full px-4 py-3 dark:bg-slate-700/90 dark:border-slate-600 bg-gray-100 border-gray-300 border rounded-xl dark:text-white text-gray-800 flex items-center justify-between cursor-pointer dark:hover:bg-slate-700 hover:bg-gray-200 transition-all duration-200 shadow-md"
                       >
-                        <span className="dark:text-gray-200 text-gray-700">{attenderSearch || 'Select Attender'}</span>
+                        <span className="dark:text-gray-200 text-gray-700">{attenderSearch || 'Select Attender (Optional)'}</span>
                         <ChevronDown className={`w-5 h-5 dark:text-gray-400 text-gray-500 transition-transform duration-200 ${showAttenderDropdown ? 'rotate-180' : ''}`} />
                       </div>
                       {showAttenderDropdown && (
@@ -858,6 +1160,21 @@ const RouteAssignPage = () => {
                             />
                           </div>
                           <div className="max-h-48 overflow-y-auto">
+                            {/* Add option to clear attender selection */}
+                            <div
+                              onClick={() => {
+                                setFormData({...formData, smAttenderId: ''});
+                                setAttenderSearch('');
+                                setShowAttenderDropdown(false);
+                                // Clear general error when selection changes
+                                if (formErrors.general) {
+                                  setFormErrors(prev => ({ ...prev, general: '' }));
+                                }
+                              }}
+                              className="px-4 py-3 dark:hover:bg-slate-600 hover:bg-gray-100 cursor-pointer dark:text-white text-gray-800 transition-colors duration-150 dark:border-slate-600/30 border-gray-300/30 border-b italic"
+                            >
+                              Clear Selection
+                            </div>
                             {filteredAttenders.map((attender) => (
                               <div
                                 key={attender.smAttenderId}
@@ -865,6 +1182,10 @@ const RouteAssignPage = () => {
                                   setFormData({...formData, smAttenderId: attender.smAttenderId});
                                   setAttenderSearch(attender.user?.username || '');
                                   setShowAttenderDropdown(false);
+                                  // Clear general error when selection changes
+                                  if (formErrors.general) {
+                                    setFormErrors(prev => ({ ...prev, general: '' }));
+                                  }
                                 }}
                                 className="px-4 py-3 dark:hover:bg-slate-600 hover:bg-gray-100 cursor-pointer dark:text-white text-gray-800 transition-colors duration-150 dark:border-slate-600/30 border-gray-300/30 border-b last:border-b-0"
                               >
@@ -881,6 +1202,11 @@ const RouteAssignPage = () => {
                     </div>
                   </div>
 
+                  {/* Validation note */}
+                  <div className="text-sm dark:text-gray-400 text-gray-600 bg-gray-50 dark:bg-slate-700/50 p-3 rounded-lg">
+                    <p><span className="font-medium">Note:</span> You must select at least one driver or attender along with a route to create an assignment.</p>
+                  </div>
+
                   <div className="flex justify-end gap-4 pt-6">
                     <button
                       type="button"
@@ -895,7 +1221,8 @@ const RouteAssignPage = () => {
                     </button>
                     <button
                       type="submit"
-                      className="px-6 py-3 bg-gradient-to-r dark:from-yellow-500 dark:to-orange-500 dark:text-slate-900 from-blue-500 to-blue-600 text-white font-semibold rounded-xl dark:hover:from-yellow-600 dark:hover:to-orange-600 hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-md"
+                      disabled={createLoading || updateLoading}
+                      className="px-6 py-3 bg-gradient-to-r dark:from-yellow-500 dark:to-orange-500 dark:text-slate-900 from-blue-500 to-blue-600 text-white font-semibold rounded-xl dark:hover:from-yellow-600 dark:hover:to-orange-600 hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {editingAssignment ? 'Update Assignment' : 'Create Assignment'}
                     </button>
@@ -918,14 +1245,19 @@ const RouteAssignPage = () => {
                   setShowDeleteConfirm(false);
                   setDeleteId(null);
                 }}
-                className="px-6 py-3 dark:bg-gray-600 dark:text-white bg-gray-400 text-gray-800 rounded-xl dark:hover:bg-gray-500 hover:bg-gray-500 transition-all duration-200 font-medium shadow-md"
+                disabled={deleteLoading}
+                className="px-6 py-3 dark:bg-gray-600 dark:text-white bg-gray-400 text-gray-800 rounded-xl dark:hover:bg-gray-500 hover:bg-gray-500 transition-all duration-200 font-medium shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <button
                 onClick={deleteAssignment}
-                className="px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800 transition-all duration-200 font-medium shadow-md"
+                disabled={deleteLoading}
+                className="px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800 transition-all duration-200 font-medium shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
+                {deleteLoading && (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                )}
                 Delete
               </button>
             </div>
