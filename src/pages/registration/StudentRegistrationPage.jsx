@@ -17,7 +17,7 @@ export function StudentRegistrationFormPage() {
 
   const [theme, setTheme] = useState(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
   const [formData, setFormData] = useState({
-    smStudentId: "",
+    smStudentId: "", // Keep for internal use but won't be shown in form
     schoolId: "",
     parentId: 0,
     firstName: "",
@@ -278,15 +278,7 @@ export function StudentRegistrationFormPage() {
     const newErrors = {};
 
     if (!isUpdateMode) {
-      // Registration mode - all fields mandatory
-      if (!formData.smStudentId) {
-        newErrors.smStudentId = "SM Student ID is required";
-      } else if (!/^[a-zA-Z0-9]+$/.test(formData.smStudentId)) {
-        newErrors.smStudentId = "SM Student ID must be alphanumeric";
-      } else if (formData.smStudentId.length > 10) {
-        newErrors.smStudentId = "SM Student ID must be 10 characters or less";
-      }
-
+      // Registration mode - all fields mandatory except smStudentId (auto-generated)
       if (!formData.schoolId) {
         newErrors.schoolId = "Please select a school";
       }
@@ -330,9 +322,9 @@ export function StudentRegistrationFormPage() {
         newErrors.routePointId = "Please select a route point";
       }
     } else {
-      // Update mode - only smStudentId required
+      // Update mode - smStudentId required for identification
       if (!formData.smStudentId) {
-        newErrors.smStudentId = "SM Student ID is required for update";
+        newErrors.smStudentId = "Please select a student to update";
       }
     }
 
@@ -359,7 +351,7 @@ export function StudentRegistrationFormPage() {
 
   const resetForm = (newUpdateMode = false) => {
     setFormData({
-      smStudentId: "",
+      smStudentId: "", // Keep for internal use
       schoolId: "",
       parentId: 0,
       firstName: "",
@@ -385,36 +377,10 @@ export function StudentRegistrationFormPage() {
     }
   };
 
-  const checkExistingStudent = async (smStudentId) => {
-    try {
-      const token = getToken();
-      if (!token) {
-        setAlertMessage("Please log in again.");
-        return false;
-      }
-      const response = await fetch(
-        `${API_BASE_URL}/student/check?smStudentId=${smStudentId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      const data = await response.json();
-      if (data.exists && !isUpdateMode) {
-        setAlertMessage(`This SM Student ID is already in use`);
-        return false;
-      }
-      return !data.exists || isUpdateMode;
-    } catch {
-      setAlertMessage(`Error checking SM Student ID`);
-      return false;
-    }
-  };
-
   const downloadExcelTemplate = async () => {
     try {
       const templateData = [
         {
-          'SM Student ID': 'ST001234',
           'School ID': 'SC001234',
           'Parent ID': '1',
           'First Name': 'John',
@@ -553,7 +519,7 @@ export function StudentRegistrationFormPage() {
                 if (isSubmitting) return;
 
                 if (!validateForm()) {
-                  setAlertMessage("Please fix the form errors before submitting");
+                  setAlertMessage("Please fill all fields before submitting");
                   return;
                 }
 
@@ -566,18 +532,16 @@ export function StudentRegistrationFormPage() {
                   return;
                 }
 
-                if (!isUpdateMode && formData.smStudentId) {
-                  if (!(await checkExistingStudent(formData.smStudentId))) {
-                    setIsSubmitting(false);
-                    return;
-                  }
-                }
-
                 try {
                   const selectedRoutePoint = routePoints.find((rp) => rp.id === formData.routePointId);
                   const requestBody = isUpdateMode
                     ? { smStudentId: formData.smStudentId }
                     : { ...formData, seqOrder: selectedRoutePoint?.seqOrder };
+
+                  // Remove smStudentId from registration request as it will be auto-generated
+                  if (!isUpdateMode) {
+                    delete requestBody.smStudentId;
+                  }
 
                   if (isUpdateMode) {
                     if (formData.schoolId) requestBody.schoolId = formData.schoolId;
@@ -610,10 +574,10 @@ export function StudentRegistrationFormPage() {
 
                   const responseData = await response.json();
                   if (!response.ok) {
-                    throw new Error(`${isUpdateMode ? "Update" : "Registration"} failed: ${responseData.message || response.statusText}`);
+                    throw new Error(responseData.detail || responseData.message || `${isUpdateMode ? "Update" : "Registration"} failed`);
                   }
 
-                  setAlertMessage(`${isUpdateMode ? "Update" : "Registration"} successful: ${JSON.stringify(responseData)}`);
+                  setAlertMessage(`Successfully ${isUpdateMode ? "updated" : "registered"}`);
                   resetForm(false);
                 } catch (error) {
                   console.error("Error:", error);
@@ -629,24 +593,6 @@ export function StudentRegistrationFormPage() {
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="smStudentId" className={themeClasses.label}>
-                    SM Student ID: <span className="text-red-400">*</span>
-                  </Label>
-                  <Input
-                    id="smStudentId"
-                    name="smStudentId"
-                    placeholder="Enter SM Student ID (10 chars max)"
-                    value={formData.smStudentId}
-                    onChange={handleChange}
-                    maxLength={10}
-                    required
-                    disabled={isUpdateMode && formData.smStudentId}
-                    className={`${themeClasses.input} ${errors.smStudentId ? "border-red-500" : ""} ${isUpdateMode && formData.smStudentId ? "opacity-50 cursor-not-allowed" : ""}`}
-                  />
-                  {errors.smStudentId && <p className="text-red-500 text-sm">{errors.smStudentId}</p>}
-                </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="schoolId" className={themeClasses.label}>
                     School: {!isUpdateMode && <span className="text-red-400">*</span>}
@@ -664,8 +610,8 @@ export function StudentRegistrationFormPage() {
                       placeholder="Search and select a school..."
                       searchPlaceholder="Type to search schools..."
                       error={!!errors.schoolId}
-                      disabled={isSubmitting || (isUpdateMode && formData.schoolId)}
-                      className={`${themeClasses.input} ${isUpdateMode && formData.schoolId ? "opacity-50" : ""}`}
+                      disabled={isSubmitting || isUpdateMode}
+                      className={`${themeClasses.input} ${isUpdateMode ? "opacity-50" : ""}`}
                     />
                   )}
                   {errors.schoolId && <p className="text-red-500 text-sm">{errors.schoolId}</p>}

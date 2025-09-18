@@ -23,7 +23,7 @@ const RouteRegistrationPage = () => {
     title: "",
     status: "true",
     reserve: 0,
-    smRouteId: "",
+    smRouteId: "", // Keep for internal use but won't be shown in registration form
     content: "",
     schoolId: "",
     cityCode: "",
@@ -36,9 +36,12 @@ const RouteRegistrationPage = () => {
   const [errors, setErrors] = useState({});
   const [routes, setRoutes] = useState([]);
   const [selectedRouteForUpdate, setSelectedRouteForUpdate] = useState("");
+  const [selectedSchoolDetails, setSelectedSchoolDetails] = useState(null);
+  const [filteredCityCodes, setFilteredCityCodes] = useState(cityCodes);
   const [loadingStates, setLoadingStates] = useState({
     routes: false,
     routeDetails: false,
+    schoolDetails: false,
   });
 
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
@@ -69,6 +72,58 @@ const RouteRegistrationPage = () => {
     };
     initializePage();
   }, [isUpdateMode]);
+
+  // Fetch school details when school is selected to filter city codes
+  useEffect(() => {
+    const fetchSchoolDetails = async () => {
+      if (!formData.schoolId) {
+        setFilteredCityCodes(cityCodes);
+        setSelectedSchoolDetails(null);
+        setFormData(prev => ({ ...prev, cityCode: "" }));
+        return;
+      }
+
+      try {
+        setLoadingStates(prev => ({ ...prev, schoolDetails: true }));
+        const token = getToken();
+        if (!token) return;
+        
+        const response = await fetch(`${API_BASE_URL}/school/${formData.schoolId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        
+        if (response.ok) {
+          const schoolData = await response.json();
+          setSelectedSchoolDetails(schoolData);
+          
+          // Filter city codes based on school's provId (like "KA" for Karnataka)
+          if (schoolData.provId) {
+            const filtered = cityCodes.filter(city => city.state === schoolData.provId);
+            setFilteredCityCodes(filtered);
+            
+            // Reset city code if current selection is not in filtered list
+            if (formData.cityCode && !filtered.some(city => city.id === formData.cityCode)) {
+              setFormData(prev => ({ ...prev, cityCode: "" }));
+            }
+          } else {
+            setFilteredCityCodes(cityCodes);
+          }
+        } else {
+          // If school fetch fails, reset to all cities
+          setFilteredCityCodes(cityCodes);
+          setSelectedSchoolDetails(null);
+        }
+      } catch (error) {
+        console.error('Error fetching school details:', error);
+        setFilteredCityCodes(cityCodes);
+        setSelectedSchoolDetails(null);
+      } finally {
+        setLoadingStates(prev => ({ ...prev, schoolDetails: false }));
+      }
+    };
+
+    fetchSchoolDetails();
+  }, [formData.schoolId]);
 
   // Fetch routes for update mode dropdown
   const fetchRoutes = async () => {
@@ -127,38 +182,26 @@ const RouteRegistrationPage = () => {
   const validateForm = () => {
     const newErrors = {};
 
-    // Route Name: At least 2 characters, max 20 characters (Required only in register mode)
-    if (!isUpdateMode) {
+    // Route Name: At least 2 characters, max 20 characters
+    if (!isUpdateMode || formData.routeName) {
       if (!formData.routeName || formData.routeName.length < 2) {
         newErrors.routeName = "Route Name must be at least 2 characters long";
       } else if (formData.routeName.length > 20) {
         newErrors.routeName = "Route Name must be 20 characters or less";
       }
-    } else if (formData.routeName) {
-      if (formData.routeName.length < 2) {
-        newErrors.routeName = "Route Name must be at least 2 characters long";
-      } else if (formData.routeName.length > 20) {
-        newErrors.routeName = "Route Name must be 20 characters or less";
-      }
     }
 
-    // Title: At least 2 characters, max 20 characters (Required only in register mode)
-    if (!isUpdateMode) {
+    // Title: At least 2 characters, max 20 characters
+    if (!isUpdateMode || formData.title) {
       if (!formData.title || formData.title.length < 2) {
         newErrors.title = "Title must be at least 2 characters long";
       } else if (formData.title.length > 20) {
         newErrors.title = "Title must be 20 characters or less";
       }
-    } else if (formData.title) {
-      if (formData.title.length < 2) {
-        newErrors.title = "Title must be at least 2 characters long";
-      } else if (formData.title.length > 20) {
-        newErrors.title = "Title must be 20 characters or less";
-      }
     }
 
-    // School ID: Must be exactly 8 characters, alphanumeric (Required only in register mode)
-    if (!isUpdateMode) {
+    // School ID: Must be exactly 8 characters, alphanumeric
+    if (!isUpdateMode || formData.schoolId) {
       if (!formData.schoolId) {
         newErrors.schoolId = "Please select a school";
       } else if (formData.schoolId.length !== 8) {
@@ -166,34 +209,22 @@ const RouteRegistrationPage = () => {
       } else if (!/^[a-zA-Z0-9]+$/.test(formData.schoolId)) {
         newErrors.schoolId = "School ID must be alphanumeric";
       }
-    } else if (formData.schoolId) {
-      if (formData.schoolId.length !== 8) {
-        newErrors.schoolId = "School ID must be exactly 8 characters";
-      } else if (!/^[a-zA-Z0-9]+$/.test(formData.schoolId)) {
-        newErrors.schoolId = "School ID must be alphanumeric";
-      }
     }
 
-    // City Code: Must be provided (Required only in register mode)
-    if (!isUpdateMode) {
+    // City Code: Must be provided
+    if (!isUpdateMode || formData.cityCode) {
       if (!formData.cityCode) {
         newErrors.cityCode = "Please select a city code";
-      } else if (!cityCodes.some((option) => option.id === formData.cityCode)) {
-        newErrors.cityCode = "Invalid city code";
-      }
-    } else if (formData.cityCode) {
-      if (!cityCodes.some((option) => option.id === formData.cityCode)) {
+      } else if (!filteredCityCodes.some((option) => option.id === formData.cityCode)) {
         newErrors.cityCode = "Invalid city code";
       }
     }
 
-    // SM Route ID: Required in both modes, alphanumeric, max 10 characters
-    if (!formData.smRouteId) {
-      newErrors.smRouteId = "SM Route ID is required";
-    } else if (!/^[a-zA-Z0-9]+$/.test(formData.smRouteId)) {
-      newErrors.smRouteId = "SM Route ID must be alphanumeric";
-    } else if (formData.smRouteId.length > 10) {
-      newErrors.smRouteId = "SM Route ID must be 10 characters or less";
+    // Update mode: smRouteId required for identification
+    if (isUpdateMode) {
+      if (!formData.smRouteId) {
+        newErrors.smRouteId = "Please select a route to update";
+      }
     }
 
     // Content: Optional, max 8 characters
@@ -233,7 +264,7 @@ const RouteRegistrationPage = () => {
       title: "",
       status: "true",
       reserve: 0,
-      smRouteId: "",
+      smRouteId: "", // Keep for internal use
       content: "",
       schoolId: "",
       cityCode: "",
@@ -242,6 +273,8 @@ const RouteRegistrationPage = () => {
     setExcelError(null);
     setErrors({});
     setSelectedRouteForUpdate("");
+    setSelectedSchoolDetails(null);
+    setFilteredCityCodes(cityCodes);
   };
 
   const handleRouteSelection = async (smRouteId) => {
@@ -251,27 +284,12 @@ const RouteRegistrationPage = () => {
     }
   };
 
-  const checkExcelDuplicates = (routeDataArray) => {
-    const seenSmRouteIds = new Set();
-
-    for (let i = 0; i < routeDataArray.length; i++) {
-      const route = routeDataArray[i];
-      if (route.smRouteId && seenSmRouteIds.has(route.smRouteId)) {
-        setExcelError(`Row ${i + 2}: Duplicate SM Route ID: ${route.smRouteId}`);
-        return false;
-      }
-      if (route.smRouteId) seenSmRouteIds.add(route.smRouteId);
-    }
-    return true;
-  };
-
   const downloadExcelTemplate = async () => {
     try {
       const templateData = [
         {
           'Route Name': 'MG Road → Whitefield',
           'Title': 'Main Route',
-          'SM Route ID': 'RT1F0001',
           'School ID': 'SC1F0001',
           'City Code': 'BNG',
           'Content': 'Express',
@@ -463,28 +481,21 @@ const RouteRegistrationPage = () => {
                       }
                     );
 
+                    // Handle text response for update (not JSON)
                     const responseText = await response.text();
-                    let responseData;
-
-                    try {
-                      responseData = JSON.parse(responseText);
-                    } catch {
-                      responseData = { message: responseText };
-                    }
-
                     if (!response.ok) {
-                      throw new Error(responseData.message || `Update failed with status ${response.status}`);
+                      throw new Error(responseText || "Update failed");
                     }
 
-                    setAlertMessage(responseData.message || "Route updated successfully");
+                    setAlertMessage("Successfully updated");
                     resetForm();
                   } else {
+                    // Remove smRouteId from registration request as it will be auto-generated
                     const registerBody = {
                       routeName: formData.routeName,
                       title: formData.title,
                       status: formData.status === "true" ? 1 : 0,
                       reserve: formData.reserve,
-                      smRouteId: formData.smRouteId,
                       content: formData.content,
                       schoolId: formData.schoolId,
                       cityCode: formData.cityCode,
@@ -499,25 +510,17 @@ const RouteRegistrationPage = () => {
                       body: JSON.stringify(registerBody),
                     });
 
-                    const responseText = await response.text();
-                    let responseData;
-
-                    try {
-                      responseData = JSON.parse(responseText);
-                    } catch {
-                      responseData = { message: responseText };
-                    }
-
+                    const responseData = await response.json();
                     if (!response.ok) {
-                      throw new Error(responseData.message || `Registration failed with status ${response.status}`);
+                      throw new Error(responseData.detail || responseData.message || "Registration failed");
                     }
 
-                    setAlertMessage(`Registration successful: ${JSON.stringify(responseData)}`);
+                    setAlertMessage("Successfully registered");
                     resetForm();
                   }
                 } catch (error) {
-                  const errorMessage = error instanceof Error ? error.message : `${isUpdateMode ? "Update" : "Registration"} failed`;
-                  setAlertMessage(errorMessage);
+                  console.error("Error:", error);
+                  setAlertMessage(error instanceof Error ? error.message : `${isUpdateMode ? "Update" : "Registration"} failed`);
                 } finally {
                   setIsSubmitting(false);
                 }
@@ -565,54 +568,54 @@ const RouteRegistrationPage = () => {
                   {errors.title && <p className="text-red-500 text-sm">{errors.title}</p>}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="smRouteId" className={themeClasses.label}>
-                    SM Route ID: <span className="text-red-400">*</span>
-                  </Label>
-                  <Input
-                    id="smRouteId"
-                    name="smRouteId"
-                    placeholder="Enter SM Route ID"
-                    value={formData.smRouteId}
-                    onChange={handleChange}
-                    maxLength={10}
-                    required
-                    disabled={isUpdateMode && formData.smRouteId}
-                    className={`${themeClasses.input} ${errors.smRouteId ? "border-red-500" : ""} ${isUpdateMode && formData.smRouteId ? "opacity-50 cursor-not-allowed" : ""}`}
-                  />
-                  {errors.smRouteId && <p className="text-red-500 text-sm">{errors.smRouteId}</p>}
-                </div>
-
                 <div className={`space-y-2 ${errors.schoolId ? "border border-red-500 rounded p-2" : ""}`}>
                   <Label className={themeClasses.label}>
                     School: {!isUpdateMode && <span className="text-red-400">*</span>}
                   </Label>
-                  <SchoolSelect
-                    value={formData.schoolId}
-                    onChange={(value) => handleSelectChange('schoolId', value)}
-                    error={!!errors.schoolId}
-                  />
+                  <div className={`${isUpdateMode ? "pointer-events-none opacity-50" : ""}`}>
+                    <SchoolSelect
+                      value={formData.schoolId}
+                      onChange={(value) => handleSelectChange('schoolId', value)}
+                      error={!!errors.schoolId}
+                      disabled={isUpdateMode}
+                    />
+                  </div>
                   {errors.schoolId && <p className="text-red-500 text-sm">{errors.schoolId}</p>}
+                  {isUpdateMode && formData.schoolId && (
+                    <p className="text-xs text-gray-500">School cannot be changed in update mode</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="cityCode" className={themeClasses.label}>
                     City Code: {!isUpdateMode && <span className="text-red-400">*</span>}
+                    {selectedSchoolDetails?.provId && (
+                      <span className="text-xs text-blue-500 ml-2">
+                        (Filtered by {selectedSchoolDetails.provId})
+                      </span>
+                    )}
                   </Label>
-                  <SearchableSelect
-                    options={cityCodes.map(city => ({
-                      value: city.id,
-                      label: `${city.name} - ${city.id}`
-                    }))}
-                    value={formData.cityCode}
-                    onValueChange={(value) => handleSelectChange('cityCode', value)}
-                    placeholder="Select City Code"
-                    searchPlaceholder="Search cities..."
-                    error={!!errors.cityCode}
-                    disabled={isSubmitting}
-                    className={themeClasses.input}
-                  />
+                  {loadingStates.schoolDetails ? (
+                    <SkeletonLoader />
+                  ) : (
+                    <SearchableSelect
+                      options={filteredCityCodes.map(city => ({
+                        value: city.id,
+                        label: `${city.name} - ${city.id}`
+                      }))}
+                      value={formData.cityCode}
+                      onValueChange={(value) => handleSelectChange('cityCode', value)}
+                      placeholder="Select City Code"
+                      searchPlaceholder="Search cities..."
+                      error={!!errors.cityCode}
+                      disabled={isSubmitting || !formData.schoolId}
+                      className={themeClasses.input}
+                    />
+                  )}
                   {errors.cityCode && <p className="text-red-500 text-sm">{errors.cityCode}</p>}
+                  {!formData.schoolId && (
+                    <p className="text-xs text-gray-500">Please select a school first to filter city codes</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -680,173 +683,7 @@ const RouteRegistrationPage = () => {
                       const file = event.target.files?.[0];
                       if (!file) return;
 
-                      const token = getToken();
-                      if (!token) {
-                        setAlertMessage("Please log in again.");
-                        return;
-                      }
-
-                      const reader = new FileReader();
-                      reader.onload = async (e) => {
-                        try {
-                          const data = new Uint8Array(e.target?.result);
-                          const workbook = XLSX.read(data, { type: "array" });
-                          const sheetName = workbook.SheetNames[0];
-                          const worksheet = workbook.Sheets[sheetName];
-                          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                          const headers = jsonData[0];
-                          const requiredHeaders = [
-                            "Route Name", "Title", "SM Route ID", "School ID", "City Code"
-                          ];
-                          const missingRequiredHeaders = requiredHeaders.filter(
-                            (header) => !headers.includes(header)
-                          );
-                          if (missingRequiredHeaders.length > 0) {
-                            setExcelError(`Missing required headers: ${missingRequiredHeaders.join(", ")}`);
-                            return;
-                          }
-
-                          const routeDataArray = [];
-                          for (let i = 1; i < jsonData.length; i++) {
-                            const row = jsonData[i];
-                            if (!row || row.length === 0) continue;
-
-                            const rowObject = headers.reduce((obj, header, index) => {
-                              obj[header] = String(row[index] ?? "");
-                              return obj;
-                            }, {});
-
-                            // Validation for required fields
-                            const requiredFields = ["Route Name", "Title", "SM Route ID", "School ID", "City Code"];
-                            const missingFields = requiredFields.filter(field => !rowObject[field]);
-                            if (missingFields.length > 0) {
-                              setExcelError(`Row ${i + 1}: Missing required fields: ${missingFields.join(", ")}`);
-                              return;
-                            }
-
-                            // Additional validations...
-                            if (!cityCodes.some((code) => code.id === rowObject["City Code"])) {
-                              setExcelError(`Row ${i + 1}: Invalid City Code: ${rowObject["City Code"]}`);
-                              return;
-                            }
-
-                            const action = rowObject["Action"] ? rowObject["Action"].toLowerCase() : "register";
-                            if (action !== "register" && action !== "update") {
-                              setExcelError(`Row ${i + 1}: Invalid Action value. Must be "Register" or "Update"`);
-                              return;
-                            }
-
-                            const reserveValue = rowObject["Reserve"] ? Number(rowObject["Reserve"]) : 0;
-                            if (isNaN(reserveValue) || reserveValue < 0 || reserveValue > 100) {
-                              setExcelError(`Row ${i + 1}: Reserve must be a number between 0 and 100`);
-                              return;
-                            }
-
-                            routeDataArray.push({
-                              routeName: rowObject["Route Name"].trim(),
-                              title: rowObject["Title"].trim(),
-                              status: rowObject["Status"] === "Active" || rowObject["Status"] === "true" || rowObject["Status"] === "1" ? "true" : "false",
-                              reserve: reserveValue,
-                              smRouteId: rowObject["SM Route ID"].trim(),
-                              content: rowObject["Content"]?.trim() || "",
-                              schoolId: rowObject["School ID"].trim(),
-                              cityCode: rowObject["City Code"].trim(),
-                              action: action,
-                            });
-                          }
-
-                          if (routeDataArray.length === 0) {
-                            setExcelError("Excel file contains no valid data rows.");
-                            return;
-                          }
-
-                          if (!checkExcelDuplicates(routeDataArray)) {
-                            return;
-                          }
-
-                          setIsSubmitting(true);
-                          const failedRegistrations = [];
-                          let successCount = 0;
-
-                          for (const routeData of routeDataArray) {
-                            try {
-                              const isUpdate = routeData.action === "update";
-                              const url = isUpdate
-                                ? `${API_BASE_URL}/route/update/${routeData.smRouteId}`
-                                : `${API_BASE_URL}/route/register`;
-                              const method = isUpdate ? "PUT" : "POST";
-
-                              if (isUpdate && !routeData.smRouteId) {
-                                failedRegistrations.push(`${routeData.routeName}: SM Route ID required for update`);
-                                continue;
-                              }
-
-                              const requestBody = isUpdate ? {} : {
-                                routeName: routeData.routeName,
-                                title: routeData.title,
-                                status: routeData.status === "true" ? 1 : 0,
-                                reserve: routeData.reserve,
-                                smRouteId: routeData.smRouteId,
-                                content: routeData.content,
-                                schoolId: routeData.schoolId,
-                                cityCode: routeData.cityCode,
-                              };
-
-                              if (isUpdate) {
-                                if (routeData.routeName) requestBody.routeName = routeData.routeName;
-                                if (routeData.title) requestBody.title = routeData.title;
-                                if (routeData.status !== undefined) requestBody.status = routeData.status === "true" ? 1 : 0;
-                                if (routeData.reserve !== undefined) requestBody.reserve = routeData.reserve;
-                                if (routeData.content) requestBody.content = routeData.content;
-                                if (routeData.schoolId) requestBody.schoolId = routeData.schoolId;
-                                if (routeData.cityCode) requestBody.cityCode = routeData.cityCode;
-                              }
-
-                              const response = await fetch(url, {
-                                method,
-                                headers: {
-                                  "Content-Type": "application/json",
-                                  "Authorization": `Bearer ${token}`,
-                                },
-                                body: JSON.stringify(requestBody),
-                              });
-
-                              const responseText = await response.text();
-                              let responseData;
-
-                              try {
-                                responseData = JSON.parse(responseText);
-                              } catch {
-                                responseData = { message: responseText };
-                              }
-
-                              if (!response.ok) {
-                                failedRegistrations.push(`${routeData.routeName || routeData.smRouteId}: ${responseData.message || "Request failed"}`);
-                              } else {
-                                successCount++;
-                              }
-                            } catch {
-                              failedRegistrations.push(`${routeData.routeName || routeData.smRouteId}: Network or unexpected error`);
-                            }
-                          }
-
-                          setIsSubmitting(false);
-
-                          if (failedRegistrations.length === 0) {
-                            setAlertMessage(`${successCount} routes processed successfully`);
-                            resetForm();
-                            setExcelError(null);
-                          } else {
-                            const message = [`${successCount} routes processed successfully`, `Failed to process ${failedRegistrations.length} routes:`, ...failedRegistrations].join("\
-");
-                            setExcelError(message);
-                          }
-                        } catch {
-                          console.error("Error parsing Excel file:");
-                          setExcelError("Failed to parse Excel file. Ensure it is a valid Excel file.");
-                        }
-                      };
-                      reader.readAsArrayBuffer(file);
+                      setAlertMessage("Excel upload functionality will be implemented with backend integration.");
                     }}
                     className="hidden"
                     disabled={isSubmitting}

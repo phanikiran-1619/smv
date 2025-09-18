@@ -5,7 +5,6 @@ import { Label } from "../../components/ui/label";
 import { Card } from "../../components/ui/card";
 import { countryCodes } from "../../lib/countryCodes";
 import SchoolSelect from "../../components/ui/SchoolSelect";
-import RouteSelect from "../../components/ui/RouteSelect";
 import SearchableSelect from "../../components/ui/SearchableSelect";
 import Navbar from '../../components/Navbar';
 import { Car, Save, RotateCcw, Upload, FileDown } from 'lucide-react';
@@ -22,8 +21,7 @@ export function DriverRegistrationPage() {
     lastName: "",
     countryCode: "IN",
     schoolId: "",
-    routeId: 0,
-    smDriverId: "",
+    smDriverId: "", // Keep for internal use but won't be shown in registration form
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [excelError, setExcelError] = useState(null);
@@ -112,7 +110,6 @@ export function DriverRegistrationPage() {
           lastName: driver.lastName || "",
           countryCode: "IN", // Default country code
           schoolId: driver.schoolId || "",
-          routeId: driver.routeId || 0,
           smDriverId: driver.smDriverId || "",
         });
       }
@@ -147,10 +144,12 @@ export function DriverRegistrationPage() {
       }
     }
 
-    // Phone: 10-12 digits only
+    // Phone: Exactly 10 digits only
     if (!isUpdateMode || formData.phone) {
-      if (!formData.phone || !/^\d{10}$/.test(formData.phone)) {
-        newErrors.phone = "Phone number must be 10 digits";
+      if (!formData.phone) {
+        newErrors.phone = "Phone number is required";
+      } else if (!/^\d{10}$/.test(formData.phone)) {
+        newErrors.phone = "Phone number must be exactly 10 digits";
       }
     }
 
@@ -201,27 +200,10 @@ export function DriverRegistrationPage() {
       }
     }
 
-    // Route ID: Non-negative number
-    if (!isUpdateMode || formData.routeId) {
-      if (formData.routeId === undefined || formData.routeId < 0) {
-        newErrors.routeId = "Route ID must be a non-negative number";
-      }
-    }
-
-    // SM Driver ID: Required in update mode, optional in register mode, alphanumeric, max 10 characters
+    // Update mode: smDriverId required for identification
     if (isUpdateMode) {
       if (!formData.smDriverId) {
-        newErrors.smDriverId = "SM Driver ID is required for update";
-      } else if (!/^[a-zA-Z0-9]+$/.test(formData.smDriverId)) {
-        newErrors.smDriverId = "SM Driver ID must be alphanumeric";
-      } else if (formData.smDriverId.length > 10) {
-        newErrors.smDriverId = "SM Driver ID must be 10 characters or less";
-      }
-    } else if (formData.smDriverId) {
-      if (!/^[a-zA-Z0-9]+$/.test(formData.smDriverId)) {
-        newErrors.smDriverId = "SM Driver ID must be alphanumeric";
-      } else if (formData.smDriverId.length > 10) {
-        newErrors.smDriverId = "SM Driver ID must be 10 characters or less";
+        newErrors.smDriverId = "Please select a driver to update";
       }
     }
 
@@ -231,7 +213,16 @@ export function DriverRegistrationPage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: name === "routeId" ? Number(value) : value.trim() });
+    let processedValue = value;
+    
+    // For phone field, allow only numbers
+    if (name === 'phone') {
+      processedValue = value.replace(/\D/g, ''); // Remove non-digits
+    } else {
+      processedValue = value.trim();
+    }
+    
+    setFormData({ ...formData, [name]: processedValue });
     setErrors({ ...errors, [name]: undefined }); // Clear error on change
   };
 
@@ -250,8 +241,7 @@ export function DriverRegistrationPage() {
       lastName: "",
       countryCode: "IN",
       schoolId: "",
-      routeId: 0,
-      smDriverId: "",
+      smDriverId: "", // Keep for internal use
     });
     setIsUpdateMode(newUpdateMode);
     setExcelError(null);
@@ -289,32 +279,6 @@ export function DriverRegistrationPage() {
     }
   };
 
-  const checkExcelDuplicates = (driverDataArray) => {
-    const seenUsernames = new Set();
-    const seenEmails = new Set();
-    const seenSmDriverIds = new Set();
-
-    for (let i = 0; i < driverDataArray.length; i++) {
-      const driver = driverDataArray[i];
-      if (seenUsernames.has(driver.username)) {
-        setExcelError(`Row ${i + 2}: Duplicate username: ${driver.username}`);
-        return false;
-      }
-      if (seenEmails.has(driver.email)) {
-        setExcelError(`Row ${i + 2}: Duplicate email: ${driver.email}`);
-        return false;
-      }
-      if (driver.smDriverId && seenSmDriverIds.has(driver.smDriverId)) {
-        setExcelError(`Row ${i + 2}: Duplicate SM Driver ID: ${driver.smDriverId}`);
-        return false;
-      }
-      seenUsernames.add(driver.username);
-      seenEmails.add(driver.email);
-      if (driver.smDriverId) seenSmDriverIds.add(driver.smDriverId);
-    }
-    return true;
-  };
-
   const downloadExcelTemplate = async () => {
     try {
       const templateData = [
@@ -327,8 +291,6 @@ export function DriverRegistrationPage() {
           'Last Name': 'Smith',
           'Country Code': 'IN',
           'School ID': 'SC001234',
-          'Route ID': '1',
-          'SM Driver ID': 'DR001234',
           'Action': 'Register'
         }
       ];
@@ -494,7 +456,6 @@ export function DriverRegistrationPage() {
                     if (formData.lastName) updateBody.lastName = formData.lastName;
                     if (formData.countryCode) updateBody.countryCode = formData.countryCode;
                     if (formData.schoolId) updateBody.schoolId = formData.schoolId;
-                    if (formData.routeId) updateBody.routeId = formData.routeId;
 
                     const response = await fetch(
                       `${API_BASE_URL}/driver/update/${formData.smDriverId}`,
@@ -508,40 +469,42 @@ export function DriverRegistrationPage() {
                       }
                     );
 
+                    // Handle text response for update (not JSON)
                     const responseText = await response.text();
                     if (!response.ok) {
                       throw new Error(responseText || "Update failed");
                     }
 
-                    setAlertMessage(responseText);
+                    setAlertMessage("Successfully updated");
                     resetForm(false);
                   } else {
+                    // Remove smDriverId from registration request as it will be auto-generated
+                    const requestBody = {
+                      username: formData.username,
+                      password: formData.password,
+                      phone: formData.phone,
+                      email: formData.email.toLowerCase(),
+                      firstName: formData.firstName,
+                      lastName: formData.lastName,
+                      countryCode: formData.countryCode,
+                      schoolId: formData.schoolId,
+                    };
+
                     const response = await fetch(`${API_BASE_URL}/driver/register`, {
                       method: "POST",
                       headers: {
                         "Content-Type": "application/json",
                         "Authorization": `Bearer ${token}`,
                       },
-                      body: JSON.stringify({
-                        username: formData.username,
-                        password: formData.password,
-                        phone: formData.phone,
-                        email: formData.email.toLowerCase(),
-                        firstName: formData.firstName,
-                        lastName: formData.lastName,
-                        countryCode: formData.countryCode,
-                        schoolId: formData.schoolId,
-                        routeId: formData.routeId,
-                        smDriverId: formData.smDriverId,
-                      }),
+                      body: JSON.stringify(requestBody),
                     });
 
                     const responseData = await response.json();
                     if (!response.ok) {
-                      throw new Error(responseData.message || "Registration failed: Username or email may already exist");
+                      throw new Error(responseData.detail || responseData.message || "Registration failed");
                     }
 
-                    setAlertMessage(`Registration successful: ${JSON.stringify(responseData)}`);
+                    setAlertMessage("Successfully registered");
                     resetForm(false);
                   }
                 } catch (error) {
@@ -599,16 +562,18 @@ export function DriverRegistrationPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="phone" className={themeClasses.label}>
-                    Phone: {!isUpdateMode && <span className="text-red-400">*</span>}
+                    Contact Number: {!isUpdateMode && <span className="text-red-400">*</span>}
                   </Label>
                   <Input
                     id="phone"
                     name="phone"
-                    placeholder="Enter Phone (10 digits)"
+                    type="tel"
+                    placeholder="Enter 10-digit phone number"
                     value={formData.phone}
                     onChange={handleChange}
                     maxLength={10}
-                    pattern="\d*"
+                    pattern="[0-9]*"
+                    inputMode="numeric"
                     required={!isUpdateMode}
                     className={`${themeClasses.input} ${errors.phone ? "border-red-500" : ""}`}
                   />
@@ -691,43 +656,18 @@ export function DriverRegistrationPage() {
                   <Label className={themeClasses.label}>
                     School: {!isUpdateMode && <span className="text-red-400">*</span>}
                   </Label>
-                  <SchoolSelect
-                    value={formData.schoolId}
-                    onChange={(value) => handleSelectChange('schoolId', value)}
-                    error={!!errors.schoolId}
-                  />
+                  <div className={`${isUpdateMode ? "pointer-events-none opacity-50" : ""}`}>
+                    <SchoolSelect
+                      value={formData.schoolId}
+                      onChange={(value) => handleSelectChange('schoolId', value)}
+                      error={!!errors.schoolId}
+                      disabled={isUpdateMode}
+                    />
+                  </div>
                   {errors.schoolId && <p className="text-red-500 text-sm">{errors.schoolId}</p>}
-                </div>
-
-                <div className={`space-y-2 ${errors.routeId ? "border border-red-500 rounded" : ""}`}>
-                  <Label className={themeClasses.label}>
-                    Route: {!isUpdateMode && <span className="text-red-400">*</span>}
-                  </Label>
-                  <RouteSelect
-                    schoolId={formData.schoolId}
-                    value={formData.routeId.toString()}
-                    onChange={(value) => handleSelectChange('routeId', Number(value))}
-                    error={!!errors.routeId}
-                  />
-                  {errors.routeId && <p className="text-red-500 text-sm">{errors.routeId}</p>}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="smDriverId" className={themeClasses.label}>
-                    SM Driver ID: {isUpdateMode && <span className="text-red-400">*</span>}
-                  </Label>
-                  <Input
-                    id="smDriverId"
-                    name="smDriverId"
-                    placeholder="Enter SM Driver ID"
-                    value={formData.smDriverId}
-                    onChange={handleChange}
-                    maxLength={10}
-                    required={isUpdateMode}
-                    disabled={isUpdateMode && formData.smDriverId}
-                    className={`${themeClasses.input} ${errors.smDriverId ? "border-red-500" : ""} ${isUpdateMode && formData.smDriverId ? "opacity-50 cursor-not-allowed" : ""}`}
-                  />
-                  {errors.smDriverId && <p className="text-red-500 text-sm">{errors.smDriverId}</p>}
+                  {isUpdateMode && formData.schoolId && (
+                    <p className="text-xs text-gray-500">School cannot be changed in update mode</p>
+                  )}
                 </div>
               </div>
 
@@ -741,210 +681,7 @@ export function DriverRegistrationPage() {
                       const file = event.target.files?.[0];
                       if (!file) return;
 
-                      const token = getToken();
-                      if (!token) {
-                        setAlertMessage("Please log in again.");
-                        return;
-                      }
-
-                      const reader = new FileReader();
-                      reader.onload = async (e) => {
-                        try {
-                          const data = new Uint8Array(e.target?.result);
-                          const workbook = XLSX.read(data, { type: "array" });
-                          const sheetName = workbook.SheetNames[0];
-                          const worksheet = workbook.Sheets[sheetName];
-                          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                          const headers = jsonData[0];
-                          const requiredHeaders = [
-                            "Username",
-                            "Password",
-                            "Phone",
-                            "Email",
-                            "First Name",
-                            "Last Name",
-                            "Country Code",
-                            "School ID",
-                            "Route ID",
-                          ];
-                          const missingRequiredHeaders = requiredHeaders.filter(
-                            (header) => !headers.includes(header)
-                          );
-                          if (missingRequiredHeaders.length > 0) {
-                            setExcelError(`Missing required headers: ${missingRequiredHeaders.join(", ")}`);
-                            return;
-                          }
-
-                          const driverDataArray = [];
-                          for (let i = 1; i < jsonData.length; i++) {
-                            const row = jsonData[i];
-                            if (!row || row.length === 0) continue;
-
-                            const rowObject = headers.reduce((obj, header, index) => {
-                              obj[header] = String(row[index] ?? "");
-                              return obj;
-                            }, {});
-
-                            if (
-                              !rowObject["Username"] ||
-                              !rowObject["Password"] ||
-                              !rowObject["Phone"] ||
-                              !rowObject["Email"] ||
-                              !rowObject["First Name"] ||
-                              !rowObject["Last Name"] ||
-                              !rowObject["Country Code"] ||
-                              !rowObject["School ID"] ||
-                              !rowObject["Route ID"]
-                            ) {
-                              setExcelError(
-                                `Row ${i + 1}: Missing required fields (Username, Password, Phone, Email, First Name, Last Name, Country Code, School ID, Route ID)`
-                              );
-                              return;
-                            }
-
-                            if (!countryCodes.some((code) => code.id === rowObject["Country Code"])) {
-                              setExcelError(`Row ${i + 1}: Invalid Country Code: ${rowObject["Country Code"]}`);
-                              return;
-                            }
-
-                            const routeIdValue = Number(rowObject["Route ID"]);
-                            if (isNaN(routeIdValue) || routeIdValue < 0) {
-                              setExcelError(`Row ${i + 1}: Route ID must be a non-negative number`);
-                              return;
-                            }
-
-                            // Additional validations similar to form validation
-                            if (rowObject["Username"].length > 20) {
-                              setExcelError(`Row ${i + 1}: Username must be 20 characters or less`);
-                              return;
-                            }
-                            if (!/^[a-zA-Z0-9]+$/.test(rowObject["Username"])) {
-                              setExcelError(`Row ${i + 1}: Username must be alphanumeric`);
-                              return;
-                            }
-
-                            const action = rowObject["Action"] ? rowObject["Action"].toLowerCase() : "register";
-                            if (action !== "register" && action !== "update") {
-                              setExcelError(`Row ${i + 1}: Invalid Action value. Must be "Register" or "Update"`);
-                              return;
-                            }
-
-                            driverDataArray.push({
-                              username: rowObject["Username"].trim(),
-                              password: rowObject["Password"],
-                              phone: rowObject["Phone"].trim(),
-                              email: rowObject["Email"].trim().toLowerCase(),
-                              firstName: rowObject["First Name"].trim(),
-                              lastName: rowObject["Last Name"].trim(),
-                              countryCode: rowObject["Country Code"],
-                              schoolId: rowObject["School ID"],
-                              routeId: routeIdValue,
-                              smDriverId: rowObject["SM Driver ID"]?.trim() || "",
-                              action: action,
-                            });
-                          }
-
-                          if (driverDataArray.length === 0) {
-                            setExcelError("Excel file contains no valid data rows.");
-                            return;
-                          }
-
-                          if (!checkExcelDuplicates(driverDataArray)) {
-                            setIsSubmitting(false);
-                            return;
-                          }
-
-                          setIsSubmitting(true);
-                          const failedRegistrations = [];
-                          let successCount = 0;
-
-                          for (const driverData of driverDataArray) {
-                            try {
-                              const isUpdate = driverData.action === "update";
-                              const url = isUpdate
-                                ? `${API_BASE_URL}/driver/update/${driverData.smDriverId}`
-                                : `${API_BASE_URL}/driver/register`;
-                              const method = isUpdate ? "PUT" : "POST";
-
-                              if (isUpdate && !driverData.smDriverId) {
-                                failedRegistrations.push(`${driverData.username}: SM Driver ID required for update`);
-                                continue;
-                              }
-
-                              if (!isUpdate) {
-                                if (!(await checkExistingDriver("username", driverData.username))) {
-                                  failedRegistrations.push(`${driverData.username}: Username already exists`);
-                                  continue;
-                                }
-                                if (!(await checkExistingDriver("email", driverData.email))) {
-                                  failedRegistrations.push(`${driverData.username}: Email already exists`);
-                                  continue;
-                                }
-                              }
-
-                              const response = await fetch(url, {
-                                method,
-                                headers: {
-                                  "Content-Type": "application/json",
-                                  "Authorization": `Bearer ${token}`,
-                                },
-                                body: JSON.stringify({
-                                  username: driverData.username,
-                                  password: driverData.password,
-                                  phone: driverData.phone,
-                                  email: driverData.email,
-                                  firstName: driverData.firstName,
-                                  lastName: driverData.lastName,
-                                  countryCode: driverData.countryCode,
-                                  schoolId: driverData.schoolId,
-                                  routeId: driverData.routeId,
-                                  smDriverId: driverData.smDriverId,
-                                }),
-                              });
-
-                              if (isUpdate) {
-                                const responseText = await response.text();
-                                if (!response.ok) {
-                                  failedRegistrations.push(`${driverData.username}: ${responseText || "Update failed"}`);
-                                } else {
-                                  successCount++;
-                                }
-                              } else {
-                                const responseData = await response.json();
-                                if (!response.ok) {
-                                  failedRegistrations.push(
-                                    `${driverData.username}: ${responseData.message || "Registration failed: Username or email may already exist"}`
-                                  );
-                                } else {
-                                  successCount++;
-                                }
-                              }
-                            } catch {
-                              failedRegistrations.push(`${driverData.username}: Network or unexpected error`);
-                            }
-                          }
-
-                          setIsSubmitting(false);
-
-                          if (failedRegistrations.length === 0) {
-                            setAlertMessage(`${successCount} drivers processed successfully`);
-                            resetForm(false);
-                            setExcelError(null);
-                          } else {
-                            const message = [
-                              `${successCount} drivers processed successfully`,
-                              `Failed to process ${failedRegistrations.length} drivers:`,
-                              ...failedRegistrations,
-                            ].join("\
-");
-                            setExcelError(message);
-                          }
-                        } catch {
-                          console.error("Error parsing Excel file:");
-                          setExcelError("Failed to parse Excel file. Ensure it is a valid Excel file.");
-                        }
-                      };
-                      reader.readAsArrayBuffer(file);
+                      setAlertMessage("Excel upload functionality will be implemented with backend integration.");
                     }}
                     className="hidden"
                     disabled={isSubmitting}

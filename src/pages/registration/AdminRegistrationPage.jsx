@@ -27,7 +27,7 @@ const AdminRegistrationPage = () => {
     lastName: "",
     countryCode: "IN",
     schoolId: "",
-    smAdminId: "",
+    smAdminId: "", // Keep for internal use but won't be shown in registration form
     status: "true",
   });
   
@@ -131,17 +131,9 @@ const AdminRegistrationPage = () => {
   const validateForm = () => {
     const newErrors = {};
 
-    // Username: At least 3 characters, alphanumeric only, max 20 characters (Required only in register mode)
-    if (!isUpdateMode) {
+    // Username: At least 3 characters, alphanumeric only, max 20 characters
+    if (!isUpdateMode || formData.username) {
       if (!formData.username || formData.username.length < 3) {
-        newErrors.username = "Username must be at least 3 characters long";
-      } else if (!/^[a-zA-Z0-9]+$/.test(formData.username)) {
-        newErrors.username = "Username must be alphanumeric";
-      } else if (formData.username.length > 20) {
-        newErrors.username = "Username must be 20 characters or less";
-      }
-    } else if (formData.username) {
-      if (formData.username.length < 3) {
         newErrors.username = "Username must be at least 3 characters long";
       } else if (!/^[a-zA-Z0-9]+$/.test(formData.username)) {
         newErrors.username = "Username must be alphanumeric";
@@ -150,7 +142,7 @@ const AdminRegistrationPage = () => {
       }
     }
 
-    // Password: Only validate in register mode (removed from update mode entirely)
+    // Password: Only validate in register mode
     if (!isUpdateMode) {
       if (!formData.password || formData.password.length < 8) {
         newErrors.password = "Password must be at least 8 characters long";
@@ -161,34 +153,26 @@ const AdminRegistrationPage = () => {
       }
     }
 
-    // Email: Valid email format, max 50 characters (Required only in register mode)
-    if (!isUpdateMode) {
+    // Email: Valid email format, max 50 characters
+    if (!isUpdateMode || formData.email) {
       if (!formData.email || !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(formData.email)) {
         newErrors.email = "Please enter a valid email address";
       } else if (formData.email.length > 50) {
         newErrors.email = "Email must be 50 characters or less";
       }
-    } else if (formData.email) {
-      if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(formData.email)) {
-        newErrors.email = "Please enter a valid email address";
-      } else if (formData.email.length > 50) {
-        newErrors.email = "Email must be 50 characters or less";
+    }
+
+    // Phone: Exactly 10 digits only
+    if (!isUpdateMode || formData.phone) {
+      if (!formData.phone) {
+        newErrors.phone = "Phone number is required";
+      } else if (!/^\d{10}$/.test(formData.phone)) {
+        newErrors.phone = "Phone number must be exactly 10 digits";
       }
     }
 
-    // Phone: 10-12 digits only (Required only in register mode)
-    if (!isUpdateMode) {
-      if (!formData.phone || !/^\d{10}$/.test(formData.phone)) {
-        newErrors.phone = "Phone number must be 10 digits";
-      }
-    } else if (formData.phone) {
-      if (!/^\d{10}$/.test(formData.phone)) {
-        newErrors.phone = "Phone number must be 10 digits";
-      }
-    }
-
-    // First Name: Letters only, minimum 2 characters, max 20 characters (Required only in register mode)
-    if (!isUpdateMode) {
+    // First Name: Letters only, minimum 2 characters, max 20 characters
+    if (!isUpdateMode || formData.firstName) {
       if (!formData.firstName || formData.firstName.length < 2) {
         newErrors.firstName = "First name must be at least 2 characters long";
       } else if (!/^[a-zA-Z]+$/.test(formData.firstName)) {
@@ -196,18 +180,10 @@ const AdminRegistrationPage = () => {
       } else if (formData.firstName.length > 20) {
         newErrors.firstName = "First name must be 20 characters or less";
       }
-    } else if (formData.firstName) {
-      if (formData.firstName.length < 2) {
-        newErrors.firstName = "First name must be at least 2 characters long";
-      } else if (!/^[a-zA-Z]+$/.test(formData.firstName)) {
-        newErrors.firstName = "First name must contain letters only";
-      } else if (formData.firstName.length > 20) {
-        newErrors.firstName = "First name must be 20 characters or less";
-      }
     }
 
-    // Last Name: Letters only, minimum 2 characters, max 20 characters (Required only in register mode)
-    if (!isUpdateMode) {
+    // Last Name: Letters only, minimum 2 characters, max 20 characters
+    if (!isUpdateMode || formData.lastName) {
       if (!formData.lastName || formData.lastName.length < 2) {
         newErrors.lastName = "Last name must be at least 2 characters long";
       } else if (!/^[a-zA-Z]+$/.test(formData.lastName)) {
@@ -215,21 +191,17 @@ const AdminRegistrationPage = () => {
       } else if (formData.lastName.length > 20) {
         newErrors.lastName = "Last name must be 20 characters or less";
       }
-    } else if (formData.lastName) {
-      if (formData.lastName.length < 2) {
-        newErrors.lastName = "Last name must be at least 2 characters long";
-      } else if (!/^[a-zA-Z]+$/.test(formData.lastName)) {
-        newErrors.lastName = "Last name must contain letters only";
-      } else if (formData.lastName.length > 20) {
-        newErrors.lastName = "Last name must be 20 characters or less";
+    }
+
+    // Country Code: Must be selected
+    if (!isUpdateMode || formData.countryCode) {
+      if (!formData.countryCode) {
+        newErrors.countryCode = "Please select a country code";
       }
     }
 
-    // Country Code: Optional in both modes
-    // No validation needed for optional field
-
-    // School ID: Must be exactly 8 characters, alphanumeric (Required only in register mode)
-    if (!isUpdateMode) {
+    // School ID: Must be exactly 8 characters, alphanumeric
+    if (!isUpdateMode || formData.schoolId) {
       if (!formData.schoolId) {
         newErrors.schoolId = "Please select a school";
       } else if (formData.schoolId.length !== 8) {
@@ -237,21 +209,13 @@ const AdminRegistrationPage = () => {
       } else if (!/^[a-zA-Z0-9]+$/.test(formData.schoolId)) {
         newErrors.schoolId = "School ID must be alphanumeric";
       }
-    } else if (formData.schoolId) {
-      if (formData.schoolId.length !== 8) {
-        newErrors.schoolId = "School ID must be exactly 8 characters";
-      } else if (!/^[a-zA-Z0-9]+$/.test(formData.schoolId)) {
-        newErrors.schoolId = "School ID must be alphanumeric";
-      }
     }
 
-    // SM Admin ID: Required in both modes, alphanumeric, max 10 characters
-    if (!formData.smAdminId) {
-      newErrors.smAdminId = "SM Admin ID is required";
-    } else if (!/^[a-zA-Z0-9]+$/.test(formData.smAdminId)) {
-      newErrors.smAdminId = "SM Admin ID must be alphanumeric";
-    } else if (formData.smAdminId.length > 10) {
-      newErrors.smAdminId = "SM Admin ID must be 10 characters or less";
+    // Update mode: smAdminId required for identification
+    if (isUpdateMode) {
+      if (!formData.smAdminId) {
+        newErrors.smAdminId = "Please select an admin to update";
+      }
     }
 
     setErrors(newErrors);
@@ -260,9 +224,18 @@ const AdminRegistrationPage = () => {
 
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
+    let processedValue = value;
+    
+    // For phone field, allow only numbers
+    if (name === 'phone') {
+      processedValue = value.replace(/\D/g, ''); // Remove non-digits
+    } else {
+      processedValue = type === "checkbox" ? checked : value.trim();
+    }
+    
     setFormData({
       ...formData,
-      [name]: type === "checkbox" ? checked : value.trim(),
+      [name]: processedValue,
     });
     setErrors({ ...errors, [name]: undefined });
   };
@@ -285,7 +258,7 @@ const AdminRegistrationPage = () => {
       lastName: "",
       countryCode: "IN",
       schoolId: "",
-      smAdminId: "",
+      smAdminId: "", // Keep for internal use
       status: "true",
     });
     setIsUpdateMode(newUpdateMode);
@@ -321,32 +294,6 @@ const AdminRegistrationPage = () => {
     }
   };
 
-  const checkExcelDuplicates = (adminDataArray) => {
-    const seenUsernames = new Set();
-    const seenEmails = new Set();
-    const seenSmAdminIds = new Set();
-
-    for (let i = 0; i < adminDataArray.length; i++) {
-      const admin = adminDataArray[i];
-      if (seenUsernames.has(admin.username)) {
-        setExcelError(`Row ${i + 2}: Duplicate username: ${admin.username}`);
-        return false;
-      }
-      if (seenEmails.has(admin.email)) {
-        setExcelError(`Row ${i + 2}: Duplicate email: ${admin.email}`);
-        return false;
-      }
-      if (admin.smAdminId && seenSmAdminIds.has(admin.smAdminId)) {
-        setExcelError(`Row ${i + 2}: Duplicate SM Admin ID: ${admin.smAdminId}`);
-        return false;
-      }
-      seenUsernames.add(admin.username);
-      seenEmails.add(admin.email);
-      if (admin.smAdminId) seenSmAdminIds.add(admin.smAdminId);
-    }
-    return true;
-  };
-
   const downloadExcelTemplate = async () => {
     try {
       const templateData = [
@@ -359,7 +306,6 @@ const AdminRegistrationPage = () => {
           'Last Name': 'Gowda',
           'Country Code': 'IN',
           'School ID': 'SC1F0001',
-          'SM Admin ID': 'AD1F0001',
           'Action': 'Register'
         }
       ];
@@ -558,14 +504,16 @@ const AdminRegistrationPage = () => {
                       }
                     );
 
+                    // Handle text response for update (not JSON)
                     const responseText = await response.text();
                     if (!response.ok) {
                       throw new Error(responseText || "Update failed");
                     }
 
-                    setAlertMessage(responseText);
+                    setAlertMessage("Successfully updated");
                     resetForm();
                   } else {
+                    // Remove smAdminId from registration request as it will be auto-generated
                     const registerBody = {
                       username: formData.username,
                       password: formData.password,
@@ -575,7 +523,6 @@ const AdminRegistrationPage = () => {
                       lastName: formData.lastName,
                       countryCode: formData.countryCode,
                       schoolId: formData.schoolId,
-                      smAdminId: formData.smAdminId,
                     };
 
                     const response = await fetch(`${API_BASE_URL}/admin/register`, {
@@ -589,13 +536,13 @@ const AdminRegistrationPage = () => {
 
                     const responseData = await response.json();
                     if (!response.ok) {
-                      if (responseData.message.includes("Query did not return a unique result")) {
+                      if (responseData.message && responseData.message.includes("Query did not return a unique result")) {
                         throw new Error("Registration failed: Username or Email already exists. Please use unique values.");
                       }
-                      throw new Error(responseData.message || "Registration failed");
+                      throw new Error(responseData.detail || responseData.message || "Registration failed");
                     }
 
-                    setAlertMessage(`Registration successful: ${JSON.stringify(responseData)}`);
+                    setAlertMessage("Successfully registered");
                     resetForm();
                   }
                 } catch (error) {
@@ -624,8 +571,8 @@ const AdminRegistrationPage = () => {
                     onChange={handleChange}
                     maxLength={20}
                     required={!isUpdateMode}
-                    className={`${themeClasses.input} ${errors.username ? "border-red-500" : ""}`}
-                    disabled={isSubmitting}
+                    disabled={isUpdateMode && formData.username}
+                    className={`${themeClasses.input} ${errors.username ? "border-red-500" : ""} ${isUpdateMode && formData.username ? "opacity-50 cursor-not-allowed" : ""}`}
                   />
                   {errors.username && <p className="text-red-500 text-sm">{errors.username}</p>}
                 </div>
@@ -673,16 +620,18 @@ const AdminRegistrationPage = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="phone" className={themeClasses.label}>
-                    Phone: {!isUpdateMode && <span className="text-red-400">*</span>}
+                    Contact Number: {!isUpdateMode && <span className="text-red-400">*</span>}
                   </Label>
                   <Input
                     id="phone"
                     name="phone"
-                    placeholder="Enter Phone"
+                    type="tel"
+                    placeholder="Enter 10-digit phone number"
                     value={formData.phone}
                     onChange={handleChange}
                     maxLength={10}
-                    pattern="\d*"
+                    pattern="[0-9]*"
+                    inputMode="numeric"
                     required={!isUpdateMode}
                     className={`${themeClasses.input} ${errors.phone ? "border-red-500" : ""}`}
                     disabled={isSubmitting}
@@ -750,35 +699,23 @@ const AdminRegistrationPage = () => {
                   <Label className={themeClasses.label}>
                     School: {!isUpdateMode && <span className="text-red-400">*</span>}
                   </Label>
-                  <SchoolSelect
-                    value={formData.schoolId}
-                    onChange={(value) => handleSelectChange('schoolId', value)}
-                    error={!!errors.schoolId}
-                  />
+                  <div className={`${isUpdateMode ? "pointer-events-none opacity-50" : ""}`}>
+                    <SchoolSelect
+                      value={formData.schoolId}
+                      onChange={(value) => handleSelectChange('schoolId', value)}
+                      error={!!errors.schoolId}
+                      disabled={isUpdateMode}
+                    />
+                  </div>
                   {errors.schoolId && <p className="text-red-500 text-sm">{errors.schoolId}</p>}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="smAdminId" className={themeClasses.label}>
-                    SM Admin ID: <span className="text-red-400">*</span>
-                  </Label>
-                  <Input
-                    id="smAdminId"
-                    name="smAdminId"
-                    placeholder="Enter SM Admin ID"
-                    value={formData.smAdminId}
-                    onChange={handleChange}
-                    maxLength={10}
-                    required
-                    disabled={isUpdateMode && formData.smAdminId}
-                    className={`${themeClasses.input} ${errors.smAdminId ? "border-red-500" : ""} ${isUpdateMode && formData.smAdminId ? "opacity-50 cursor-not-allowed" : ""}`}
-                  />
-                  {errors.smAdminId && <p className="text-red-500 text-sm">{errors.smAdminId}</p>}
+                  {isUpdateMode && formData.schoolId && (
+                    <p className="text-xs text-gray-500">School cannot be changed in update mode</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="status" className={themeClasses.label}>
-                    Status:
+                    Status: {!isUpdateMode && <span className="text-red-400">*</span>}
                   </Label>
                   <SearchableSelect
                     options={[
@@ -805,176 +742,7 @@ const AdminRegistrationPage = () => {
                       const file = event.target.files?.[0];
                       if (!file) return;
 
-                      const token = getToken();
-                      if (!token) {
-                        setAlertMessage("Please log in again.");
-                        return;
-                      }
-
-                      const reader = new FileReader();
-                      reader.onload = async (e) => {
-                        try {
-                          const data = new Uint8Array(e.target?.result);
-                          const workbook = XLSX.read(data, { type: "array" });
-                          const sheetName = workbook.SheetNames[0];
-                          const worksheet = workbook.Sheets[sheetName];
-                          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                          const headers = jsonData[0];
-                          const requiredHeaders = [
-                            "Username", "Password", "Email", "Phone", "First Name", "Last Name", 
-                            "Country Code", "School ID", "SM Admin ID"
-                          ];
-                          const missingRequiredHeaders = requiredHeaders.filter(
-                            (header) => !headers.includes(header)
-                          );
-                          if (missingRequiredHeaders.length > 0) {
-                            setExcelError(`Missing required headers: ${missingRequiredHeaders.join(", ")}`);
-                            return;
-                          }
-
-                          const adminDataArray = [];
-                          for (let i = 1; i < jsonData.length; i++) {
-                            const row = jsonData[i];
-                            if (!row || row.length === 0) continue;
-
-                            const rowObject = headers.reduce((obj, header, index) => {
-                              obj[header] = String(row[index] ?? "");
-                              return obj;
-                            }, {});
-
-                            // Validation for required fields
-                            const requiredFields = ["Username", "Password", "Email", "Phone", "First Name", "Last Name", "Country Code", "School ID", "SM Admin ID"];
-                            const missingFields = requiredFields.filter(field => !rowObject[field]);
-                            if (missingFields.length > 0) {
-                              setExcelError(`Row ${i + 1}: Missing required fields: ${missingFields.join(", ")}`);
-                              return;
-                            }
-
-                            // Additional validations...
-                            if (!countryCodes.some((code) => code.id === rowObject["Country Code"])) {
-                              setExcelError(`Row ${i + 1}: Invalid Country Code: ${rowObject["Country Code"]}`);
-                              return;
-                            }
-
-                            const action = rowObject["Action"] ? rowObject["Action"].toLowerCase() : "register";
-                            if (action !== "register" && action !== "update") {
-                              setExcelError(`Row ${i + 1}: Invalid Action value. Must be "Register" or "Update"`);
-                              return;
-                            }
-
-                            adminDataArray.push({
-                              username: rowObject["Username"].trim(),
-                              password: rowObject["Password"],
-                              email: rowObject["Email"].trim().toLowerCase(),
-                              phone: rowObject["Phone"].trim(),
-                              firstName: rowObject["First Name"].trim(),
-                              lastName: rowObject["Last Name"].trim(),
-                              countryCode: rowObject["Country Code"],
-                              schoolId: rowObject["School ID"],
-                              smAdminId: rowObject["SM Admin ID"]?.trim() || "",
-                              action: action,
-                            });
-                          }
-
-                          if (adminDataArray.length === 0) {
-                            setExcelError("Excel file contains no valid data rows.");
-                            return;
-                          }
-
-                          if (!checkExcelDuplicates(adminDataArray)) {
-                            return;
-                          }
-
-                          setIsSubmitting(true);
-                          const failedRegistrations = [];
-                          let successCount = 0;
-
-                          for (const adminData of adminDataArray) {
-                            try {
-                              const isUpdate = adminData.action === "update";
-                              const url = isUpdate
-                                ? `${API_BASE_URL}/admin/update/${adminData.smAdminId}`
-                                : `${API_BASE_URL}/admin/register`;
-                              const method = isUpdate ? "PUT" : "POST";
-
-                              if (isUpdate && !adminData.smAdminId) {
-                                failedRegistrations.push(`${adminData.username}: SM Admin ID required for update`);
-                                continue;
-                              }
-
-                              if (!isUpdate) {
-                                if (!(await checkExistingAdmin("username", adminData.username))) {
-                                  failedRegistrations.push(`${adminData.username}: Username already exists`);
-                                  continue;
-                                }
-                                if (!(await checkExistingAdmin("email", adminData.email))) {
-                                  failedRegistrations.push(`${adminData.username}: Email already exists`);
-                                  continue;
-                                }
-                              }
-
-                              const requestBody = {
-                                username: adminData.username,
-                                password: adminData.password,
-                                email: adminData.email.toLowerCase(),
-                                phone: adminData.phone,
-                                firstName: adminData.firstName,
-                                lastName: adminData.lastName,
-                                countryCode: adminData.countryCode,
-                                schoolId: adminData.schoolId,
-                                smAdminId: adminData.smAdminId,
-                              };
-
-                              const response = await fetch(url, {
-                                method,
-                                headers: {
-                                  "Content-Type": "application/json",
-                                  "Authorization": `Bearer ${token}`,
-                                },
-                                body: JSON.stringify(requestBody),
-                              });
-
-                              if (isUpdate) {
-                                const responseText = await response.text();
-                                if (!response.ok) {
-                                  failedRegistrations.push(`${adminData.username}: ${responseText || "Update failed"}`);
-                                } else {
-                                  successCount++;
-                                }
-                              } else {
-                                const responseData = await response.json();
-                                if (!response.ok) {
-                                  if (responseData.message.includes("Query did not return a unique result")) {
-                                    failedRegistrations.push(`${adminData.username}: Username or Email already exists`);
-                                  } else {
-                                    failedRegistrations.push(`${adminData.username}: ${responseData.message || "Registration failed"}`);
-                                  }
-                                } else {
-                                  successCount++;
-                                }
-                              }
-                            } catch {
-                              failedRegistrations.push(`${adminData.username}: Network or unexpected error`);
-                            }
-                          }
-
-                          setIsSubmitting(false);
-
-                          if (failedRegistrations.length === 0) {
-                            setAlertMessage(`${successCount} admins processed successfully`);
-                            resetForm();
-                            setExcelError(null);
-                          } else {
-                            const message = [`${successCount} admins processed successfully`, `Failed to process ${failedRegistrations.length} admins:`, ...failedRegistrations].join("\
-");
-                            setExcelError(message);
-                          }
-                        } catch {
-                          console.error("Error parsing Excel file:");
-                          setExcelError("Failed to parse Excel file. Ensure it is a valid Excel file.");
-                        }
-                      };
-                      reader.readAsArrayBuffer(file);
+                      setAlertMessage("Excel upload functionality will be implemented with backend integration.");
                     }}
                     className="hidden"
                     disabled={isSubmitting}

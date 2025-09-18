@@ -6,7 +6,6 @@ import { Label } from "../../components/ui/label";
 import { Card } from "../../components/ui/card";
 import SearchableSelect from "../../components/ui/SearchableSelect";
 import SchoolSelect from "../../components/ui/SchoolSelect";
-import RouteSelect from "../../components/ui/RouteSelect";
 import SkeletonForm from "../../components/ui/SkeletonForm";
 import { getToken } from "../../lib/token";
 import { countryCodes } from "../../lib/countryCodes";
@@ -28,8 +27,7 @@ const AttenderRegistrationPage = () => {
     lastName: "",
     countryCode: "IN",
     schoolId: "",
-    routeId: "",
-    smAttenderId: "",
+    smAttenderId: "", // Keep for internal use but won't be shown in registration form
     status: "true",
   });
   
@@ -118,7 +116,6 @@ const AttenderRegistrationPage = () => {
           lastName: data.lastName || "",
           countryCode: "IN", // Default as API doesn't provide this
           schoolId: data.schoolId || "",
-          routeId: data.routeId?.toString() || "",
           smAttenderId: data.smAttenderId || "",
           status: data.user?.status === "true" ? "true" : "false",
         });
@@ -134,17 +131,9 @@ const AttenderRegistrationPage = () => {
   const validateForm = () => {
     const newErrors = {};
 
-    // Username: At least 3 characters, alphanumeric only, max 20 characters (Required only in register mode)
-    if (!isUpdateMode) {
+    // Username: At least 3 characters, alphanumeric only, max 20 characters
+    if (!isUpdateMode || formData.username) {
       if (!formData.username || formData.username.length < 3) {
-        newErrors.username = "Username must be at least 3 characters long";
-      } else if (!/^[a-zA-Z0-9]+$/.test(formData.username)) {
-        newErrors.username = "Username must be alphanumeric";
-      } else if (formData.username.length > 20) {
-        newErrors.username = "Username must be 20 characters or less";
-      }
-    } else if (formData.username) {
-      if (formData.username.length < 3) {
         newErrors.username = "Username must be at least 3 characters long";
       } else if (!/^[a-zA-Z0-9]+$/.test(formData.username)) {
         newErrors.username = "Username must be alphanumeric";
@@ -153,7 +142,7 @@ const AttenderRegistrationPage = () => {
       }
     }
 
-    // Password: Only validate in register mode (removed from update mode entirely)
+    // Password: Only validate in register mode
     if (!isUpdateMode) {
       if (!formData.password || formData.password.length < 8) {
         newErrors.password = "Password must be at least 8 characters long";
@@ -164,34 +153,26 @@ const AttenderRegistrationPage = () => {
       }
     }
 
-    // Phone: 10-12 digits only (Required only in register mode)
-    if (!isUpdateMode) {
-      if (!formData.phone || !/^\d{10}$/.test(formData.phone)) {
-        newErrors.phone = "Phone number must be 10 digits";
-      }
-    } else if (formData.phone) {
-      if (!/^\d{10}$/.test(formData.phone)) {
-        newErrors.phone = "Phone number must be 10 digits";
+    // Phone: Exactly 10 digits only
+    if (!isUpdateMode || formData.phone) {
+      if (!formData.phone) {
+        newErrors.phone = "Phone number is required";
+      } else if (!/^\d{10}$/.test(formData.phone)) {
+        newErrors.phone = "Phone number must be exactly 10 digits";
       }
     }
 
-    // Email: Valid email format, max 50 characters (Required only in register mode)
-    if (!isUpdateMode) {
+    // Email: Valid email format, max 50 characters
+    if (!isUpdateMode || formData.email) {
       if (!formData.email || !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(formData.email)) {
         newErrors.email = "Please enter a valid email address";
       } else if (formData.email.length > 50) {
         newErrors.email = "Email must be 50 characters or less";
       }
-    } else if (formData.email) {
-      if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(formData.email)) {
-        newErrors.email = "Please enter a valid email address";
-      } else if (formData.email.length > 50) {
-        newErrors.email = "Email must be 50 characters or less";
-      }
     }
 
-    // First Name: Letters only, minimum 2 characters, max 20 characters (Required only in register mode)
-    if (!isUpdateMode) {
+    // First Name: Letters only, minimum 2 characters, max 20 characters
+    if (!isUpdateMode || formData.firstName) {
       if (!formData.firstName || formData.firstName.length < 2) {
         newErrors.firstName = "First name must be at least 2 characters long";
       } else if (!/^[a-zA-Z]+$/.test(formData.firstName)) {
@@ -199,18 +180,10 @@ const AttenderRegistrationPage = () => {
       } else if (formData.firstName.length > 20) {
         newErrors.firstName = "First name must be 20 characters or less";
       }
-    } else if (formData.firstName) {
-      if (formData.firstName.length < 2) {
-        newErrors.firstName = "First name must be at least 2 characters long";
-      } else if (!/^[a-zA-Z]+$/.test(formData.firstName)) {
-        newErrors.firstName = "First name must contain letters only";
-      } else if (formData.firstName.length > 20) {
-        newErrors.firstName = "First name must be 20 characters or less";
-      }
     }
 
-    // Last Name: Letters only, minimum 2 characters, max 20 characters (Required only in register mode)
-    if (!isUpdateMode) {
+    // Last Name: Letters only, minimum 2 characters, max 20 characters
+    if (!isUpdateMode || formData.lastName) {
       if (!formData.lastName || formData.lastName.length < 2) {
         newErrors.lastName = "Last name must be at least 2 characters long";
       } else if (!/^[a-zA-Z]+$/.test(formData.lastName)) {
@@ -218,21 +191,17 @@ const AttenderRegistrationPage = () => {
       } else if (formData.lastName.length > 20) {
         newErrors.lastName = "Last name must be 20 characters or less";
       }
-    } else if (formData.lastName) {
-      if (formData.lastName.length < 2) {
-        newErrors.lastName = "Last name must be at least 2 characters long";
-      } else if (!/^[a-zA-Z]+$/.test(formData.lastName)) {
-        newErrors.lastName = "Last name must contain letters only";
-      } else if (formData.lastName.length > 20) {
-        newErrors.lastName = "Last name must be 20 characters or less";
+    }
+
+    // Country Code: Must be selected
+    if (!isUpdateMode || formData.countryCode) {
+      if (!formData.countryCode) {
+        newErrors.countryCode = "Please select a country code";
       }
     }
 
-    // Country Code: Optional in both modes
-    // No validation needed for optional field
-
-    // School ID: Must be exactly 8 characters, alphanumeric (Required only in register mode)
-    if (!isUpdateMode) {
+    // School ID: Must be exactly 8 characters, alphanumeric
+    if (!isUpdateMode || formData.schoolId) {
       if (!formData.schoolId) {
         newErrors.schoolId = "Please select a school";
       } else if (formData.schoolId.length !== 8) {
@@ -240,28 +209,13 @@ const AttenderRegistrationPage = () => {
       } else if (!/^[a-zA-Z0-9]+$/.test(formData.schoolId)) {
         newErrors.schoolId = "School ID must be alphanumeric";
       }
-    } else if (formData.schoolId) {
-      if (formData.schoolId.length !== 8) {
-        newErrors.schoolId = "School ID must be exactly 8 characters";
-      } else if (!/^[a-zA-Z0-9]+$/.test(formData.schoolId)) {
-        newErrors.schoolId = "School ID must be alphanumeric";
-      }
     }
 
-    // Route ID: Required only in register mode
-    if (!isUpdateMode) {
-      if (!formData.routeId) {
-        newErrors.routeId = "Please select a route";
+    // Update mode: smAttenderId required for identification
+    if (isUpdateMode) {
+      if (!formData.smAttenderId) {
+        newErrors.smAttenderId = "Please select an attender to update";
       }
-    }
-
-    // SM Attender ID: Required in both modes, alphanumeric, max 10 characters
-    if (!formData.smAttenderId) {
-      newErrors.smAttenderId = "SM Attender ID is required";
-    } else if (!/^[a-zA-Z0-9]+$/.test(formData.smAttenderId)) {
-      newErrors.smAttenderId = "SM Attender ID must be alphanumeric";
-    } else if (formData.smAttenderId.length > 10) {
-      newErrors.smAttenderId = "SM Attender ID must be 10 characters or less";
     }
 
     setErrors(newErrors);
@@ -270,9 +224,18 @@ const AttenderRegistrationPage = () => {
 
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
+    let processedValue = value;
+    
+    // For phone field, allow only numbers
+    if (name === 'phone') {
+      processedValue = value.replace(/\D/g, ''); // Remove non-digits
+    } else {
+      processedValue = type === "checkbox" ? checked : value.trim();
+    }
+    
     setFormData({
       ...formData,
-      [name]: type === "checkbox" ? checked : value.trim(),
+      [name]: processedValue,
     });
     setErrors({ ...errors, [name]: undefined });
   };
@@ -295,8 +258,7 @@ const AttenderRegistrationPage = () => {
       lastName: "",
       countryCode: "IN",
       schoolId: "",
-      routeId: "",
-      smAttenderId: "",
+      smAttenderId: "", // Keep for internal use
       status: "true",
     });
     setIsUpdateMode(newUpdateMode);
@@ -332,32 +294,6 @@ const AttenderRegistrationPage = () => {
     }
   };
 
-  const checkExcelDuplicates = (attenderDataArray) => {
-    const seenUsernames = new Set();
-    const seenEmails = new Set();
-    const seenSmAttenderIds = new Set();
-
-    for (let i = 0; i < attenderDataArray.length; i++) {
-      const attender = attenderDataArray[i];
-      if (seenUsernames.has(attender.username)) {
-        setExcelError(`Row ${i + 2}: Duplicate username: ${attender.username}`);
-        return false;
-      }
-      if (seenEmails.has(attender.email)) {
-        setExcelError(`Row ${i + 2}: Duplicate email: ${attender.email}`);
-        return false;
-      }
-      if (attender.smAttenderId && seenSmAttenderIds.has(attender.smAttenderId)) {
-        setExcelError(`Row ${i + 2}: Duplicate SM Attender ID: ${attender.smAttenderId}`);
-        return false;
-      }
-      seenUsernames.add(attender.username);
-      seenEmails.add(attender.email);
-      if (attender.smAttenderId) seenSmAttenderIds.add(attender.smAttenderId);
-    }
-    return true;
-  };
-
   const downloadExcelTemplate = async () => {
     try {
       const templateData = [
@@ -370,8 +306,6 @@ const AttenderRegistrationPage = () => {
           'Last Name': 'Kumar',
           'Country Code': 'IN',
           'School ID': 'SC1F0001',
-          'Route ID': '1',
-          'SM Attender ID': 'AT1F0001',
           'Action': 'Register'
         }
       ];
@@ -557,7 +491,6 @@ const AttenderRegistrationPage = () => {
                     if (formData.lastName) updateBody.lastName = formData.lastName;
                     if (formData.countryCode) updateBody.countryCode = formData.countryCode;
                     if (formData.schoolId) updateBody.schoolId = formData.schoolId;
-                    if (formData.routeId) updateBody.routeId = parseInt(formData.routeId);
 
                     const response = await fetch(
                       `${API_BASE_URL}/attender/update/${formData.smAttenderId}`,
@@ -571,40 +504,42 @@ const AttenderRegistrationPage = () => {
                       }
                     );
 
+                    // Handle text response for update (not JSON)
                     const responseText = await response.text();
                     if (!response.ok) {
                       throw new Error(responseText || "Update failed");
                     }
 
-                    setAlertMessage(responseText);
+                    setAlertMessage("Successfully updated");
                     resetForm();
                   } else {
+                    // Remove smAttenderId from registration request as it will be auto-generated
+                    const requestBody = {
+                      username: formData.username,
+                      password: formData.password,
+                      phone: formData.phone,
+                      email: formData.email.toLowerCase(),
+                      firstName: formData.firstName,
+                      lastName: formData.lastName,
+                      countryCode: formData.countryCode,
+                      schoolId: formData.schoolId,
+                    };
+
                     const response = await fetch(`${API_BASE_URL}/attender/register`, {
                       method: "POST",
                       headers: {
                         "Content-Type": "application/json",
                         "Authorization": `Bearer ${token}`,
                       },
-                      body: JSON.stringify({
-                        username: formData.username,
-                        password: formData.password,
-                        phone: formData.phone,
-                        email: formData.email.toLowerCase(),
-                        firstName: formData.firstName,
-                        lastName: formData.lastName,
-                        countryCode: formData.countryCode,
-                        schoolId: formData.schoolId,
-                        routeId: parseInt(formData.routeId),
-                        smAttenderId: formData.smAttenderId,
-                      }),
+                      body: JSON.stringify(requestBody),
                     });
 
                     const responseData = await response.json();
                     if (!response.ok) {
-                      throw new Error(responseData.message || "Registration failed: Username or email may already exist");
+                      throw new Error(responseData.detail || responseData.message || "Registration failed");
                     }
 
-                    setAlertMessage(`Registration successful: ${JSON.stringify(responseData)}`);
+                    setAlertMessage("Successfully registered");
                     resetForm();
                   }
                 } catch (error) {
@@ -633,8 +568,8 @@ const AttenderRegistrationPage = () => {
                     onChange={handleChange}
                     maxLength={20}
                     required={!isUpdateMode}
-                    className={`${themeClasses.input} ${errors.username ? "border-red-500" : ""}`}
-                    disabled={isSubmitting}
+                    disabled={isUpdateMode && formData.username}
+                    className={`${themeClasses.input} ${errors.username ? "border-red-500" : ""} ${isUpdateMode && formData.username ? "opacity-50 cursor-not-allowed" : ""}`}
                   />
                   {errors.username && <p className="text-red-500 text-sm">{errors.username}</p>}
                 </div>
@@ -663,16 +598,18 @@ const AttenderRegistrationPage = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="phone" className={themeClasses.label}>
-                    Phone: {!isUpdateMode && <span className="text-red-400">*</span>}
+                    Contact Number: {!isUpdateMode && <span className="text-red-400">*</span>}
                   </Label>
                   <Input
                     id="phone"
                     name="phone"
-                    placeholder="Enter Phone"
+                    type="tel"
+                    placeholder="Enter 10-digit phone number"
                     value={formData.phone}
                     onChange={handleChange}
                     maxLength={10}
-                    pattern="\d*"
+                    pattern="[0-9]*"
+                    inputMode="numeric"
                     required={!isUpdateMode}
                     className={`${themeClasses.input} ${errors.phone ? "border-red-500" : ""}`}
                     disabled={isSubmitting}
@@ -759,48 +696,23 @@ const AttenderRegistrationPage = () => {
                   <Label className={themeClasses.label}>
                     School: {!isUpdateMode && <span className="text-red-400">*</span>}
                   </Label>
-                  <SchoolSelect
-                    value={formData.schoolId}
-                    onChange={(value) => handleSelectChange('schoolId', value)}
-                    error={!!errors.schoolId}
-                  />
+                  <div className={`${isUpdateMode ? "pointer-events-none opacity-50" : ""}`}>
+                    <SchoolSelect
+                      value={formData.schoolId}
+                      onChange={(value) => handleSelectChange('schoolId', value)}
+                      error={!!errors.schoolId}
+                      disabled={isUpdateMode}
+                    />
+                  </div>
                   {errors.schoolId && <p className="text-red-500 text-sm">{errors.schoolId}</p>}
-                </div>
-
-                <div className={`space-y-2 ${errors.routeId ? "border border-red-500 rounded p-2" : ""}`}>
-                  <Label className={themeClasses.label}>
-                    Route: {!isUpdateMode && <span className="text-red-400">*</span>}
-                  </Label>
-                  <RouteSelect
-                    schoolId={formData.schoolId}
-                    value={formData.routeId}
-                    onChange={(value) => handleSelectChange('routeId', value)}
-                    error={!!errors.routeId}
-                  />
-                  {errors.routeId && <p className="text-red-500 text-sm">{errors.routeId}</p>}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="smAttenderId" className={themeClasses.label}>
-                    SM Attender ID: <span className="text-red-400">*</span>
-                  </Label>
-                  <Input
-                    id="smAttenderId"
-                    name="smAttenderId"
-                    placeholder="Enter SM Attender ID"
-                    value={formData.smAttenderId}
-                    onChange={handleChange}
-                    maxLength={10}
-                    required
-                    disabled={isUpdateMode && formData.smAttenderId}
-                    className={`${themeClasses.input} ${errors.smAttenderId ? "border-red-500" : ""} ${isUpdateMode && formData.smAttenderId ? "opacity-50 cursor-not-allowed" : ""}`}
-                  />
-                  {errors.smAttenderId && <p className="text-red-500 text-sm">{errors.smAttenderId}</p>}
+                  {isUpdateMode && formData.schoolId && (
+                    <p className="text-xs text-gray-500">School cannot be changed in update mode</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="status" className={themeClasses.label}>
-                    Status:
+                    Status: {!isUpdateMode && <span className="text-red-400">*</span>}
                   </Label>
                   <SearchableSelect
                     options={[
@@ -827,161 +739,7 @@ const AttenderRegistrationPage = () => {
                       const file = event.target.files?.[0];
                       if (!file) return;
 
-                      const token = getToken();
-                      if (!token) {
-                        setAlertMessage("Please log in again.");
-                        return;
-                      }
-
-                      const reader = new FileReader();
-                      reader.onload = async (e) => {
-                        try {
-                          const data = new Uint8Array(e.target?.result);
-                          const workbook = XLSX.read(data, { type: "array" });
-                          const sheetName = workbook.SheetNames[0];
-                          const worksheet = workbook.Sheets[sheetName];
-                          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                          const headers = jsonData[0];
-                          const requiredHeaders = [
-                            "Username", "Password", "Phone", "Email", "First Name", "Last Name", 
-                            "Country Code", "School ID", "Route ID", "SM Attender ID"
-                          ];
-                          const missingRequiredHeaders = requiredHeaders.filter(
-                            (header) => !headers.includes(header)
-                          );
-                          if (missingRequiredHeaders.length > 0) {
-                            setExcelError(`Missing required headers: ${missingRequiredHeaders.join(", ")}`);
-                            return;
-                          }
-
-                          const attenderDataArray = [];
-                          for (let i = 1; i < jsonData.length; i++) {
-                            const row = jsonData[i];
-                            if (!row || row.length === 0) continue;
-
-                            const rowObject = headers.reduce((obj, header, index) => {
-                              obj[header] = String(row[index] ?? "");
-                              return obj;
-                            }, {});
-
-                            // Validation for required fields (updated for new requirements)
-                            const requiredFields = ["Username", "Password", "Phone", "Email", "First Name", "Last Name", "Country Code", "School ID", "Route ID", "SM Attender ID"];
-                            const missingFields = requiredFields.filter(field => !rowObject[field]);
-                            if (missingFields.length > 0) {
-                              setExcelError(`Row ${i + 1}: Missing required fields: ${missingFields.join(", ")}`);
-                              return;
-                            }
-
-                            // Additional validations...
-                            if (!countryCodes.some((code) => code.id === rowObject["Country Code"])) {
-                              setExcelError(`Row ${i + 1}: Invalid Country Code: ${rowObject["Country Code"]}`);
-                              return;
-                            }
-
-                            const action = rowObject["Action"] ? rowObject["Action"].toLowerCase() : "register";
-                            if (action !== "register" && action !== "update") {
-                              setExcelError(`Row ${i + 1}: Invalid Action value. Must be "Register" or "Update"`);
-                              return;
-                            }
-
-                            attenderDataArray.push({
-                              username: rowObject["Username"].trim(),
-                              password: rowObject["Password"],
-                              phone: rowObject["Phone"].trim(),
-                              email: rowObject["Email"].trim().toLowerCase(),
-                              firstName: rowObject["First Name"].trim(),
-                              lastName: rowObject["Last Name"].trim(),
-                              countryCode: rowObject["Country Code"],
-                              schoolId: rowObject["School ID"],
-                              routeId: parseInt(rowObject["Route ID"]),
-                              smAttenderId: rowObject["SM Attender ID"]?.trim() || "",
-                              action: action,
-                            });
-                          }
-
-                          if (attenderDataArray.length === 0) {
-                            setExcelError("Excel file contains no valid data rows.");
-                            return;
-                          }
-
-                          if (!checkExcelDuplicates(attenderDataArray)) {
-                            return;
-                          }
-
-                          setIsSubmitting(true);
-                          const failedRegistrations = [];
-                          let successCount = 0;
-
-                          for (const attenderData of attenderDataArray) {
-                            try {
-                              const isUpdate = attenderData.action === "update";
-                              const url = isUpdate
-                                ? `${API_BASE_URL}/attender/update/${attenderData.smAttenderId}`
-                                : `${API_BASE_URL}/attender/register`;
-                              const method = isUpdate ? "PUT" : "POST";
-
-                              if (isUpdate && !attenderData.smAttenderId) {
-                                failedRegistrations.push(`${attenderData.username}: SM Attender ID required for update`);
-                                continue;
-                              }
-
-                              if (!isUpdate) {
-                                if (!(await checkExistingAttender("username", attenderData.username))) {
-                                  failedRegistrations.push(`${attenderData.username}: Username already exists`);
-                                  continue;
-                                }
-                                if (!(await checkExistingAttender("email", attenderData.email))) {
-                                  failedRegistrations.push(`${attenderData.username}: Email already exists`);
-                                  continue;
-                                }
-                              }
-
-                              const response = await fetch(url, {
-                                method,
-                                headers: {
-                                  "Content-Type": "application/json",
-                                  "Authorization": `Bearer ${token}`,
-                                },
-                                body: JSON.stringify(attenderData),
-                              });
-
-                              if (isUpdate) {
-                                const responseText = await response.text();
-                                if (!response.ok) {
-                                  failedRegistrations.push(`${attenderData.username}: ${responseText || "Update failed"}`);
-                                } else {
-                                  successCount++;
-                                }
-                              } else {
-                                const responseData = await response.json();
-                                if (!response.ok) {
-                                  failedRegistrations.push(`${attenderData.username}: ${responseData.message || "Registration failed"}`);
-                                } else {
-                                  successCount++;
-                                }
-                              }
-                            } catch {
-                              failedRegistrations.push(`${attenderData.username}: Network or unexpected error`);
-                            }
-                          }
-
-                          setIsSubmitting(false);
-
-                          if (failedRegistrations.length === 0) {
-                            setAlertMessage(`${successCount} attenders processed successfully`);
-                            resetForm();
-                            setExcelError(null);
-                          } else {
-                            const message = [`${successCount} attenders processed successfully`, `Failed to process ${failedRegistrations.length} attenders:`, ...failedRegistrations].join("\
-");
-                            setExcelError(message);
-                          }
-                        } catch {
-                          console.error("Error parsing Excel file:");
-                          setExcelError("Failed to parse Excel file. Ensure it is a valid Excel file.");
-                        }
-                      };
-                      reader.readAsArrayBuffer(file);
+                      setAlertMessage("Excel upload functionality will be implemented with backend integration.");
                     }}
                     className="hidden"
                     disabled={isSubmitting}
