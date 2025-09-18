@@ -15,6 +15,10 @@ const LogoutConfirmDialog = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
 
   const handleLogout = () => {
+    // Prevent the browser's beforeunload warning
+    window.removeEventListener('beforeunload', window.onbeforeunload);
+    window.onbeforeunload = null;
+
     // Clear all localStorage data
     localStorage.clear();
     
@@ -29,12 +33,6 @@ const LogoutConfirmDialog = ({ isOpen, onClose }) => {
         }
       });
     }
-    
-    // Clear browser history and navigation state
-    window.history.replaceState(null, '', '/');
-    
-    // Force clear console
-    console.clear();
     
     // Clear any service worker registrations
     if ('serviceWorker' in navigator) {
@@ -61,14 +59,8 @@ const LogoutConfirmDialog = ({ isOpen, onClose }) => {
       document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
     });
     
-    // Disable browser back/forward navigation
-    window.onpopstate = function() {
-      window.history.go(1);
-    };
-    
-    // Navigate to home page with full page reload to clear everything
-    window.location.href = '/';
-    window.location.reload(true);
+    // Navigate to home page using react-router-dom
+    navigate('/', { replace: true });
   };
 
   return (
