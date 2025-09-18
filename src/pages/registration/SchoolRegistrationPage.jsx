@@ -6,7 +6,13 @@ import { Label } from "../../components/ui/label";
 import { Card } from "../../components/ui/card";
 import SearchableSelect from "../../components/ui/SearchableSelect";
 import { getToken } from "../../lib/token";
-import { countryCodes, cityCodes } from "../../lib/countryCodes";
+import { 
+  countryCodes, 
+  cityCodes, 
+  indianStates, 
+  allIndianCities,
+  getCitiesByState 
+} from "../../lib/countryCodes";
 import Navbar from '../../components/Navbar';
 import { Building2, Save, RotateCcw, Upload, FileDown } from 'lucide-react';
 import * as XLSX from "xlsx";
@@ -27,6 +33,10 @@ export function SchoolRegistrationFormPage() {
     contactNum: "",
     status: true,
   });
+
+  // Available options based on selections
+  const [availableProvinces, setAvailableProvinces] = useState([]);
+  const [availableCities, setAvailableCities] = useState([]);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [excelError, setExcelError] = useState(null);
@@ -64,6 +74,9 @@ export function SchoolRegistrationFormPage() {
         setAlertMessage("Please log in again.");
         return;
       }
+      
+      // Initialize provinces for default India selection
+      setAvailableProvinces(indianStates);
       
       await Promise.all([
         fetchSchools(),
@@ -176,7 +189,7 @@ export function SchoolRegistrationFormPage() {
   const validateForm = () => {
     const newErrors = {};
 
-    // School ID: Alphanumeric, exactly 8 characters, required in both modes
+    // School ID: Alphanumeric, exactly 8 characters, ALWAYS REQUIRED
     if (!formData.schoolId) {
       newErrors.schoolId = "School ID is required";
     } else if (!/^[a-zA-Z0-9]+$/.test(formData.schoolId)) {
@@ -185,64 +198,88 @@ export function SchoolRegistrationFormPage() {
       newErrors.schoolId = "School ID must be exactly 8 characters";
     }
 
-    // Name: Letters only, minimum 2 characters, max 20 characters
-    if (!isUpdateMode || formData.name) {
+    // In registration mode, all fields are required. In update mode, only School ID is required.
+    if (!isUpdateMode) {
+      // Name: Letters only, minimum 2 characters, max 20 characters, REQUIRED in registration
       if (!formData.name || formData.name.length < 2) {
-        newErrors.name = "School name must be at least 2 characters long";
+        newErrors.name = "School name is required and must be at least 2 characters long";
       } else if (!/^[a-zA-Z\s]+$/.test(formData.name)) {
         newErrors.name = "School name must contain letters only (spaces allowed)";
       } else if (formData.name.length > 20) {
         newErrors.name = "School name must be 20 characters or less";
       }
-    }
 
-    // Country ID: Must be selected in registration mode
-    if (!isUpdateMode) {
+      // Country ID: REQUIRED in registration
       if (!formData.countryId) {
-        newErrors.countryId = "Please select a country code";
+        newErrors.countryId = "Country Code is required";
       }
-    }
 
-    // Province ID: Alphanumeric, max 3 characters, optional
-    if (formData.provId) {
-      if (!/^[a-zA-Z0-9]+$/.test(formData.provId)) {
-        newErrors.provId = "Province ID must be alphanumeric";
-      } else if (formData.provId.length > 3) {
-        newErrors.provId = "Province ID must be 3 characters or less";
+      // Province ID: REQUIRED in registration
+      if (!formData.provId) {
+        newErrors.provId = "Province ID is required";
       }
-    }
 
-    // Area ID: Alphanumeric, max 3 characters, optional
-    if (formData.areaId) {
-      if (!/^[a-zA-Z0-9]+$/.test(formData.areaId)) {
-        newErrors.areaId = "Area ID must be alphanumeric";
-      } else if (formData.areaId.length > 3) {
-        newErrors.areaId = "Area ID must be 3 characters or less";
+      // Area ID: REQUIRED in registration
+      if (!formData.areaId) {
+        newErrors.areaId = "Area ID is required";
       }
-    }
 
-    // Entity ID: Alphanumeric, max 3 characters, optional
-    if (formData.entityId) {
-      if (!/^[a-zA-Z0-9]+$/.test(formData.entityId)) {
+      // Entity ID: Alphanumeric, exactly 10 characters, REQUIRED in registration
+      if (!formData.entityId) {
+        newErrors.entityId = "Entity ID is required";
+      } else if (!/^[a-zA-Z0-9]+$/.test(formData.entityId)) {
         newErrors.entityId = "Entity ID must be alphanumeric";
-      } else if (formData.entityId.length > 3) {
-        newErrors.entityId = "Entity ID must be 3 characters or less";
+      } else if (formData.entityId.length !== 10) {
+        newErrors.entityId = "Entity ID must be exactly 10 characters";
       }
-    }
 
-    // Contact Name: Letters only, max 20 characters, optional
-    if (formData.contactName) {
-      if (!/^[a-zA-Z\s]+$/.test(formData.contactName)) {
+      // Contact Name: Letters only, max 20 characters, REQUIRED in registration
+      if (!formData.contactName) {
+        newErrors.contactName = "Contact name is required";
+      } else if (!/^[a-zA-Z\s]+$/.test(formData.contactName)) {
         newErrors.contactName = "Contact name must contain letters only (spaces allowed)";
       } else if (formData.contactName.length > 20) {
         newErrors.contactName = "Contact name must be 20 characters or less";
       }
-    }
 
-    // Contact Number: exactly 10 digits, optional
-    if (formData.contactNum) {
-      if (!/^\d{10}$/.test(formData.contactNum)) {
+      // Contact Number: exactly 10 digits, REQUIRED in registration
+      if (!formData.contactNum) {
+        newErrors.contactNum = "Contact number is required";
+      } else if (!/^\d{10}$/.test(formData.contactNum)) {
         newErrors.contactNum = "Contact number must be exactly 10 digits";
+      }
+    } else {
+      // In update mode, validate only if fields are provided
+      if (formData.name && formData.name.length > 0) {
+        if (formData.name.length < 2) {
+          newErrors.name = "School name must be at least 2 characters long";
+        } else if (!/^[a-zA-Z\s]+$/.test(formData.name)) {
+          newErrors.name = "School name must contain letters only (spaces allowed)";
+        } else if (formData.name.length > 20) {
+          newErrors.name = "School name must be 20 characters or less";
+        }
+      }
+
+      if (formData.entityId && formData.entityId.length > 0) {
+        if (!/^[a-zA-Z0-9]+$/.test(formData.entityId)) {
+          newErrors.entityId = "Entity ID must be alphanumeric";
+        } else if (formData.entityId.length !== 10) {
+          newErrors.entityId = "Entity ID must be exactly 10 characters";
+        }
+      }
+
+      if (formData.contactName && formData.contactName.length > 0) {
+        if (!/^[a-zA-Z\s]+$/.test(formData.contactName)) {
+          newErrors.contactName = "Contact name must contain letters only (spaces allowed)";
+        } else if (formData.contactName.length > 20) {
+          newErrors.contactName = "Contact name must be 20 characters or less";
+        }
+      }
+
+      if (formData.contactNum && formData.contactNum.length > 0) {
+        if (!/^\d{10}$/.test(formData.contactNum)) {
+          newErrors.contactNum = "Contact number must be exactly 10 digits";
+        }
       }
     }
 
@@ -260,12 +297,42 @@ export function SchoolRegistrationFormPage() {
   };
 
   const handleSelectChange = (field, value) => {
-    setFormData({
-      ...formData,
-      [field]: value,
-    });
+    let newFormData = { ...formData, [field]: value };
+    
+    // Reset dependent fields when parent changes
+    if (field === 'countryId') {
+      newFormData.provId = '';
+      newFormData.areaId = '';
+    } else if (field === 'provId') {
+      newFormData.areaId = '';
+    }
+    
+    setFormData(newFormData);
     setErrors({ ...errors, [field]: undefined });
   };
+
+  // Update available provinces when country changes
+  useEffect(() => {
+    if (formData.countryId === 'IN') {
+      setAvailableProvinces(indianStates);
+    } else {
+      setAvailableProvinces([]);
+    }
+  }, [formData.countryId]);
+
+  // Update available cities when province changes
+  useEffect(() => {
+    if (formData.countryId === 'IN' && formData.provId) {
+      const citiesForState = getCitiesByState(formData.provId);
+      setAvailableCities(citiesForState);
+    } else if (formData.countryId !== 'IN') {
+      // For international countries, show international cities for that country
+      const internationalCities = cityCodes.filter(city => city.country === formData.countryId);
+      setAvailableCities(internationalCities);
+    } else {
+      setAvailableCities([]);
+    }
+  }, [formData.provId, formData.countryId]);
 
   const resetForm = (newUpdateMode = false) => {
     setFormData({
@@ -283,6 +350,8 @@ export function SchoolRegistrationFormPage() {
     setExcelError(null);
     setErrors({});
     setSelectedSchoolForUpdate("");
+    setAvailableProvinces(indianStates);
+    setAvailableCities([]);
   };
 
   const handleSchoolSelection = async (schoolId) => {
@@ -300,8 +369,8 @@ export function SchoolRegistrationFormPage() {
           'School Name': 'Sample School',
           'Country Code': 'IN',
           'Province ID': 'KA',
-          'Area ID': 'BNG',
-          'Entity ID': 'EDU',
+          'Area ID': 'BLR',
+          'Entity ID': 'EDU1234567',
           'Contact Name': 'John Smith',
           'Contact Number': '9876543210',
           'Status': 'Active',
@@ -314,7 +383,7 @@ export function SchoolRegistrationFormPage() {
       XLSX.utils.book_append_sheet(workbook, worksheet, "School Template");
       XLSX.writeFile(workbook, `school_registration_template.xlsx`);
       
-      setAlertMessage("Excel template downloaded successfully!");
+      setAlertMessage("Excel template downloaded successfully! Note: All fields marked with * are mandatory.");
     } catch (error) {
       console.error('Download failed:', error);
       setAlertMessage("Failed to download template");
@@ -558,27 +627,36 @@ export function SchoolRegistrationFormPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="provId" className={themeClasses.label}>
-                    Province ID:
+                    Province ID: {!isUpdateMode && <span className="text-red-400">*</span>}
                   </Label>
-                  <Input
-                    id="provId"
-                    name="provId"
-                    placeholder="Enter Province ID (3 chars max)"
+                  <SearchableSelect
+                    options={availableProvinces.map(province => ({
+                      value: province.id,
+                      label: `${province.name} - ${province.id}`
+                    }))}
                     value={formData.provId}
-                    onChange={handleChange}
-                    maxLength={3}
-                    className={`${themeClasses.input} ${errors.provId ? "border-red-500" : ""}`}
-                    disabled={isSubmitting}
+                    onValueChange={(value) => handleSelectChange('provId', value)}
+                    placeholder="Select Province/State"
+                    searchPlaceholder="Search provinces/states..."
+                    error={!!errors.provId}
+                    disabled={isSubmitting || !formData.countryId || (formData.countryId !== 'IN')}
+                    className={themeClasses.input}
                   />
                   {errors.provId && <p className="text-red-500 text-sm">{errors.provId}</p>}
+                  {!formData.countryId && (
+                    <p className="text-yellow-600 dark:text-yellow-400 text-sm">Please select a country first</p>
+                  )}
+                  {formData.countryId && formData.countryId !== 'IN' && (
+                    <p className="text-yellow-600 dark:text-yellow-400 text-sm">Province selection not available for international countries</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="areaId" className={themeClasses.label}>
-                    Area ID:
+                    Area ID: {!isUpdateMode && <span className="text-red-400">*</span>}
                   </Label>
                   <SearchableSelect
-                    options={cityCodes.map(city => ({
+                    options={availableCities.map(city => ({
                       value: city.id,
                       label: `${city.name} - ${city.id}`
                     }))}
@@ -587,23 +665,30 @@ export function SchoolRegistrationFormPage() {
                     placeholder="Select Area/City"
                     searchPlaceholder="Search cities..."
                     error={!!errors.areaId}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || (!formData.provId && formData.countryId === 'IN') || (!formData.countryId)}
                     className={themeClasses.input}
                   />
                   {errors.areaId && <p className="text-red-500 text-sm">{errors.areaId}</p>}
+                  {formData.countryId === 'IN' && !formData.provId && (
+                    <p className="text-yellow-600 dark:text-yellow-400 text-sm">Please select a province first</p>
+                  )}
+                  {!formData.countryId && (
+                    <p className="text-yellow-600 dark:text-yellow-400 text-sm">Please select a country first</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="entityId" className={themeClasses.label}>
-                    Entity ID:
+                    Entity ID: {!isUpdateMode && <span className="text-red-400">*</span>}
                   </Label>
                   <Input
                     id="entityId"
                     name="entityId"
-                    placeholder="Enter Entity ID (3 chars max)"
+                    placeholder="Enter Entity ID (10 characters)"
                     value={formData.entityId}
                     onChange={handleChange}
-                    maxLength={3}
+                    maxLength={10}
+                    required={!isUpdateMode}
                     className={`${themeClasses.input} ${errors.entityId ? "border-red-500" : ""}`}
                     disabled={isSubmitting}
                   />
@@ -612,7 +697,7 @@ export function SchoolRegistrationFormPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="contactName" className={themeClasses.label}>
-                    Contact Name:
+                    Contact Name: {!isUpdateMode && <span className="text-red-400">*</span>}
                   </Label>
                   <Input
                     id="contactName"
@@ -621,6 +706,7 @@ export function SchoolRegistrationFormPage() {
                     value={formData.contactName}
                     onChange={handleChange}
                     maxLength={20}
+                    required={!isUpdateMode}
                     className={`${themeClasses.input} ${errors.contactName ? "border-red-500" : ""}`}
                     disabled={isSubmitting}
                   />
@@ -629,7 +715,7 @@ export function SchoolRegistrationFormPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="contactNum" className={themeClasses.label}>
-                    Contact Number:
+                    Contact Number: {!isUpdateMode && <span className="text-red-400">*</span>}
                   </Label>
                   <Input
                     id="contactNum"
@@ -639,6 +725,7 @@ export function SchoolRegistrationFormPage() {
                     onChange={handleChange}
                     maxLength={10}
                     pattern="\d*"
+                    required={!isUpdateMode}
                     className={`${themeClasses.input} ${errors.contactNum ? "border-red-500" : ""}`}
                     disabled={isSubmitting}
                   />
@@ -647,7 +734,7 @@ export function SchoolRegistrationFormPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="status" className={themeClasses.label}>
-                    Status:
+                    Status: {!isUpdateMode && <span className="text-red-400">*</span>}
                   </Label>
                   <SearchableSelect
                     options={[

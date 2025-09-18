@@ -167,7 +167,7 @@ export const andhraPreseshCities = [
 
 // Major Cities for Karnataka
 export const karnatakaCities = [
-  { id: "BLR", name: "Bengaluru", code: "BLR", state: "KA", population: "12.3M", isCapital: true },
+  { id: "BNG", name: "Bengaluru", code: "BNG", state: "KA", population: "12.3M", isCapital: true },
   { id: "MYS", name: "Mysuru", code: "MYS", state: "KA", population: "920K", isCapital: false },
   { id: "HBL", name: "Hubballi", code: "HBL", state: "KA", population: "1.0M", isCapital: false },
   { id: "MNG", name: "Mangaluru", code: "MNG", state: "KA", population: "488K", isCapital: false },

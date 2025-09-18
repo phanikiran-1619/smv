@@ -163,6 +163,13 @@ const RouteAssignPage = () => {
     smAttenderId: ''
   });
 
+  // Original form data for comparison (used to detect changes)
+  const [originalFormData, setOriginalFormData] = useState({
+    smRouteId: '',
+    smDriverID: '',
+    smAttenderId: ''
+  });
+
   // API base URL from environment
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
@@ -293,7 +300,7 @@ const RouteAssignPage = () => {
   const preparePayload = useCallback((isUpdate = false) => {
     const payload = {
       schoolId: formData.schoolId,
-      status: 1
+      status: 1 // Always set status to 1
     };
     if (formData.smRouteId) payload.smRouteId = formData.smRouteId;
     if (formData.smDriverID) payload.smDriverID = formData.smDriverID;
@@ -303,6 +310,17 @@ const RouteAssignPage = () => {
     }
     return payload;
   }, [formData]);
+
+  // Check if form has changes
+  const hasFormChanges = useMemo(() => {
+    if (!editingAssignment) return true; // Always allow creation
+    
+    return (
+      formData.smRouteId !== originalFormData.smRouteId ||
+      formData.smDriverID !== originalFormData.smDriverID ||
+      formData.smAttenderId !== originalFormData.smAttenderId
+    );
+  }, [formData, originalFormData, editingAssignment]);
 
   // Optimistic create assignment
   const createAssignment = useCallback(async () => {
@@ -391,6 +409,12 @@ const RouteAssignPage = () => {
   const updateAssignment = useCallback(async () => {
     if (updateLoading || !editingAssignment) return;
     
+    // Check if there are actually changes
+    if (!hasFormChanges) {
+      showNotification('No changes detected to update', 'error');
+      return;
+    }
+    
     // Clear previous errors
     clearFormErrors();
     
@@ -456,7 +480,7 @@ const RouteAssignPage = () => {
     } finally {
       setUpdateLoading(false);
     }
-  }, [updateLoading, editingAssignment, clearFormErrors, validateForm, preparePayload, showNotification, API_BASE_URL]);
+  }, [updateLoading, editingAssignment, hasFormChanges, clearFormErrors, validateForm, preparePayload, showNotification, API_BASE_URL]);
 
   // Optimistic delete assignment
   const deleteAssignment = useCallback(async () => {
@@ -502,6 +526,11 @@ const RouteAssignPage = () => {
       smDriverID: '',
       smAttenderId: ''
     });
+    setOriginalFormData({
+      smRouteId: '',
+      smDriverID: '',
+      smAttenderId: ''
+    });
     setRouteSearch('');
     setDriverSearch('');
     setAttenderSearch('');
@@ -513,13 +542,22 @@ const RouteAssignPage = () => {
 
   const handleEdit = useCallback((assignment) => {
     setEditingAssignment(assignment);
-    setFormData({
+    const currentFormData = {
       date: new Date().toISOString().split('T')[0],
       schoolId: assignment.schoolId,
       smRouteId: assignment.smRouteId || '',
       smDriverID: assignment.smDriverID || '',
       smAttenderId: assignment.smAttenderId || ''
+    };
+    setFormData(currentFormData);
+    
+    // Store original data for comparison
+    setOriginalFormData({
+      smRouteId: assignment.smRouteId || '',
+      smDriverID: assignment.smDriverID || '',
+      smAttenderId: assignment.smAttenderId || ''
     });
+    
     setRouteSearch(routes.find(r => r.smRouteId === assignment.smRouteId)?.routeName || '');
     setDriverSearch(drivers.find(d => d.smDriverId === assignment.smDriverID)?.user?.username || '');
     setAttenderSearch(attenders.find(a => a.smAttenderId === assignment.smAttenderId)?.user?.username || '');
@@ -1091,21 +1129,23 @@ const RouteAssignPage = () => {
                             />
                           </div>
                           <div className="max-h-48 overflow-y-auto">
-                            {/* Add option to clear driver selection */}
-                            <div
-                              onClick={() => {
-                                setFormData({...formData, smDriverID: ''});
-                                setDriverSearch('');
-                                setShowDriverDropdown(false);
-                                // Clear general error when selection changes
-                                if (formErrors.general) {
-                                  setFormErrors(prev => ({ ...prev, general: '' }));
-                                }
-                              }}
-                              className="px-4 py-3 dark:hover:bg-slate-600 hover:bg-gray-100 cursor-pointer dark:text-white text-gray-800 transition-colors duration-150 dark:border-slate-600/30 border-gray-300/30 border-b italic"
-                            >
-                              Clear Selection
-                            </div>
+                            {/* Add option to clear driver selection - only show during creation, not during update */}
+                            {!editingAssignment && (
+                              <div
+                                onClick={() => {
+                                  setFormData({...formData, smDriverID: ''});
+                                  setDriverSearch('');
+                                  setShowDriverDropdown(false);
+                                  // Clear general error when selection changes
+                                  if (formErrors.general) {
+                                    setFormErrors(prev => ({ ...prev, general: '' }));
+                                  }
+                                }}
+                                className="px-4 py-3 dark:hover:bg-slate-600 hover:bg-gray-100 cursor-pointer dark:text-white text-gray-800 transition-colors duration-150 dark:border-slate-600/30 border-gray-300/30 border-b italic"
+                              >
+                                Clear Selection
+                              </div>
+                            )}
                             {filteredDrivers.map((driver) => (
                               <div
                                 key={driver.smDriverId}
@@ -1160,21 +1200,23 @@ const RouteAssignPage = () => {
                             />
                           </div>
                           <div className="max-h-48 overflow-y-auto">
-                            {/* Add option to clear attender selection */}
-                            <div
-                              onClick={() => {
-                                setFormData({...formData, smAttenderId: ''});
-                                setAttenderSearch('');
-                                setShowAttenderDropdown(false);
-                                // Clear general error when selection changes
-                                if (formErrors.general) {
-                                  setFormErrors(prev => ({ ...prev, general: '' }));
-                                }
-                              }}
-                              className="px-4 py-3 dark:hover:bg-slate-600 hover:bg-gray-100 cursor-pointer dark:text-white text-gray-800 transition-colors duration-150 dark:border-slate-600/30 border-gray-300/30 border-b italic"
-                            >
-                              Clear Selection
-                            </div>
+                            {/* Add option to clear attender selection - only show during creation, not during update */}
+                            {!editingAssignment && (
+                              <div
+                                onClick={() => {
+                                  setFormData({...formData, smAttenderId: ''});
+                                  setAttenderSearch('');
+                                  setShowAttenderDropdown(false);
+                                  // Clear general error when selection changes
+                                  if (formErrors.general) {
+                                    setFormErrors(prev => ({ ...prev, general: '' }));
+                                  }
+                                }}
+                                className="px-4 py-3 dark:hover:bg-slate-600 hover:bg-gray-100 cursor-pointer dark:text-white text-gray-800 transition-colors duration-150 dark:border-slate-600/30 border-gray-300/30 border-b italic"
+                              >
+                                Clear Selection
+                              </div>
+                            )}
                             {filteredAttenders.map((attender) => (
                               <div
                                 key={attender.smAttenderId}
@@ -1205,6 +1247,11 @@ const RouteAssignPage = () => {
                   {/* Validation note */}
                   <div className="text-sm dark:text-gray-400 text-gray-600 bg-gray-50 dark:bg-slate-700/50 p-3 rounded-lg">
                     <p><span className="font-medium">Note:</span> You must select at least one driver or attender along with a route to create an assignment.</p>
+                    {editingAssignment && !hasFormChanges && (
+                      <p className="mt-2 text-orange-600 dark:text-orange-400">
+                        <span className="font-medium">Update Info:</span> Make changes to enable the update button.
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex justify-end gap-4 pt-6">
@@ -1221,10 +1268,17 @@ const RouteAssignPage = () => {
                     </button>
                     <button
                       type="submit"
-                      disabled={createLoading || updateLoading}
-                      className="px-6 py-3 bg-gradient-to-r dark:from-yellow-500 dark:to-orange-500 dark:text-slate-900 from-blue-500 to-blue-600 text-white font-semibold rounded-xl dark:hover:from-yellow-600 dark:hover:to-orange-600 hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={createLoading || updateLoading || (editingAssignment && !hasFormChanges)}
+                      className={`px-6 py-3 font-semibold rounded-xl transition-all duration-200 shadow-md ${
+                        editingAssignment && !hasFormChanges
+                          ? 'bg-gray-400 dark:bg-gray-600 text-gray-600 dark:text-gray-400 cursor-not-allowed opacity-50'
+                          : 'bg-gradient-to-r dark:from-yellow-500 dark:to-orange-500 dark:text-slate-900 from-blue-500 to-blue-600 text-white dark:hover:from-yellow-600 dark:hover:to-orange-600 hover:from-blue-600 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed'
+                      }`}
                     >
-                      {editingAssignment ? 'Update Assignment' : 'Create Assignment'}
+                      {editingAssignment ? 
+                        (hasFormChanges ? 'Update Assignment' : 'No Changes to Update') : 
+                        'Create Assignment'
+                      }
                     </button>
                   </div>
                 </form>
