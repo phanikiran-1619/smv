@@ -5,10 +5,9 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Card } from "../../components/ui/card";
 import SearchableSelect from "../../components/ui/SearchableSelect";
-import SchoolSelect from "../../components/ui/SchoolSelect";
 import SkeletonForm from "../../components/ui/SkeletonForm";
 import { getToken } from "../../lib/token";
-import { countryCodes, cityCodes } from "../../lib/countryCodes";
+import { countryCodes, cityCodes, andhraPreseshCities, karnatakaCities, tamilNaduCities } from "../../lib/countryCodes";
 import Navbar from '../../components/Navbar';
 import { MapPin, Save, RotateCcw, Upload, FileDown } from 'lucide-react';
 import * as XLSX from "xlsx";
@@ -35,16 +34,36 @@ const RouteRegistrationPage = () => {
   const [alertMessage, setAlertMessage] = useState(null);
   const [errors, setErrors] = useState({});
   const [routes, setRoutes] = useState([]);
+  const [schools, setSchools] = useState([]);
   const [selectedRouteForUpdate, setSelectedRouteForUpdate] = useState("");
   const [selectedSchoolDetails, setSelectedSchoolDetails] = useState(null);
-  const [filteredCityCodes, setFilteredCityCodes] = useState(cityCodes);
+  const [filteredCityCodes, setFilteredCityCodes] = useState([]);
   const [loadingStates, setLoadingStates] = useState({
     routes: false,
     routeDetails: false,
-    schoolDetails: false,
+    schools: false,
   });
 
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
+
+  // Function to get cities based on provId
+  const getCitiesByProvId = (provId) => {
+    console.log('Getting cities for provId:', provId);
+    switch (provId) {
+      case "AP":
+        console.log('Returning AP cities:', andhraPreseshCities);
+        return andhraPreseshCities;
+      case "KA":
+        console.log('Returning KA cities:', karnatakaCities);
+        return karnatakaCities;
+      case "TN":
+        console.log('Returning TN cities:', tamilNaduCities);
+        return tamilNaduCities;
+      default:
+        console.log('No cities found for provId:', provId);
+        return []; // Return empty array if provId is not supported
+    }
+  };
 
   // Listen for theme changes from navbar
   useEffect(() => {
@@ -66,6 +85,8 @@ const RouteRegistrationPage = () => {
         return;
       }
       
+      await fetchSchools();
+      
       if (isUpdateMode) {
         await fetchRoutes();
       }
@@ -73,57 +94,69 @@ const RouteRegistrationPage = () => {
     initializePage();
   }, [isUpdateMode]);
 
-  // Fetch school details when school is selected to filter city codes
+  // Handle city filtering when school is selected
   useEffect(() => {
-    const fetchSchoolDetails = async () => {
-      if (!formData.schoolId) {
-        setFilteredCityCodes(cityCodes);
-        setSelectedSchoolDetails(null);
+    console.log('School selection changed:', formData.schoolId);
+    console.log('Current schools array:', schools);
+    
+    if (!formData.schoolId) {
+      console.log('No school selected, clearing city codes');
+      setFilteredCityCodes([]);
+      setSelectedSchoolDetails(null);
+      if (!isUpdateMode) {
         setFormData(prev => ({ ...prev, cityCode: "" }));
-        return;
       }
+      return;
+    }
 
-      try {
-        setLoadingStates(prev => ({ ...prev, schoolDetails: true }));
-        const token = getToken();
-        if (!token) return;
-        
-        const response = await fetch(`${API_BASE_URL}/school/${formData.schoolId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        
-        if (response.ok) {
-          const schoolData = await response.json();
-          setSelectedSchoolDetails(schoolData);
-          
-          // Filter city codes based on school's provId (like "KA" for Karnataka)
-          if (schoolData.provId) {
-            const filtered = cityCodes.filter(city => city.state === schoolData.provId);
-            setFilteredCityCodes(filtered);
-            
-            // Reset city code if current selection is not in filtered list
-            if (formData.cityCode && !filtered.some(city => city.id === formData.cityCode)) {
-              setFormData(prev => ({ ...prev, cityCode: "" }));
-            }
-          } else {
-            setFilteredCityCodes(cityCodes);
-          }
-        } else {
-          // If school fetch fails, reset to all cities
-          setFilteredCityCodes(cityCodes);
-          setSelectedSchoolDetails(null);
-        }
-      } catch (error) {
-        console.error('Error fetching school details:', error);
-        setFilteredCityCodes(cityCodes);
-        setSelectedSchoolDetails(null);
-      } finally {
-        setLoadingStates(prev => ({ ...prev, schoolDetails: false }));
+    // Find the selected school from the schools array to get provId
+    const selectedSchool = schools.find(school => school.id === formData.schoolId);
+    console.log('Found selected school:', selectedSchool);
+    
+    if (selectedSchool && selectedSchool.provId) {
+      setSelectedSchoolDetails(selectedSchool);
+      const filtered = getCitiesByProvId(selectedSchool.provId);
+      console.log('Filtered cities:', filtered);
+      setFilteredCityCodes(filtered);
+      
+      // Reset city code if current selection is not in filtered list (only in registration mode)
+      if (!isUpdateMode && formData.cityCode && !filtered.some(city => city.id === formData.cityCode)) {
+        console.log('Resetting city code as it is not in filtered list');
+        setFormData(prev => ({ ...prev, cityCode: "" }));
       }
-    };
+    } else {
+      console.log('School not found or no provId');
+      setFilteredCityCodes([]);
+      setSelectedSchoolDetails(null);
+    }
+  }, [formData.schoolId, schools, isUpdateMode]);
 
-    fetchSchoolDetails();
-  }, [formData.schoolId]);
+  // Fetch schools for dropdown
+  const fetchSchools = async () => {
+    try {
+      setLoadingStates(prev => ({ ...prev, schools: true }));
+      const token = getToken();
+      if (!token) return;
+      
+      const response = await fetch(`${API_BASE_URL}/school`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Fetched schools data:', data);
+        setSchools(Array.isArray(data) ? data : []);
+      } else {
+        console.error('Failed to fetch schools:', response.status);
+        setSchools([]);
+      }
+    } catch (error) {
+      console.error('Error fetching schools:', error);
+      setSchools([]);
+    } finally {
+      setLoadingStates(prev => ({ ...prev, schools: false }));
+    }
+  };
 
   // Fetch routes for update mode dropdown
   const fetchRoutes = async () => {
@@ -211,12 +244,18 @@ const RouteRegistrationPage = () => {
       }
     }
 
-    // City Code: Must be provided
+    // City Code: Must be provided if cities are available for the selected school
     if (!isUpdateMode || formData.cityCode) {
       if (!formData.cityCode) {
-        newErrors.cityCode = "Please select a city code";
-      } else if (!filteredCityCodes.some((option) => option.id === formData.cityCode)) {
-        newErrors.cityCode = "Invalid city code";
+        if (filteredCityCodes.length > 0) {
+          newErrors.cityCode = "Please select a city code";
+        } else if (formData.schoolId && selectedSchoolDetails?.provId) {
+          newErrors.cityCode = `No city codes available for state: ${selectedSchoolDetails.provId}`;
+        } else {
+          newErrors.cityCode = "Please select a school first";
+        }
+      } else if (filteredCityCodes.length > 0 && !filteredCityCodes.some((option) => option.id === formData.cityCode)) {
+        newErrors.cityCode = "Invalid city code for selected school";
       }
     }
 
@@ -274,7 +313,7 @@ const RouteRegistrationPage = () => {
     setErrors({});
     setSelectedRouteForUpdate("");
     setSelectedSchoolDetails(null);
-    setFilteredCityCodes(cityCodes);
+    setFilteredCityCodes([]);
   };
 
   const handleRouteSelection = async (smRouteId) => {
@@ -487,7 +526,7 @@ const RouteRegistrationPage = () => {
                       throw new Error(responseText || "Update failed");
                     }
 
-                    setAlertMessage("Successfully updated");
+                    setAlertMessage("Route updated successfully");
                     resetForm();
                   } else {
                     // Remove smRouteId from registration request as it will be auto-generated
@@ -510,12 +549,19 @@ const RouteRegistrationPage = () => {
                       body: JSON.stringify(registerBody),
                     });
 
-                    const responseData = await response.json();
-                    if (!response.ok) {
-                      throw new Error(responseData.detail || responseData.message || "Registration failed");
+                    const responseText = await response.text();
+                    let responseData;
+                    try {
+                      responseData = JSON.parse(responseText);
+                    } catch {
+                      responseData = { message: responseText };
                     }
 
-                    setAlertMessage("Successfully registered");
+                    if (!response.ok) {
+                      throw new Error(responseData.message || responseData.detail || "Registration failed");
+                    }
+
+                    setAlertMessage("Route registered successfully");
                     resetForm();
                   }
                 } catch (error) {
@@ -568,18 +614,27 @@ const RouteRegistrationPage = () => {
                   {errors.title && <p className="text-red-500 text-sm">{errors.title}</p>}
                 </div>
 
-                <div className={`space-y-2 ${errors.schoolId ? "border border-red-500 rounded p-2" : ""}`}>
-                  <Label className={themeClasses.label}>
+                <div className="space-y-2">
+                  <Label htmlFor="schoolId" className={themeClasses.label}>
                     School: {!isUpdateMode && <span className="text-red-400">*</span>}
                   </Label>
-                  <div className={`${isUpdateMode ? "pointer-events-none opacity-50" : ""}`}>
-                    <SchoolSelect
+                  {loadingStates.schools ? (
+                    <SkeletonLoader />
+                  ) : (
+                    <SearchableSelect
+                      options={schools.map(school => ({
+                        value: school.id,
+                        label: `${school.name} (${school.id}) - ${school.provId || 'No State'}`
+                      }))}
                       value={formData.schoolId}
-                      onChange={(value) => handleSelectChange('schoolId', value)}
+                      onValueChange={(value) => handleSelectChange('schoolId', value)}
+                      placeholder="Search and select a school..."
+                      searchPlaceholder="Search schools..."
                       error={!!errors.schoolId}
-                      disabled={isUpdateMode}
+                      disabled={isUpdateMode || isSubmitting}
+                      className={`${themeClasses.input} ${isUpdateMode ? "opacity-50 cursor-not-allowed" : ""}`}
                     />
-                  </div>
+                  )}
                   {errors.schoolId && <p className="text-red-500 text-sm">{errors.schoolId}</p>}
                   {isUpdateMode && formData.schoolId && (
                     <p className="text-xs text-gray-500">School cannot be changed in update mode</p>
@@ -595,26 +650,28 @@ const RouteRegistrationPage = () => {
                       </span>
                     )}
                   </Label>
-                  {loadingStates.schoolDetails ? (
-                    <SkeletonLoader />
-                  ) : (
-                    <SearchableSelect
-                      options={filteredCityCodes.map(city => ({
-                        value: city.id,
-                        label: `${city.name} - ${city.id}`
-                      }))}
-                      value={formData.cityCode}
-                      onValueChange={(value) => handleSelectChange('cityCode', value)}
-                      placeholder="Select City Code"
-                      searchPlaceholder="Search cities..."
-                      error={!!errors.cityCode}
-                      disabled={isSubmitting || !formData.schoolId}
-                      className={themeClasses.input}
-                    />
-                  )}
+                  <SearchableSelect
+                    options={filteredCityCodes.map(city => ({
+                      value: city.id,
+                      label: `${city.name} - ${city.id}`
+                    }))}
+                    value={formData.cityCode}
+                    onValueChange={(value) => handleSelectChange('cityCode', value)}
+                    placeholder="Select City Code"
+                    searchPlaceholder="Search cities..."
+                    error={!!errors.cityCode}
+                    disabled={isSubmitting || !formData.schoolId || isUpdateMode || filteredCityCodes.length === 0}
+                    className={`${themeClasses.input} ${isUpdateMode ? "opacity-50 cursor-not-allowed" : ""}`}
+                  />
                   {errors.cityCode && <p className="text-red-500 text-sm">{errors.cityCode}</p>}
-                  {!formData.schoolId && (
+                  {!formData.schoolId && !isUpdateMode && (
                     <p className="text-xs text-gray-500">Please select a school first to filter city codes</p>
+                  )}
+                  {formData.schoolId && filteredCityCodes.length === 0 && !isUpdateMode && (
+                    <p className="text-xs text-yellow-600">No city codes found for this school's state ({selectedSchoolDetails?.provId || 'Unknown'})</p>
+                  )}
+                  {isUpdateMode && formData.cityCode && (
+                    <p className="text-xs text-gray-500">City code cannot be changed in update mode</p>
                   )}
                 </div>
 
@@ -656,7 +713,7 @@ const RouteRegistrationPage = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="status" className={themeClasses.label}>
-                    Status:
+                    Status: {!isUpdateMode && <span className="text-red-400">*</span>}
                   </Label>
                   <SearchableSelect
                     options={[

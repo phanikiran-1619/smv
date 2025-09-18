@@ -287,16 +287,16 @@ export function StudentRegistrationFormPage() {
         newErrors.parentId = "Please select a parent";
       }
 
-      if (!formData.firstName || formData.firstName.length < 2) {
-        newErrors.firstName = "First name must be at least 2 characters long";
+      if (!formData.firstName || formData.firstName.length < 3) {
+        newErrors.firstName = "First name must be at least 3 characters long";
       } else if (!/^[a-zA-Z]+$/.test(formData.firstName)) {
         newErrors.firstName = "First name must contain letters only";
       } else if (formData.firstName.length > 20) {
         newErrors.firstName = "First name must be 20 characters or less";
       }
 
-      if (!formData.lastName || formData.lastName.length < 2) {
-        newErrors.lastName = "Last name must be at least 2 characters long";
+      if (!formData.lastName || formData.lastName.length < 3) {
+        newErrors.lastName = "Last name must be at least 3 characters long";
       } else if (!/^[a-zA-Z]+$/.test(formData.lastName)) {
         newErrors.lastName = "Last name must contain letters only";
       } else if (formData.lastName.length > 20) {

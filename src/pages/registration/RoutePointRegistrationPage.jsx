@@ -26,7 +26,6 @@ export function RoutePointRegistrationPage() {
     reserve: "",
     content: "",
     seqOrder: 0,
-    smRoutePointId: "",
   });
   
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -38,6 +37,7 @@ export function RoutePointRegistrationPage() {
   const [schools, setSchools] = useState([]);
   const [routes, setRoutes] = useState([]);
   const [selectedRoutePointForUpdate, setSelectedRoutePointForUpdate] = useState("");
+  const [selectedRoutePointId, setSelectedRoutePointId] = useState(""); // Store smRoutePointId for updates
   const [loadingStates, setLoadingStates] = useState({
     routePoints: false,
     schools: false,
@@ -138,7 +138,7 @@ export function RoutePointRegistrationPage() {
       const selectedSchool = schools.find(school => school.id === schoolId);
       const smSchoolId = selectedSchool?.smSchoolId || selectedSchool?.id || schoolId;
       
-      const response = await fetch(`${API_BASE_URL}/route?smSchoolId=${smSchoolId}`, {
+      const response = await fetch(`${API_BASE_URL}/route/school/${smSchoolId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       
@@ -181,8 +181,9 @@ export function RoutePointRegistrationPage() {
             reserve: data.reserve || "",
             content: data.content || "",
             seqOrder: data.seqOrder || 0,
-            smRoutePointId: data.smRoutePointId || "",
           });
+          // Store the smRoutePointId for update API calls
+          setSelectedRoutePointId(data.smRoutePointId || smRoutePointId);
         }
       }
     } catch (error) {
@@ -277,15 +278,6 @@ export function RoutePointRegistrationPage() {
       newErrors.content = "Content must be 100 characters or less";
     }
 
-    // SM Route Point ID: Required in both modes, alphanumeric, max 10 characters
-    if (!formData.smRoutePointId) {
-      newErrors.smRoutePointId = "SM Route Point ID is required";
-    } else if (!/^[a-zA-Z0-9]+$/.test(formData.smRoutePointId)) {
-      newErrors.smRoutePointId = "SM Route Point ID must be alphanumeric";
-    } else if (formData.smRoutePointId.length > 10) {
-      newErrors.smRoutePointId = "SM Route Point ID must be 10 characters or less";
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -328,12 +320,12 @@ export function RoutePointRegistrationPage() {
       reserve: "",
       content: "",
       seqOrder: 0,
-      smRoutePointId: "",
     });
     setIsUpdateMode(newUpdateMode);
     setExcelError(null);
     setErrors({});
     setSelectedRoutePointForUpdate("");
+    setSelectedRoutePointId(""); // Reset the route point ID
     setRoutes([]); // Clear routes when resetting
   };
 
@@ -341,6 +333,8 @@ export function RoutePointRegistrationPage() {
     setSelectedRoutePointForUpdate(smRoutePointId);
     if (smRoutePointId) {
       await fetchRoutePointDetails(smRoutePointId);
+    } else {
+      setSelectedRoutePointId(""); // Clear the ID if no route point selected
     }
   };
 
@@ -367,7 +361,6 @@ export function RoutePointRegistrationPage() {
   const checkExcelDuplicates = (routePointDataArray) => {
     const seenRoutePoints = new Map();
     const seenSeqOrders = new Map();
-    const seenSmRoutePointIds = new Set();
 
     for (let i = 0; i < routePointDataArray.length; i++) {
       const routePoint = routePointDataArray[i];
@@ -389,14 +382,9 @@ export function RoutePointRegistrationPage() {
         setExcelError(`Row ${i + 2}: Duplicate sequence order: ${routePoint.seqOrder} for School ID ${routePoint.schoolId} and Route ID ${routePoint.routeId}`);
         return false;
       }
-      if (routePoint.smRoutePointId && seenSmRoutePointIds.has(routePoint.smRoutePointId)) {
-        setExcelError(`Row ${i + 2}: Duplicate SM Route Point ID: ${routePoint.smRoutePointId}`);
-        return false;
-      }
 
       routePointsSet.add(routePoint.routePointName);
       seqOrdersSet.add(routePoint.seqOrder);
-      if (routePoint.smRoutePointId) seenSmRoutePointIds.add(routePoint.smRoutePointId);
     }
     return true;
   };
@@ -415,7 +403,6 @@ export function RoutePointRegistrationPage() {
           'Reserve': '0',
           'Content': 'Route point description',
           'Sequence Order': '1',
-          'SM Route Point ID': 'RP2F0001',
           'Action': 'Register'
         }
       ];
@@ -549,6 +536,12 @@ export function RoutePointRegistrationPage() {
                   return;
                 }
 
+                // Additional validation for update mode
+                if (isUpdateMode && !selectedRoutePointId) {
+                  setAlertMessage("Please select a route point to update");
+                  return;
+                }
+
                 setIsSubmitting(true);
 
                 const token = getToken();
@@ -585,7 +578,7 @@ export function RoutePointRegistrationPage() {
                     if (formData.seqOrder !== undefined) updateBody.seqOrder = formData.seqOrder;
 
                     const response = await fetch(
-                      `${API_BASE_URL}/route/update/route-point/${formData.smRoutePointId}`,
+                      `${API_BASE_URL}/route/update/route-point/${selectedRoutePointId}`,
                       {
                         method: "PUT",
                         headers: {
@@ -630,7 +623,6 @@ export function RoutePointRegistrationPage() {
                           reserve: formData.reserve,
                           content: formData.content,
                           seqOrder: formData.seqOrder,
-                          smRoutePointId: formData.smRoutePointId,
                         }),
                       }
                     );
@@ -647,7 +639,7 @@ export function RoutePointRegistrationPage() {
                       throw new Error(responseData.message || `Registration failed with status ${response.status}`);
                     }
 
-                    setAlertMessage(`Registration successful: ${JSON.stringify(responseData)}`);
+                    setAlertMessage("Route point registered successfully");
                     resetForm(false);
                   }
                 } catch (error) {
@@ -849,24 +841,6 @@ export function RoutePointRegistrationPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="smRoutePointId" className={themeClasses.label}>
-                    SM Route Point ID: <span className="text-red-400">*</span>
-                  </Label>
-                  <Input
-                    id="smRoutePointId"
-                    name="smRoutePointId"
-                    placeholder="Enter SM Route Point ID"
-                    value={formData.smRoutePointId}
-                    onChange={handleChange}
-                    maxLength={8}
-                    required
-                    disabled={(isUpdateMode && formData.smRoutePointId) || isSubmitting}
-                    className={`${themeClasses.input} ${errors.smRoutePointId ? "border-red-500" : ""} ${isUpdateMode && formData.smRoutePointId ? "opacity-50 cursor-not-allowed" : ""}`}
-                  />
-                  {errors.smRoutePointId && <p className="text-red-500 text-sm">{errors.smRoutePointId}</p>}
-                </div>
-
-                <div className="space-y-2">
                   <Label htmlFor="status" className={themeClasses.label}>
                     Status:{!isUpdateMode && <span className="text-red-400"> *</span>}
                   </Label>
@@ -912,7 +886,7 @@ export function RoutePointRegistrationPage() {
 
                           const headers = jsonData[0];
                           const requiredHeaders = [
-                            "School ID", "Route ID", "Route Point Name", "Title", "Latitude", "Longitude", "Sequence Order", "Reserve", "Content", "SM Route Point ID"
+                            "School ID", "Route ID", "Route Point Name", "Title", "Latitude", "Longitude", "Sequence Order", "Reserve", "Content"
                           ];
                           const missingRequiredHeaders = requiredHeaders.filter((header) => !headers.includes(header));
                           if (missingRequiredHeaders.length > 0) {
@@ -941,7 +915,6 @@ export function RoutePointRegistrationPage() {
                             if (!rowObject["Sequence Order"]) errors.push("Sequence Order is missing");
                             if (!rowObject["Reserve"]) errors.push("Reserve is missing");
                             if (!rowObject["Content"]) errors.push("Content is missing");
-                            if (!rowObject["SM Route Point ID"]) errors.push("SM Route Point ID is missing");
 
                             if (errors.length > 0) {
                               setExcelError(`Row ${i + 1}: ${errors.join(", ")}`);
@@ -949,8 +922,8 @@ export function RoutePointRegistrationPage() {
                             }
 
                             const action = rowObject["Action"] ? rowObject["Action"].toLowerCase() : "register";
-                            if (action !== "register" && action !== "update") {
-                              setExcelError(`Row ${i + 1}: Invalid Action value. Must be "Register" or "Update"`);
+                            if (action !== "register") {
+                              setExcelError(`Row ${i + 1}: Excel bulk operations only support "Register" action. Update operations must be done individually through Update Mode.`);
                               return;
                             }
 
@@ -965,7 +938,6 @@ export function RoutePointRegistrationPage() {
                               reserve: rowObject["Reserve"]?.trim() || "",
                               content: rowObject["Content"]?.trim() || "",
                               seqOrder: Number(rowObject["Sequence Order"]),
-                              smRoutePointId: rowObject["SM Route Point ID"]?.trim() || "",
                               action: action,
                             });
                           }
@@ -985,46 +957,24 @@ export function RoutePointRegistrationPage() {
 
                           for (const routePointData of routePointDataArray) {
                             try {
-                              const isUpdate = routePointData.action === "update";
-                              const url = isUpdate
-                                ? `${API_BASE_URL}/route/update/route-point/${routePointData.smRoutePointId}`
-                                : `${API_BASE_URL}/route/route-point/register`;
-                              const method = isUpdate ? "PUT" : "POST";
-
-                              const requestBody = isUpdate ? {} : {
-                                schoolId: routePointData.schoolId,
-                                routeId: routePointData.routeId,
-                                routePointName: routePointData.routePointName,
-                                title: routePointData.title,
-                                latitude: routePointData.latitude,
-                                longitude: routePointData.longitude,
-                                status: routePointData.status,
-                                reserve: routePointData.reserve,
-                                content: routePointData.content,
-                                seqOrder: routePointData.seqOrder,
-                                smRoutePointId: routePointData.smRoutePointId,
-                              };
-
-                              if (isUpdate) {
-                                if (routePointData.schoolId) requestBody.schoolId = routePointData.schoolId;
-                                if (routePointData.routeId) requestBody.routeId = routePointData.routeId;
-                                if (routePointData.routePointName) requestBody.routePointName = routePointData.routePointName;
-                                if (routePointData.title) requestBody.title = routePointData.title;
-                                if (routePointData.latitude) requestBody.latitude = routePointData.latitude;
-                                if (routePointData.longitude) requestBody.longitude = routePointData.longitude;
-                                if (routePointData.status !== undefined) requestBody.status = routePointData.status;
-                                if (routePointData.reserve) requestBody.reserve = routePointData.reserve;
-                                if (routePointData.content) requestBody.content = routePointData.content;
-                                if (routePointData.seqOrder !== undefined) requestBody.seqOrder = routePointData.seqOrder;
-                              }
-
-                              const response = await fetch(url, {
-                                method,
+                              const response = await fetch(`${API_BASE_URL}/route/route-point/register`, {
+                                method: "POST",
                                 headers: {
                                   "Content-Type": "application/json",
                                   "Authorization": `Bearer ${token}`,
                                 },
-                                body: JSON.stringify(requestBody),
+                                body: JSON.stringify({
+                                  schoolId: routePointData.schoolId,
+                                  routeId: routePointData.routeId,
+                                  routePointName: routePointData.routePointName,
+                                  title: routePointData.title,
+                                  latitude: routePointData.latitude,
+                                  longitude: routePointData.longitude,
+                                  status: routePointData.status,
+                                  reserve: routePointData.reserve,
+                                  content: routePointData.content,
+                                  seqOrder: routePointData.seqOrder,
+                                }),
                               });
 
                               if (!response.ok) {

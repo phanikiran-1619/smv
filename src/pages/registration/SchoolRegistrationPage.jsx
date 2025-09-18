@@ -224,13 +224,13 @@ export function SchoolRegistrationFormPage() {
         newErrors.areaId = "Area ID is required";
       }
 
-      // Entity ID: Alphanumeric, exactly 10 characters, REQUIRED in registration
+      // Entity ID: Alphanumeric, 3-10 characters, REQUIRED in registration
       if (!formData.entityId) {
         newErrors.entityId = "Entity ID is required";
       } else if (!/^[a-zA-Z0-9]+$/.test(formData.entityId)) {
         newErrors.entityId = "Entity ID must be alphanumeric";
-      } else if (formData.entityId.length !== 10) {
-        newErrors.entityId = "Entity ID must be exactly 10 characters";
+      } else if (formData.entityId.length < 3 || formData.entityId.length > 10) {
+        newErrors.entityId = "Entity ID must be between 3 and 10 characters";
       }
 
       // Contact Name: Letters only, max 20 characters, REQUIRED in registration
@@ -263,8 +263,8 @@ export function SchoolRegistrationFormPage() {
       if (formData.entityId && formData.entityId.length > 0) {
         if (!/^[a-zA-Z0-9]+$/.test(formData.entityId)) {
           newErrors.entityId = "Entity ID must be alphanumeric";
-        } else if (formData.entityId.length !== 10) {
-          newErrors.entityId = "Entity ID must be exactly 10 characters";
+        } else if (formData.entityId.length < 3 || formData.entityId.length > 10) {
+          newErrors.entityId = "Entity ID must be between 3 and 10 characters";
         }
       }
 
@@ -289,10 +289,19 @@ export function SchoolRegistrationFormPage() {
 
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
-    setFormData({
-      ...formData,
-      [name]: type === "checkbox" ? checked : value.trim(),
-    });
+    // For contactNum, only allow digits
+    if (name === "contactNum") {
+      const numericValue = value.replace(/[^0-9]/g, '');
+      setFormData({
+        ...formData,
+        [name]: numericValue,
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: type === "checkbox" ? checked : value.trim(),
+      });
+    }
     setErrors({ ...errors, [name]: undefined });
   };
 
@@ -542,18 +551,18 @@ export function SchoolRegistrationFormPage() {
                   );
 
                   const responseText = await response.text();
-                  let responseData;
-                  try {
-                    responseData = JSON.parse(responseText);
-                  } catch {
-                    responseData = { message: responseText };
-                  }
 
                   if (!response.ok) {
+                    let responseData;
+                    try {
+                      responseData = JSON.parse(responseText);
+                    } catch {
+                      responseData = { message: responseText };
+                    }
                     throw new Error(responseData.message || `${isUpdateMode ? "Update" : "Registration"} failed with status ${response.status}`);
                   }
 
-                  setAlertMessage(responseData.message || `School ${isUpdateMode ? "updated" : "registered"} successfully`);
+                  setAlertMessage(`School ${isUpdateMode ? "updated" : "registered"} successfully`);
                   resetForm(false);
                 } catch (error) {
                   const errorMessage = error instanceof Error ? error.message : `${isUpdateMode ? "Update" : "Registration"} failed`;
@@ -684,7 +693,7 @@ export function SchoolRegistrationFormPage() {
                   <Input
                     id="entityId"
                     name="entityId"
-                    placeholder="Enter Entity ID (10 characters)"
+                    placeholder="Enter Entity ID (3-10 characters)"
                     value={formData.entityId}
                     onChange={handleChange}
                     maxLength={10}
@@ -720,11 +729,13 @@ export function SchoolRegistrationFormPage() {
                   <Input
                     id="contactNum"
                     name="contactNum"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     placeholder="Enter Contact Number (10 digits)"
                     value={formData.contactNum}
                     onChange={handleChange}
                     maxLength={10}
-                    pattern="\d*"
                     required={!isUpdateMode}
                     className={`${themeClasses.input} ${errors.contactNum ? "border-red-500" : ""}`}
                     disabled={isSubmitting}

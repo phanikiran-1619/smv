@@ -25,7 +25,6 @@ export function ParentRegistrationPage() {
     lastName: "",
     countryCode: "IN",
     schoolId: "",
-    smParentId: "",
   });
   
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -36,6 +35,7 @@ export function ParentRegistrationPage() {
   const [parents, setParents] = useState([]);
   const [schools, setSchools] = useState([]);
   const [selectedParentForUpdate, setSelectedParentForUpdate] = useState("");
+  const [selectedParentId, setSelectedParentId] = useState(""); // Store smParentId for updates
   const [loadingStates, setLoadingStates] = useState({
     parents: false,
     schools: false,
@@ -137,8 +137,9 @@ export function ParentRegistrationPage() {
             lastName: data.lastName || "",
             countryCode: data.countryCode || "IN",
             schoolId: data.schId || "",
-            smParentId: data.smParentId || "",
           });
+          // Store the smParentId for update API calls
+          setSelectedParentId(data.smParentId || smParentId);
         }
       }
     } catch (error) {
@@ -184,8 +185,8 @@ export function ParentRegistrationPage() {
 
     // First Name: Letters only, minimum 2 characters
     if (!isUpdateMode || formData.firstName) {
-      if (!formData.firstName || formData.firstName.length < 2) {
-        newErrors.firstName = "First name must be at least 2 characters long";
+      if (!formData.firstName || formData.firstName.length < 3) {
+        newErrors.firstName = "First name must be at least 3 characters long";
       } else if (!/^[a-zA-Z]+$/.test(formData.firstName)) {
         newErrors.firstName = "First name must contain letters only";
       }
@@ -193,8 +194,8 @@ export function ParentRegistrationPage() {
 
     // Last Name: Letters only, minimum 2 characters
     if (!isUpdateMode || formData.lastName) {
-      if (!formData.lastName || formData.lastName.length < 2) {
-        newErrors.lastName = "Last name must be at least 2 characters long";
+      if (!formData.lastName || formData.lastName.length < 3) {
+        newErrors.lastName = "Last name must be at least 3 characters long";
       } else if (!/^[a-zA-Z]+$/.test(formData.lastName)) {
         newErrors.lastName = "Last name must contain letters only";
       }
@@ -207,7 +208,7 @@ export function ParentRegistrationPage() {
       }
     }
 
-    // School ID: Must be selected, exactly 8 characters (only in registration mode)
+    // School ID: Must be selected (only in registration mode)
     if (!isUpdateMode) {
       if (!formData.schoolId) {
         newErrors.schoolId = "Please select a school";
@@ -216,23 +217,26 @@ export function ParentRegistrationPage() {
       }
     }
 
-    // SM Parent ID: Required in both modes, alphanumeric
-    if (!formData.smParentId) {
-      newErrors.smParentId = "SM Parent ID is required";
-    } else if (!/^[a-zA-Z0-9]+$/.test(formData.smParentId)) {
-      newErrors.smParentId = "SM Parent ID must be alphanumeric";
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
-    setFormData({
-      ...formData,
-      [name]: type === "checkbox" ? checked : value.trim(),
-    });
+    
+    // Special handling for phone number - only allow digits
+    if (name === 'phone') {
+      const digitsOnly = value.replace(/\D/g, '');
+      setFormData({
+        ...formData,
+        [name]: digitsOnly,
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: type === "checkbox" ? checked : value.trim(),
+      });
+    }
     setErrors({ ...errors, [name]: undefined });
   };
 
@@ -254,18 +258,20 @@ export function ParentRegistrationPage() {
       lastName: "",
       countryCode: "IN",
       schoolId: "",
-      smParentId: "",
     });
     setIsUpdateMode(newUpdateMode);
     setExcelError(null);
     setErrors({});
     setSelectedParentForUpdate("");
+    setSelectedParentId(""); // Reset the parent ID
   };
 
   const handleParentSelection = async (smParentId) => {
     setSelectedParentForUpdate(smParentId);
     if (smParentId) {
       await fetchParentDetails(smParentId);
+    } else {
+      setSelectedParentId(""); // Clear the ID if no parent selected
     }
   };
 
@@ -278,11 +284,11 @@ export function ParentRegistrationPage() {
         }
       );
       const data = await response.json();
-      if (data.exists) {
+      if (data.exists && !isUpdateMode) {
         setAlertMessage(`This ${field} is already in use`);
         return false;
       }
-      return true;
+      return !data.exists || isUpdateMode;
     } catch {
       setAlertMessage(`Error checking ${field}`);
       return false;
@@ -292,7 +298,6 @@ export function ParentRegistrationPage() {
   const checkExcelDuplicates = (parentDataArray) => {
     const seenUsernames = new Set();
     const seenEmails = new Set();
-    const seenSmParentIds = new Set();
 
     for (let i = 0; i < parentDataArray.length; i++) {
       const parent = parentDataArray[i];
@@ -304,13 +309,8 @@ export function ParentRegistrationPage() {
         setExcelError(`Row ${i + 2}: Duplicate email: ${parent.email}`);
         return false;
       }
-      if (parent.smParentId && seenSmParentIds.has(parent.smParentId)) {
-        setExcelError(`Row ${i + 2}: Duplicate SM Parent ID: ${parent.smParentId}`);
-        return false;
-      }
       seenUsernames.add(parent.username);
       seenEmails.add(parent.email);
-      if (parent.smParentId) seenSmParentIds.add(parent.smParentId);
     }
     return true;
   };
@@ -327,7 +327,6 @@ export function ParentRegistrationPage() {
           'Last Name': 'Doe',
           'Country Code': 'IN',
           'School ID': 'SC001234',
-          'SM Parent ID': 'PR1F0001',
           'Action': 'Register'
         }
       ];
@@ -461,6 +460,12 @@ export function ParentRegistrationPage() {
                   return;
                 }
 
+                // Additional validation for update mode
+                if (isUpdateMode && !selectedParentId) {
+                  setAlertMessage("Please select a parent to update");
+                  return;
+                }
+
                 setIsSubmitting(true);
 
                 const token = getToken();
@@ -492,10 +497,9 @@ export function ParentRegistrationPage() {
                     if (formData.firstName) updateBody.firstName = formData.firstName;
                     if (formData.lastName) updateBody.lastName = formData.lastName;
                     if (formData.countryCode) updateBody.countryCode = formData.countryCode;
-                    if (formData.smParentId) updateBody.smParentId = formData.smParentId;
 
                     const response = await fetch(
-                      `${API_BASE_URL}/parent/update?smParentId=${formData.smParentId}`,
+                      `${API_BASE_URL}/parent/update?smParentId=${selectedParentId}`,
                       {
                         method: "PUT",
                         headers: {
@@ -506,12 +510,19 @@ export function ParentRegistrationPage() {
                       }
                     );
 
-                    const responseData = await response.json();
-                    if (!response.ok) {
-                      throw new Error(`Update failed: ${responseData.message || response.statusText}`);
+                    const responseText = await response.text();
+                    let responseData;
+                    try {
+                      responseData = JSON.parse(responseText);
+                    } catch {
+                      responseData = { message: responseText };
                     }
 
-                    setAlertMessage(`Update successful: ${JSON.stringify(responseData)}`);
+                    if (!response.ok) {
+                      throw new Error(responseData.message || `Update failed with status ${response.status}`);
+                    }
+
+                    setAlertMessage(responseData.message || "Parent updated successfully");
                     resetForm(false);
                   } else {
                     const registerBody = {
@@ -523,7 +534,6 @@ export function ParentRegistrationPage() {
                       lastName: formData.lastName,
                       countryCode: formData.countryCode,
                       schoolId: formData.schoolId,
-                      smParentId: formData.smParentId,
                     };
 
                     const response = await fetch(`${API_BASE_URL}/parent/register`, {
@@ -535,17 +545,24 @@ export function ParentRegistrationPage() {
                       body: JSON.stringify(registerBody),
                     });
 
-                    const responseData = await response.json();
-                    if (!response.ok) {
-                      throw new Error(`Registration failed: ${responseData.message || response.statusText}`);
+                    const responseText = await response.text();
+                    let responseData;
+                    try {
+                      responseData = JSON.parse(responseText);
+                    } catch {
+                      responseData = { message: responseText };
                     }
 
-                    setAlertMessage(`Registration successful: ${JSON.stringify(responseData)}`);
+                    if (!response.ok) {
+                      throw new Error(responseData.message || `Registration failed with status ${response.status}`);
+                    }
+
+                    setAlertMessage("Parent registered successfully");
                     resetForm(false);
                   }
                 } catch (error) {
-                  console.error("Error:", error);
-                  setAlertMessage(error instanceof Error ? error.message : `${isUpdateMode ? "Update" : "Registration"} failed`);
+                  const errorMessage = error instanceof Error ? error.message : `${isUpdateMode ? "Update" : "Registration"} failed`;
+                  setAlertMessage(errorMessage);
                 } finally {
                   setIsSubmitting(false);
                 }
@@ -614,21 +631,29 @@ export function ParentRegistrationPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="phone" className={themeClasses.label}>
-                    Phone:{!isUpdateMode && <span className="text-red-400"> *</span>}
+                    Contact Number:{!isUpdateMode && <span className="text-red-400"> *</span>}
                   </Label>
                   <Input
                     id="phone"
                     name="phone"
-                    placeholder="Enter Phone (10 digits)"
+                    placeholder="Enter 10-digit contact number"
                     value={formData.phone}
                     onChange={handleChange}
                     maxLength={10}
-                    pattern="\d*"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    onKeyPress={(e) => {
+                      // Only allow digits
+                      if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'Tab') {
+                        e.preventDefault();
+                      }
+                    }}
                     required={!isUpdateMode}
                     className={`${themeClasses.input} ${errors.phone ? "border-red-500" : ""}`}
                     disabled={isSubmitting}
                   />
                   {errors.phone && <p className="text-red-500 text-sm">{errors.phone}</p>}
+                  <p className="text-xs text-gray-500">Only numbers allowed, exactly 10 digits</p>
                 </div>
 
                 <div className="space-y-2">
@@ -685,7 +710,7 @@ export function ParentRegistrationPage() {
                   {errors.countryCode && <p className="text-red-500 text-sm">{errors.countryCode}</p>}
                 </div>
 
-                {/* School field - only show in registration mode */}
+                {/* School field - only show in registration mode and make it non-editable in update mode */}
                 {!isUpdateMode && (
                   <div className="space-y-2">
                     <Label htmlFor="schoolId" className={themeClasses.label}>
@@ -711,23 +736,6 @@ export function ParentRegistrationPage() {
                     {errors.schoolId && <p className="text-red-500 text-sm">{errors.schoolId}</p>}
                   </div>
                 )}
-
-                <div className="space-y-2">
-                  <Label htmlFor="smParentId" className={themeClasses.label}>
-                    SM Parent ID: <span className="text-red-400">*</span>
-                  </Label>
-                  <Input
-                    id="smParentId"
-                    name="smParentId"
-                    placeholder="Enter SM Parent ID"
-                    value={formData.smParentId}
-                    onChange={handleChange}
-                    required
-                    disabled={(isUpdateMode && formData.smParentId) || isSubmitting}
-                    className={`${themeClasses.input} ${errors.smParentId ? "border-red-500" : ""} ${isUpdateMode && formData.smParentId ? "opacity-50 cursor-not-allowed" : ""}`}
-                  />
-                  {errors.smParentId && <p className="text-red-500 text-sm">{errors.smParentId}</p>}
-                </div>
               </div>
 
               {/* Excel Upload and Action Buttons */}
@@ -756,17 +764,10 @@ export function ParentRegistrationPage() {
                           const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
                           const headers = jsonData[0];
-                          const missingRequiredHeaders = [
-                            "Username",
-                            "Password",
-                            "Email",
-                            "Phone",
-                            "First Name",
-                            "Last Name",
-                            "Country Code",
-                            "School ID",
-                            "SM Parent ID"
-                          ].filter((header) => !headers.includes(header));
+                          const requiredHeaders = [
+                            "Username", "Password", "Email", "Phone", "First Name", "Last Name", "Country Code", "School ID"
+                          ];
+                          const missingRequiredHeaders = requiredHeaders.filter((header) => !headers.includes(header));
                           if (missingRequiredHeaders.length > 0) {
                             setExcelError(`Missing required headers: ${missingRequiredHeaders.join(", ")}`);
                             return;
@@ -782,20 +783,19 @@ export function ParentRegistrationPage() {
                               return obj;
                             }, {});
 
-                            if (
-                              !rowObject["Username"] ||
-                              !rowObject["Password"] ||
-                              !rowObject["Email"] ||
-                              !rowObject["Phone"] ||
-                              !rowObject["First Name"] ||
-                              !rowObject["Last Name"] ||
-                              !rowObject["Country Code"] ||
-                              !rowObject["School ID"] ||
-                              !rowObject["SM Parent ID"]
-                            ) {
-                              setExcelError(
-                                `Row ${i + 1}: Missing required fields`
-                              );
+                            // Validate required fields
+                            const errors = [];
+                            if (!rowObject["Username"]) errors.push("Username is missing");
+                            if (!rowObject["Password"]) errors.push("Password is missing");
+                            if (!rowObject["Email"]) errors.push("Email is missing");
+                            if (!rowObject["Phone"]) errors.push("Phone is missing");
+                            if (!rowObject["First Name"]) errors.push("First Name is missing");
+                            if (!rowObject["Last Name"]) errors.push("Last Name is missing");
+                            if (!rowObject["Country Code"]) errors.push("Country Code is missing");
+                            if (!rowObject["School ID"]) errors.push("School ID is missing");
+
+                            if (errors.length > 0) {
+                              setExcelError(`Row ${i + 1}: ${errors.join(", ")}`);
                               return;
                             }
 
@@ -805,8 +805,8 @@ export function ParentRegistrationPage() {
                             }
 
                             const action = rowObject["Action"] ? rowObject["Action"].toLowerCase() : "register";
-                            if (action !== "register" && action !== "update") {
-                              setExcelError(`Row ${i + 1}: Invalid Action value. Must be "Register" or "Update"`);
+                            if (action !== "register") {
+                              setExcelError(`Row ${i + 1}: Excel bulk operations only support "Register" action. Update operations must be done individually through Update Mode.`);
                               return;
                             }
 
@@ -814,12 +814,11 @@ export function ParentRegistrationPage() {
                               username: rowObject["Username"].trim(),
                               password: rowObject["Password"],
                               email: rowObject["Email"].trim().toLowerCase(),
-                              phone: rowObject["Phone"].trim(),
+                              phone: rowObject["Phone"].replace(/\D/g, ''),
                               firstName: rowObject["First Name"].trim(),
                               lastName: rowObject["Last Name"].trim(),
                               countryCode: rowObject["Country Code"],
                               schoolId: rowObject["School ID"],
-                              smParentId: rowObject["SM Parent ID"]?.trim() || "",
                               action: action,
                             });
                           }
@@ -830,7 +829,6 @@ export function ParentRegistrationPage() {
                           }
 
                           if (!checkExcelDuplicates(parentDataArray)) {
-                            setIsSubmitting(false);
                             return;
                           }
 
@@ -840,31 +838,22 @@ export function ParentRegistrationPage() {
 
                           for (const parentData of parentDataArray) {
                             try {
-                              const isUpdate = parentData.action === "update" && parentData.smParentId;
-                              const url = isUpdate
-                                ? `${API_BASE_URL}/parent/update?smParentId=${parentData.smParentId}`
-                                : `${API_BASE_URL}/parent/register`;
-                              const method = isUpdate ? "PUT" : "POST";
-
-                              const requestBody = {
-                                username: parentData.username,
-                                password: parentData.password,
-                                email: parentData.email,
-                                phone: parentData.phone,
-                                firstName: parentData.firstName,
-                                lastName: parentData.lastName,
-                                countryCode: parentData.countryCode,
-                                schoolId: parentData.schoolId,
-                                smParentId: parentData.smParentId,
-                              };
-
-                              const response = await fetch(url, {
-                                method,
+                              const response = await fetch(`${API_BASE_URL}/parent/register`, {
+                                method: "POST",
                                 headers: {
                                   "Content-Type": "application/json",
                                   "Authorization": `Bearer ${token}`,
                                 },
-                                body: JSON.stringify(requestBody),
+                                body: JSON.stringify({
+                                  username: parentData.username,
+                                  password: parentData.password,
+                                  email: parentData.email,
+                                  phone: parentData.phone,
+                                  firstName: parentData.firstName,
+                                  lastName: parentData.lastName,
+                                  countryCode: parentData.countryCode,
+                                  schoolId: parentData.schoolId,
+                                }),
                               });
 
                               if (!response.ok) {
@@ -891,8 +880,7 @@ export function ParentRegistrationPage() {
                               `${successCount} parents processed successfully`,
                               `Failed to process ${failedRegistrations.length} parents:`,
                               ...failedRegistrations,
-                            ].join("\
-");
+                            ].join("\n");
                             setExcelError(message);
                           }
                         } catch {

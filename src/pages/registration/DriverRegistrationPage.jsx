@@ -164,8 +164,8 @@ export function DriverRegistrationPage() {
 
     // First Name: Letters only, minimum 2 characters, max 20 characters
     if (!isUpdateMode || formData.firstName) {
-      if (!formData.firstName || formData.firstName.length < 2) {
-        newErrors.firstName = "First name must be at least 2 characters long";
+      if (!formData.firstName || formData.firstName.length < 3) {
+        newErrors.firstName = "First name must be at least 3 characters long";
       } else if (!/^[a-zA-Z]+$/.test(formData.firstName)) {
         newErrors.firstName = "First name must contain letters only";
       } else if (formData.firstName.length > 20) {
@@ -175,8 +175,8 @@ export function DriverRegistrationPage() {
 
     // Last Name: Letters only, minimum 2 characters, max 20 characters
     if (!isUpdateMode || formData.lastName) {
-      if (!formData.lastName || formData.lastName.length < 2) {
-        newErrors.lastName = "Last name must be at least 2 characters long";
+      if (!formData.lastName || formData.lastName.length < 3) {
+        newErrors.lastName = "Last name must be at least 3 characters long";
       } else if (!/^[a-zA-Z]+$/.test(formData.lastName)) {
         newErrors.lastName = "Last name must contain letters only";
       } else if (formData.lastName.length > 20) {
