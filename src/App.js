@@ -2,6 +2,7 @@ import React from "react";
 import "./App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
+import LandingPage from "./pages/landing/LandingPage";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import OTPVerification from "./pages/OTPVerification";
@@ -31,59 +32,61 @@ import AdminRegistrationPage from "./pages/registration/AdminRegistrationPage";
 import { Toaster } from "./components/ui/toaster";
 
 function App() {
-  return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="dark"
-      enableSystem={false}
-      storageKey="school-bus-theme"
-    >
-      <div className="App">
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/login/:userType" element={<LoginPage />} />
-            <Route path="/otp-verification" element={<OTPVerification />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            
-            {/* Dashboard Routes */}
-            <Route path="/dashboard/parent" element={<ParentDashboard />} />
-            <Route path="/dashboard/admin" element={<SchoolAdminDashboard />} />
-            <Route path="/dashboard/superadmin" element={<SuperAdminDashboard />} />
-            
-            {/* Map Routes */}
-            <Route path="/student-map" element={<StudentMap />} />
-            <Route path="/map-view" element={<MapViewPage />} />
-            <Route path="/live-map" element={<LiveMap />} />
-            <Route path="/historical-map" element={<HistoricalMap />} />
-            <Route path="/by-route" element={<LiveMap />} />
-            
-            {/* Dummy Pages for Dashboard Items */}
-            <Route path="/swiped-list" element={<SwipedListPage />} />
-            <Route path="/end-to-end-swipe" element={<SwipedListPage />} />
-            <Route path="/registration" element={<RegistrationPage />} />
-            <Route path="/admin-reset" element={<AdminResetPage />} />
-            <Route path="/photo-upload" element={<PhotoUploadPage />} />
-            <Route path="/by-route" element={<LiveMap />} />
-            <Route path="/all-users" element={<AllUsersPage />} />
-            <Route path="/driver-tracker" element={<DummyPage />} />
-            <Route path="/route-assign" element={<RouteAssignPage />} />
-            
-            {/* Registration Routes */}
-            <Route path="/registration/student" element={<StudentRegistrationPage />} />
-            <Route path="/registration/driver" element={<DriverRegistrationPage />} />
-            <Route path="/registration/parent" element={<ParentRegistrationPage />} />
-            <Route path="/registration/attender" element={<AttenderRegistrationPage />} />
-            <Route path="/registration/route" element={<RouteRegistrationPage />} />
-            <Route path="/registration/routepoint" element={<RoutePointRegistrationPage />} />
-            <Route path="/registration/school" element={<SchoolRegistrationPage />} />
-            <Route path="/registration/admin" element={<AdminRegistrationPage />} />
-          </Routes>
-          <Toaster />
-        </BrowserRouter>
-      </div>
-    </ThemeProvider>
-  );
+return (
+<ThemeProvider
+attribute="class"
+defaultTheme="dark"
+enableSystem={false}
+storageKey="school-bus-theme"
+>
+<div className="App">
+<BrowserRouter>
+<Routes>
+  
+  <Route path="/" element={<LandingPage />} />
+  <Route path="/home" element={<HomePage />} />
+  <Route path="/login/:userType" element={<LoginPage />} />
+  <Route path="/otp-verification" element={<OTPVerification />} />
+  <Route path="/reset-password" element={<ResetPassword />} />
+
+{/* Dashboard Routes */}
+<Route path="/dashboard/parent" element={<ParentDashboard />} />
+<Route path="/dashboard/admin" element={<SchoolAdminDashboard />} />
+<Route path="/dashboard/superadmin" element={<SuperAdminDashboard />} />
+
+{/* Map Routes */}
+<Route path="/student-map" element={<StudentMap />} />
+<Route path="/map-view" element={<MapViewPage />} />
+<Route path="/live-map" element={<LiveMap />} />
+<Route path="/historical-map" element={<HistoricalMap />} />
+<Route path="/by-route" element={<LiveMap />} />
+
+{/* Dummy Pages for Dashboard Items */}
+<Route path="/swiped-list" element={<SwipedListPage />} />
+<Route path="/end-to-end-swipe" element={<SwipedListPage />} />
+<Route path="/registration" element={<RegistrationPage />} />
+<Route path="/admin-reset" element={<AdminResetPage />} />
+<Route path="/photo-upload" element={<PhotoUploadPage />} />
+<Route path="/by-route" element={<LiveMap />} />
+<Route path="/all-users" element={<AllUsersPage />} />
+<Route path="/driver-tracker" element={<DummyPage />} />
+<Route path="/route-assign" element={<RouteAssignPage />} />
+
+{/* Registration Routes */}
+<Route path="/registration/student" element={<StudentRegistrationPage />} />
+<Route path="/registration/driver" element={<DriverRegistrationPage />} />
+<Route path="/registration/parent" element={<ParentRegistrationPage />} />
+<Route path="/registration/attender" element={<AttenderRegistrationPage />} />
+<Route path="/registration/route" element={<RouteRegistrationPage />} />
+<Route path="/registration/routepoint" element={<RoutePointRegistrationPage />} />
+<Route path="/registration/school" element={<SchoolRegistrationPage />} />
+<Route path="/registration/admin" element={<AdminRegistrationPage />} />
+</Routes>
+<Toaster />
+</BrowserRouter>
+</div>
+</ThemeProvider>
+);
 }
 
 export default App;
