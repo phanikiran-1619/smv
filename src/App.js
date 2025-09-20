@@ -2,7 +2,6 @@ import React from "react";
 import "./App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
-import LandingPage from "./pages/landing/LandingPage";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import OTPVerification from "./pages/OTPVerification";
@@ -42,8 +41,7 @@ function App() {
       <div className="App">
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/home" element={<HomePage />} />
+            <Route path="/" element={<HomePage />} />
             <Route path="/login/:userType" element={<LoginPage />} />
             <Route path="/otp-verification" element={<OTPVerification />} />
             <Route path="/reset-password" element={<ResetPassword />} />
