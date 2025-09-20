@@ -111,7 +111,7 @@ const ThemeToggle = () => {
         variant="ghost"
         size="sm"
         disabled
-        className="w-9 h-9 p-0 dark:text-gray-400 text-gray-600 opacity-50"
+        className="w-9 h-9 p-0 dark:text-gray-400 text-white opacity-50"
         aria-label="Loading theme toggle"
       >
         <Sun className="h-4 w-4" />
@@ -124,7 +124,7 @@ const ThemeToggle = () => {
       variant="ghost"
       size="sm"
       onClick={toggleTheme}
-      className="w-9 h-9 p-0 dark:text-gray-400 text-gray-600 dark:hover:text-white hover:text-gray-800 dark:hover:bg-slate-700 hover:bg-gray-100 transition-colors duration-200"
+      className="w-9 h-9 p-0 dark:text-gray-400 text-white dark:hover:text-white hover:text-blue-100 dark:hover:bg-slate-700 hover:bg-sky-600/50 transition-colors duration-200"
       aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
       data-testid="theme-toggle"
     >
