@@ -13,7 +13,7 @@ const Navbar = ({ showBackButton = false }) => {
   const [userData, setUserData] = useState(null);
   
   // Define which pages should NOT show the profile button
-  const isHomePage = location.pathname === '/';
+  const isHomePage = location.pathname === '/home' || location.pathname === '/';
   const isLoginPage = location.pathname.includes('/login');
   const isAuthPage = location.pathname.includes('/parent-login') || 
                      location.pathname.includes('/admin-login') || 
@@ -116,12 +116,14 @@ const Navbar = ({ showBackButton = false }) => {
         </div>
       </nav>
 
-      {/* Profile Popup */}
-      <ProfilePopup 
-        isOpen={showProfilePopup} 
-        onClose={() => setShowProfilePopup(false)}
-        userType={getCurrentUserType()}
-      />
+      {/* Profile Popup - Only render if showProfileButton is true */}
+      {showProfileButton && (
+        <ProfilePopup 
+          isOpen={showProfilePopup} 
+          onClose={() => setShowProfilePopup(false)}
+          userType={getCurrentUserType()}
+        />
+      )}
     </>
   );
 };

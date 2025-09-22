@@ -300,14 +300,22 @@ const RouteAssignPage = () => {
   const preparePayload = useCallback((isUpdate = false) => {
     const payload = {
       schoolId: formData.schoolId,
-      status: 1 // Always set status to 1
+      status: 1 // Always set status to 1 for both create and update
     };
+    
+    // Always include these fields if they exist
     if (formData.smRouteId) payload.smRouteId = formData.smRouteId;
     if (formData.smDriverID) payload.smDriverID = formData.smDriverID;
     if (formData.smAttenderId) payload.smAttenderId = formData.smAttenderId;
-    if (!isUpdate) {
+    
+    // Only include date for creation, not for updates
+    if (!isUpdate && formData.date) {
       payload.date = formData.date;
     }
+    
+    // Ensure status is always 1
+    payload.status = 1;
+    
     return payload;
   }, [formData]);
 
@@ -355,7 +363,14 @@ const RouteAssignPage = () => {
     resetForm();
 
     try {
-      const payload = preparePayload();
+      // Prepare payload with explicit status
+      const payload = {
+        ...preparePayload(),
+        status: 1 // Explicitly ensure status is 1
+      };
+      
+      console.log('Create payload:', payload); // Debug log
+      
       const newAssignment = await makeApiCall(`${API_BASE_URL}/assignments`, 'POST', payload);
       
       // Replace temp assignment with real one
@@ -448,7 +463,14 @@ const RouteAssignPage = () => {
     resetForm();
 
     try {
-      const payload = preparePayload(true);
+      // Prepare payload with explicit status
+      const payload = {
+        ...preparePayload(true),
+        status: 1 // Explicitly ensure status is 1
+      };
+      
+      console.log('Update payload:', payload); // Debug log
+      
       const updated = await makeApiCall(`${API_BASE_URL}/assignments/${editingAssignment.id}`, 'PUT', payload);
       
       // Replace optimistic update with real data
@@ -581,7 +603,8 @@ const RouteAssignPage = () => {
   const assignedRouteIds = useMemo(() => 
     assignments
       .filter(a => !editingAssignment || a.id !== editingAssignment.id)
-      .map(a => a.smRouteId),
+      .map(a => a.smRouteId)
+      .filter(id => id), // Filter out null/undefined values
     [assignments, editingAssignment]
   );
 
@@ -600,14 +623,16 @@ const RouteAssignPage = () => {
   const assignedDriverIds = useMemo(() => 
     assignments
       .filter(a => !editingAssignment || a.id !== editingAssignment.id)
-      .map(a => a.smDriverID),
+      .map(a => a.smDriverID)
+      .filter(id => id), // Filter out null/undefined values
     [assignments, editingAssignment]
   );
 
   const assignedAttenderIds = useMemo(() => 
     assignments
       .filter(a => !editingAssignment || a.id !== editingAssignment.id)
-      .map(a => a.smAttenderId),
+      .map(a => a.smAttenderId)
+      .filter(id => id), // Filter out null/undefined values
     [assignments, editingAssignment]
   );
 
@@ -630,11 +655,14 @@ const RouteAssignPage = () => {
   const filteredAssignments = useMemo(() => 
     assignments.filter(assignment => {
       const routeName = routes.find(r => r.smRouteId === assignment.smRouteId)?.routeName || '';
-      const driverName = drivers.find(d => d.smDriverID === assignment.smDriverID)?.user?.username || '';
+      const driverName = drivers.find(d => d.smDriverId === assignment.smDriverID)?.user?.username || '';
+      const attenderName = attenders.find(a => a.smAttenderId === assignment.smAttenderId)?.user?.username || '';
+      
       return routeName.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-             driverName.toLowerCase().includes(debouncedSearchTerm.toLowerCase());
+             driverName.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+             attenderName.toLowerCase().includes(debouncedSearchTerm.toLowerCase());
     }),
-    [assignments, routes, drivers, debouncedSearchTerm]
+    [assignments, routes, drivers, attenders, debouncedSearchTerm]
   );
 
   // Pagination logic
@@ -741,21 +769,27 @@ const RouteAssignPage = () => {
     return items;
   }, [totalPages, currentPage, handlePageChange]);
 
-  // Calculate stats
+  // Calculate stats - FIXED COUNTING LOGIC
   const stats = useMemo(() => {
     const totalRoutes = routes.length;
     const totalDrivers = drivers.length;
     const totalAttenders = attenders.length;
     const activeAssignments = assignments.length;
     
-    const assignedRoutes = assignments.length;
-    const availableRoutesCount = totalRoutes - assignedRoutes;
+    // Count unique assigned routes (routes that have assignments)
+    const assignedRouteIds = new Set(assignments.map(a => a.smRouteId).filter(id => id));
+    const assignedRoutes = assignedRouteIds.size;
+    const availableRoutesCount = Math.max(0, totalRoutes - assignedRoutes);
     
-    const assignedDrivers = assignments.length;
-    const availableDriversCount = totalDrivers - assignedDrivers;
+    // Count unique assigned drivers (drivers that have assignments)
+    const assignedDriverIds = new Set(assignments.map(a => a.smDriverID).filter(id => id));
+    const assignedDrivers = assignedDriverIds.size;
+    const availableDriversCount = Math.max(0, totalDrivers - assignedDrivers);
     
-    const assignedAttenders = assignments.length;
-    const availableAttendersCount = totalAttenders - assignedAttenders;
+    // Count unique assigned attenders (attenders that have assignments)
+    const assignedAttenderIds = new Set(assignments.map(a => a.smAttenderId).filter(id => id));
+    const assignedAttenders = assignedAttenderIds.size;
+    const availableAttendersCount = Math.max(0, totalAttenders - assignedAttenders);
 
     return {
       totalRoutes,
@@ -769,7 +803,7 @@ const RouteAssignPage = () => {
       assignedAttenders,
       availableAttendersCount
     };
-  }, [routes.length, drivers.length, attenders.length, assignments.length]);
+  }, [routes.length, drivers.length, attenders.length, assignments]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -835,7 +869,7 @@ const RouteAssignPage = () => {
               <h3 className="text-3xl font-bold dark:text-white text-white mb-1">{stats.totalRoutes}</h3>
               <p className="text-blue-100 font-semibold mb-2">Total Routes</p>
               <div className="text-sm dark:text-blue-200 text-blue-50 dark:bg-blue-900 bg-blue-600 px-3 py-1 rounded-full">
-                {stats.assignedRoutes} assigned, {stats.availableRoutesCount} available
+                {stats.assignedRoutes} assigned
               </div>
             </Card>
             <Card className="dark:bg-green-800 bg-green-500 dark:border-green-700 border-green-300 p-6 text-center rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
@@ -843,7 +877,7 @@ const RouteAssignPage = () => {
               <h3 className="text-3xl font-bold dark:text-white text-white mb-1">{stats.totalDrivers}</h3>
               <p className="text-green-100 font-semibold mb-2">Total Drivers</p>
               <div className="text-sm dark:text-green-200 text-green-50 dark:bg-green-900 bg-green-600 px-3 py-1 rounded-full">
-                {stats.assignedDrivers} assigned, {stats.availableDriversCount} available
+                {stats.assignedDrivers} assigned
               </div>
             </Card>
             <Card className="dark:bg-purple-800 bg-purple-500 dark:border-purple-700 border-purple-300 p-6 text-center rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
@@ -851,15 +885,15 @@ const RouteAssignPage = () => {
               <h3 className="text-3xl font-bold dark:text-white text-white mb-1">{stats.totalAttenders}</h3>
               <p className="text-purple-100 font-semibold mb-2">Total Attenders</p>
               <div className="text-sm dark:text-purple-200 text-purple-50 dark:bg-purple-900 bg-purple-600 px-3 py-1 rounded-full">
-                {stats.assignedAttenders} assigned, {stats.availableAttendersCount} available
+                {stats.assignedAttenders} assigned
               </div>
             </Card>
             <Card className="dark:bg-orange-800 bg-orange-500 dark:border-orange-700 border-orange-300 p-6 text-center rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
               <Bus className="w-8 h-8 text-orange-100 mx-auto mb-3" />
               <h3 className="text-3xl font-bold dark:text-white text-white mb-1">{stats.activeAssignments}</h3>
-              <p className="text-orange-100 font-semibold mb-2">Active Assignments</p>
+              <p className="text-orange-100 font-semibold mb-2">Total Assignments</p>
               <div className="text-sm dark:text-orange-200 text-orange-50 dark:bg-orange-900 bg-orange-600 px-3 py-1 rounded-full">
-                Currently assigned today
+                All assignments today
               </div>
             </Card>
           </div>
@@ -869,7 +903,7 @@ const RouteAssignPage = () => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 dark:text-gray-400 text-gray-500 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Search routes..."
+                placeholder="Search routes, drivers, or attenders..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 dark:bg-slate-700/50 dark:border-slate-600 bg-white border-gray-300 border rounded-lg dark:text-white dark:placeholder-gray-400 text-gray-800 placeholder-gray-500 focus:outline-none dark:focus:ring-2 dark:focus:ring-yellow-500 dark:focus:border-transparent focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-md"
@@ -1094,7 +1128,9 @@ const RouteAssignPage = () => {
                               </div>
                             ))}
                             {filteredRoutes.length === 0 && (
-                              <div className="px-4 py-3 dark:text-gray-400 text-gray-600 text-sm">No routes found</div>
+                              <div className="px-4 py-3 dark:text-gray-400 text-gray-600 text-sm">
+                                {routeSearch ? 'No routes found matching your search' : 'No available routes found'}
+                              </div>
                             )}
                           </div>
                         </div>
@@ -1165,7 +1201,9 @@ const RouteAssignPage = () => {
                               </div>
                             ))}
                             {filteredDrivers.length === 0 && (
-                              <div className="px-4 py-3 dark:text-gray-400 text-gray-600 text-sm">No available drivers found</div>
+                              <div className="px-4 py-3 dark:text-gray-400 text-gray-600 text-sm">
+                                {driverSearch ? 'No drivers found matching your search' : 'No available drivers found'}
+                              </div>
                             )}
                           </div>
                         </div>
@@ -1236,7 +1274,9 @@ const RouteAssignPage = () => {
                               </div>
                             ))}
                             {filteredAttenders.length === 0 && (
-                              <div className="px-4 py-3 dark:text-gray-400 text-gray-600 text-sm">No available attenders found</div>
+                              <div className="px-4 py-3 dark:text-gray-400 text-gray-600 text-sm">
+                                {attenderSearch ? 'No attenders found matching your search' : 'No available attenders found'}
+                              </div>
                             )}
                           </div>
                         </div>
