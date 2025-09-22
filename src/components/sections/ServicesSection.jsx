@@ -2,13 +2,15 @@ import React, { useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { Users, Shield, Bus, ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 
 // Register GSAP plugins
 gsap.registerPlugin(ScrollTrigger);
 
-const ServicesSection = ({ servicesRef, handleLoginRedirect }) => {
+const ServicesSection = ({ servicesRef }) => {
   const sectionRef = useRef();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -78,7 +80,7 @@ const ServicesSection = ({ servicesRef, handleLoginRedirect }) => {
       features: ["Real-time GPS tracking", "Instant push notifications", "Advanced safety alerts", "Detailed trip history"],
       icon: <Users className="w-12 h-12" />,
       color: "from-emerald-400 to-emerald-600",
-      action: () => handleLoginRedirect('parent'),
+      action: () => navigate('/login/parent'),
       backTitle: "Parent Access Portal",
       backDescription: "Secure access to real-time updates, safety features, and complete transportation monitoring for your child's journey."
     },
@@ -88,7 +90,7 @@ const ServicesSection = ({ servicesRef, handleLoginRedirect }) => {
       features: ["Dynamic route management", "Driver assignment tools", "Student attendance tracking", "Advanced analytics dashboard"],
       icon: <Shield className="w-12 h-12" />,
       color: "from-blue-400 to-blue-600",
-      action: () => handleLoginRedirect('admin'),
+      action: () => navigate('/login/admin'),
       backTitle: "Admin Access Portal",
       backDescription: "Powerful tools for managing your school's entire transportation system with ease and precision."
     },
@@ -98,7 +100,7 @@ const ServicesSection = ({ servicesRef, handleLoginRedirect }) => {
       features: ["Full system administration", "Multi-user management", "Global performance analytics", "Enhanced security controls"],
       icon: <Bus className="w-12 h-12" />,
       color: "from-indigo-400 to-indigo-600",
-      action: () => handleLoginRedirect('superadmin'),
+      action: () => navigate('/login/superadmin'),
       backTitle: "Super Admin Access Portal",
       backDescription: "Enterprise-level control with sophisticated analytics, user oversight, and robust security management."
     }

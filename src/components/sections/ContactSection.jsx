@@ -136,17 +136,17 @@ const ContactSection = ({ contactRef }) => {
     {
       icon: <Phone className="w-6 h-6" />,
       title: "Phone",
-      details: ["+1 (555) 123-4567", "+1 (555) 987-6543"]
+      details: ["+91 9912940042"]
     },
     {
       icon: <Mail className="w-6 h-6" />,
       title: "Email", 
-      details: ["info@schoolbustracker.com", "support@schoolbustracker.com"]
+      details: ["info@emcomserv.com"]
     },
     {
       icon: <LocationIcon className="w-6 h-6" />,
       title: "Address",
-      details: ["123 Education Street", "Learning City, LC 12345"]
+      details: ["Beside Bhagani, Hoodi, Bangalore – 560048, INDIA"]
     }
   ];
 

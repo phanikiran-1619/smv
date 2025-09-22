@@ -117,7 +117,7 @@ const HeroSection = () => {
           <div ref={containerRef} className="space-y-6 overflow-visible">
             <h1 className="text-6xl sm:text-7xl lg:text-8xl font-extrabold leading-none tracking-tight overflow-visible">
               <VariableProximity
-                label="Smart"
+                label="SMART"
                 className="bg-gradient-to-r from-blue-700 via-purple-700 to-indigo-800 dark:from-yellow-400 dark:via-yellow-500 dark:to-yellow-600 bg-clip-text text-transparent"
                 fromFontVariationSettings="'wght' 500"
                 toFontVariationSettings="'wght' 900"
@@ -129,7 +129,7 @@ const HeroSection = () => {
             </h1>
             <h2 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold leading-none tracking-tight overflow-visible">
               <VariableProximity
-                label="School Bus"
+                label="SCHOOL BUS"
                 className="text-gray-900 dark:text-gray-100"
                 fromFontVariationSettings="'wght' 600"
                 toFontVariationSettings="'wght' 900"
@@ -141,7 +141,7 @@ const HeroSection = () => {
             </h2>
             <h3 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-tight tracking-tight overflow-visible pb-8"> {/* Increased padding-bottom to prevent cutoff */}
               <VariableProximity
-                label="Management"
+                label="MANAGEMENT"
                 className="bg-gradient-to-r from-indigo-700 via-blue-700 to-cyan-700 dark:from-yellow-500 dark:via-yellow-400 dark:to-yellow-300 bg-clip-text text-transparent"
                 fromFontVariationSettings="'wght' 500"
                 toFontVariationSettings="'wght' 900"
