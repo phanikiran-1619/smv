@@ -8,7 +8,8 @@ import {
   Facebook,
   Twitter,
   Instagram,
-  Linkedin
+  Linkedin,
+  ArrowUp
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import ThemeToggle from '../../components/ThemeToggle';
@@ -45,7 +46,7 @@ const LandingPage = () => {
         nullTargetWarn: false,
       });
 
-      // Footer animation
+      // Enhanced footer animation
       gsap.fromTo('.footer-content',
         { opacity: 0, y: 50 },
         {
@@ -62,17 +63,20 @@ const LandingPage = () => {
         }
       );
 
+      // Navbar background animation
+      ScrollTrigger.create({
+        start: 'top -80',
+        end: 99999,
+        toggleClass: {className: 'navbar-scrolled', targets: '.navbar'}
+      });
+
     }, containerRef);
 
     return () => ctx.revert();
   }, []);
 
   const handleGetStarted = () => {
-    navigate('/get-started');
-  };
-
-  const handleLoginRedirect = (userType) => {
-    navigate(`/login/${userType}`);
+    navigate('/home');
   };
 
   const scrollToSection = (sectionRef) => {
@@ -83,15 +87,22 @@ const LandingPage = () => {
     });
   };
 
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  };
+
   return (
     <div ref={containerRef} className="min-h-screen bg-gradient-to-br dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 from-sky-50 via-white to-sky-100 overflow-x-hidden">
       
-      {/* Animated Navbar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 dark:bg-slate-800/95 bg-white/95 backdrop-blur-sm border-b dark:border-slate-600 border-sky-200/30 shadow-lg">
+      {/* Enhanced Animated Navbar */}
+      <nav className="navbar fixed top-0 left-0 right-0 z-50 dark:bg-slate-800/80 bg-white/80 backdrop-blur-xl border-b dark:border-slate-600/50 border-sky-200/50 shadow-lg transition-all duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 dark:bg-yellow-500/20 bg-sky-600/90 rounded-lg border dark:border-yellow-500/30 border-sky-700/50 shadow-sm">
+            <div className="flex items-center gap-2 cursor-pointer" onClick={scrollToTop}>
+              <div className="p-1.5 dark:bg-yellow-500/20 bg-sky-600/90 rounded-lg border dark:border-yellow-500/30 border-sky-700/50 shadow-sm transition-all duration-300 hover:shadow-lg hover:scale-110">
                 <Bus className="w-5 h-5 dark:text-yellow-500 text-white" />
               </div>
               <h1 className="text-lg font-bold">
@@ -101,19 +112,19 @@ const LandingPage = () => {
             </div>
             
             <div className="hidden md:flex items-center space-x-8">
-              <button onClick={() => scrollToSection(featuresRef)} className="dark:text-gray-300 text-gray-600 hover:text-sky-600 dark:hover:text-yellow-400 transition-colors font-medium">
+              <button onClick={() => scrollToSection(featuresRef)} className="dark:text-gray-300 text-gray-600 hover:text-sky-600 dark:hover:text-yellow-400 transition-all duration-300 font-medium hover:scale-105">
                 Features
               </button>
-              <button onClick={() => scrollToSection(servicesRef)} className="dark:text-gray-300 text-gray-600 hover:text-sky-600 dark:hover:text-yellow-400 transition-colors font-medium">
+              <button onClick={() => scrollToSection(servicesRef)} className="dark:text-gray-300 text-gray-600 hover:text-sky-600 dark:hover:text-yellow-400 transition-all duration-300 font-medium hover:scale-105">
                 Services
               </button>
-              <button onClick={() => scrollToSection(appsRef)} className="dark:text-gray-300 text-gray-600 hover:text-sky-600 dark:hover:text-yellow-400 transition-colors font-medium">
+              <button onClick={() => scrollToSection(appsRef)} className="dark:text-gray-300 text-gray-600 hover:text-sky-600 dark:hover:text-yellow-400 transition-all duration-300 font-medium hover:scale-105">
                 Apps
               </button>
-              <button onClick={() => scrollToSection(aboutRef)} className="dark:text-gray-300 text-gray-600 hover:text-sky-600 dark:hover:text-yellow-400 transition-colors font-medium">
+              <button onClick={() => scrollToSection(aboutRef)} className="dark:text-gray-300 text-gray-600 hover:text-sky-600 dark:hover:text-yellow-400 transition-all duration-300 font-medium hover:scale-105">
                 How It Works
               </button>
-              <button onClick={() => scrollToSection(contactRef)} className="dark:text-gray-300 text-gray-600 hover:text-sky-600 dark:hover:text-yellow-400 transition-colors font-medium">
+              <button onClick={() => scrollToSection(contactRef)} className="dark:text-gray-300 text-gray-600 hover:text-sky-600 dark:hover:text-yellow-400 transition-all duration-300 font-medium hover:scale-105">
                 Contact
               </button>
             </div>
@@ -133,7 +144,6 @@ const LandingPage = () => {
 
       {/* Hero Section */}
       <HeroSection 
-        handleGetStarted={handleGetStarted}
         scrollToSection={scrollToSection}
         featuresRef={featuresRef}
       />
@@ -145,10 +155,7 @@ const LandingPage = () => {
 
       {/* Services Section */}
       <div ref={servicesRef}>
-        <ServicesSection 
-          servicesRef={servicesRef} 
-          handleLoginRedirect={handleLoginRedirect}
-        />
+        <ServicesSection servicesRef={servicesRef} />
       </div>
 
       {/* Apps Showcase Section */}
@@ -169,13 +176,13 @@ const LandingPage = () => {
         />
       </div>
 
-      {/* Footer */}
-      <footer ref={footerRef} className="py-16 px-4 dark:bg-gray-900/50 bg-gray-50 border-t dark:border-gray-800 border-gray-200">
+      {/* Enhanced Footer with Working Links */}
+      <footer ref={footerRef} className="py-20 px-4 dark:bg-gray-900/60 bg-gray-50/80 border-t dark:border-gray-800/50 border-gray-200/50 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto footer-content">
-          <div className="grid md:grid-cols-4 gap-8 mb-12">
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 dark:bg-yellow-500/20 bg-sky-600/90 rounded-lg border dark:border-yellow-500/30 border-sky-700/50">
+          <div className="grid md:grid-cols-4 gap-12 mb-16">
+            <div className="space-y-6">
+              <div className="flex items-center gap-2 cursor-pointer group" onClick={scrollToTop}>
+                <div className="p-1.5 dark:bg-yellow-500/20 bg-sky-600/90 rounded-lg border dark:border-yellow-500/30 border-sky-700/50 group-hover:scale-110 transition-all duration-300">
                   <Bus className="w-5 h-5 dark:text-yellow-500 text-white" />
                 </div>
                 <h3 className="text-lg font-bold">
@@ -183,20 +190,21 @@ const LandingPage = () => {
                   <span className="dark:text-white text-gray-800 ml-1">Tracker</span>
                 </h3>
               </div>
-              <p className="dark:text-gray-400 text-gray-600">
-                Leading the future of safe and efficient school transportation management.
+              <p className="dark:text-gray-400 text-gray-600 leading-relaxed">
+                Leading the future of safe and efficient school transportation management with innovative technology solutions.
               </p>
               <div className="flex space-x-4">
                 {[
-                  { icon: <Facebook className="w-5 h-5" />, href: "#" },
-                  { icon: <Twitter className="w-5 h-5" />, href: "#" },
-                  { icon: <Instagram className="w-5 h-5" />, href: "#" },
-                  { icon: <Linkedin className="w-5 h-5" />, href: "#" }
+                  { icon: <Facebook className="w-5 h-5" />, href: "#", label: "Facebook" },
+                  { icon: <Twitter className="w-5 h-5" />, href: "#", label: "Twitter" },
+                  { icon: <Instagram className="w-5 h-5" />, href: "#", label: "Instagram" },
+                  { icon: <Linkedin className="w-5 h-5" />, href: "#", label: "LinkedIn" }
                 ].map((social, index) => (
                   <a 
                     key={index}
                     href={social.href} 
-                    className="p-2 rounded-lg dark:bg-gray-800 bg-white dark:text-gray-400 text-gray-600 hover:text-sky-600 dark:hover:text-yellow-400 transition-colors duration-200 transform hover:scale-110"
+                    aria-label={social.label}
+                    className="p-3 rounded-xl dark:bg-gray-800/50 bg-white/70 dark:text-gray-400 text-gray-600 hover:text-sky-600 dark:hover:text-yellow-400 transition-all duration-300 transform hover:scale-110 hover:shadow-lg backdrop-blur-sm"
                   >
                     {social.icon}
                   </a>
@@ -205,63 +213,100 @@ const LandingPage = () => {
             </div>
 
             <div>
-              <h4 className="font-bold dark:text-white text-gray-800 mb-4">Product</h4>
-              <ul className="space-y-2">
-                {["Features", "Pricing", "Use Cases", "Integrations"].map((item, index) => (
+              <h4 className="font-bold dark:text-white text-gray-800 mb-6 text-lg">Product</h4>
+              <ul className="space-y-3">
+                {[
+                  { name: "Features", action: () => scrollToSection(featuresRef) },
+                  { name: "Services", action: () => scrollToSection(servicesRef) },
+                  { name: "Apps", action: () => scrollToSection(appsRef) },
+                  { name: "How It Works", action: () => scrollToSection(aboutRef) }
+                ].map((item, index) => (
                   <li key={index}>
-                    <a href="#" className="dark:text-gray-400 text-gray-600 hover:text-sky-600 dark:hover:text-yellow-400 transition-colors duration-200">
-                      {item}
-                    </a>
+                    <button 
+                      onClick={item.action}
+                      className="dark:text-gray-400 text-gray-600 hover:text-sky-600 dark:hover:text-yellow-400 transition-all duration-300 text-left hover:translate-x-2"
+                    >
+                      {item.name}
+                    </button>
                   </li>
                 ))}
               </ul>
             </div>
 
             <div>
-              <h4 className="font-bold dark:text-white text-gray-800 mb-4">Solutions</h4>
-              <ul className="space-y-2">
-                {["For Parents", "For Schools", "For Administrators", "Enterprise"].map((item, index) => (
+              <h4 className="font-bold dark:text-white text-gray-800 mb-6 text-lg">Solutions</h4>
+              <ul className="space-y-3">
+                {[
+                  { name: "For Parents", action: () => scrollToSection(servicesRef) },
+                  { name: "For Schools", action: () => scrollToSection(servicesRef) },
+                  { name: "For Administrators", action: () => scrollToSection(servicesRef) },
+                  { name: "Enterprise", action: () => scrollToSection(contactRef) }
+                ].map((item, index) => (
                   <li key={index}>
-                    <a href="#" className="dark:text-gray-400 text-gray-600 hover:text-sky-600 dark:hover:text-yellow-400 transition-colors duration-200">
-                      {item}
-                    </a>
+                    <button 
+                      onClick={item.action}
+                      className="dark:text-gray-400 text-gray-600 hover:text-sky-600 dark:hover:text-yellow-400 transition-all duration-300 text-left hover:translate-x-2"
+                    >
+                      {item.name}
+                    </button>
                   </li>
                 ))}
               </ul>
             </div>
 
             <div>
-              <h4 className="font-bold dark:text-white text-gray-800 mb-4">Support</h4>
-              <ul className="space-y-2">
-                {["Documentation", "Help Center", "Contact Us", "System Status"].map((item, index) => (
+              <h4 className="font-bold dark:text-white text-gray-800 mb-6 text-lg">Support</h4>
+              <ul className="space-y-3">
+                {[
+                  { name: "Documentation", action: () => scrollToSection(aboutRef) },
+                  { name: "Help Center", action: () => scrollToSection(contactRef) },
+                  { name: "Contact Us", action: () => scrollToSection(contactRef) },
+                  { name: "Get Started", action: handleGetStarted }
+                ].map((item, index) => (
                   <li key={index}>
-                    <a href="#" className="dark:text-gray-400 text-gray-600 hover:text-sky-600 dark:hover:text-yellow-400 transition-colors duration-200">
-                      {item}
-                    </a>
+                    <button 
+                      onClick={item.action}
+                      className="dark:text-gray-400 text-gray-600 hover:text-sky-600 dark:hover:text-yellow-400 transition-all duration-300 text-left hover:translate-x-2"
+                    >
+                      {item.name}
+                    </button>
                   </li>
                 ))}
               </ul>
             </div>
           </div>
 
-          <div className="border-t dark:border-gray-800 border-gray-200 pt-8 flex flex-col md:flex-row justify-between items-center">
+          <div className="border-t dark:border-gray-800/50 border-gray-200/50 pt-8 flex flex-col md:flex-row justify-between items-center">
             <p className="dark:text-gray-400 text-gray-600 text-sm">
-              © 2024 School Bus Tracker. All rights reserved.
+              © 2025 School Bus Tracker. All rights reserved.
             </p>
             <div className="flex space-x-6 mt-4 md:mt-0">
-              {["Privacy Policy", "Terms of Service", "Cookie Policy"].map((item, index) => (
-                <a 
+              {[
+                { name: "Privacy Policy", action: () => scrollToSection(contactRef) },
+                { name: "Terms of Service", action: () => scrollToSection(contactRef) },
+                { name: "Cookie Policy", action: () => scrollToSection(contactRef) }
+              ].map((item, index) => (
+                <button 
                   key={index}
-                  href="#" 
-                  className="dark:text-gray-400 text-gray-600 hover:text-sky-600 dark:hover:text-yellow-400 transition-colors duration-200 text-sm"
+                  onClick={item.action}
+                  className="dark:text-gray-400 text-gray-600 hover:text-sky-600 dark:hover:text-yellow-400 transition-all duration-300 text-sm hover:underline"
                 >
-                  {item}
-                </a>
+                  {item.name}
+                </button>
               ))}
             </div>
           </div>
         </div>
       </footer>
+
+      {/* Scroll to Top Button */}
+      <button
+        onClick={scrollToTop}
+        className="fixed bottom-8 right-8 p-4 bg-gradient-to-r dark:from-yellow-500 dark:to-yellow-600 from-sky-500 to-sky-600 text-white rounded-full shadow-2xl hover:shadow-yellow-500/25 dark:hover:shadow-yellow-500/25 hover:shadow-sky-500/25 transition-all duration-300 hover:scale-110 z-40"
+        aria-label="Scroll to top"
+      >
+        <ArrowUp className="w-6 h-6" />
+      </button>
     </div>
   );
 };

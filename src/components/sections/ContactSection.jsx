@@ -8,7 +8,7 @@ import { Button } from '../ui/button';
 // Register GSAP plugins
 gsap.registerPlugin(ScrollTrigger);
 
-const ContactSection = ({ contactRef, handleGetStarted }) => {
+const ContactSection = ({ contactRef }) => {
   const sectionRef = useRef();
 
   useEffect(() => {
@@ -178,33 +178,6 @@ const ContactSection = ({ contactRef, handleGetStarted }) => {
                   </div>
                 </div>
               ))}
-            </div>
-
-            <div className="pt-8">
-              <div className="p-6 rounded-xl bg-gradient-to-r dark:from-gray-800/50 dark:to-gray-700/50 from-sky-50/50 to-white/50 backdrop-blur-sm border dark:border-gray-700/30 border-sky-200/30">
-                <h3 className="font-bold dark:text-white text-gray-800 text-xl mb-4">Why Choose Us?</h3>
-                <ul className="space-y-3">
-                  {[
-                    "24/7 Real-time tracking and support",
-                    "Advanced safety monitoring system",
-                    "Mobile-first responsive design",
-                    "Comprehensive analytics and reporting"
-                  ].map((benefit, idx) => (
-                    <li key={idx} className="flex items-start dark:text-gray-300 text-gray-600">
-                      <div className="w-2 h-2 bg-gradient-to-r dark:from-yellow-400 dark:to-yellow-500 from-sky-500 to-sky-600 rounded-full mr-3 mt-3 flex-shrink-0"></div>
-                      <span>{benefit}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              
-              <Button 
-                onClick={handleGetStarted}
-                className="w-full mt-6 bg-gradient-to-r dark:from-yellow-500 dark:to-yellow-600 from-sky-500 to-sky-600 hover:shadow-2xl transform hover:scale-105 transition-all duration-300 text-lg px-8 py-6 rounded-xl group"
-              >
-                Start Your Free Trial 
-                <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
-              </Button>
             </div>
           </div>
 
