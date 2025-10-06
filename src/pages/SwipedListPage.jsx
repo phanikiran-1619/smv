@@ -599,10 +599,34 @@ const SwipedListPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 from-gray-50 via-gray-100 to-gray-200 dark:text-white text-gray-800">
+    <div className="min-h-screen bg-gradient-to-br dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 from-gray-50 via-gray-100 to-gray-200 dark:text-white text-gray-800 relative">
+      {/* Zigzag Lightning Background Patterns - Light Mode */}
+      <div
+        className="absolute inset-0 z-0 pointer-events-none dark:hidden"
+        style={{
+          backgroundImage: `
+            repeating-linear-gradient(0deg, transparent, transparent 20px, rgba(75, 85, 99, 0.12) 20px, rgba(75, 85, 99, 0.12) 21px),
+            repeating-linear-gradient(90deg, transparent, transparent 30px, rgba(107, 114, 128, 0.10) 30px, rgba(107, 114, 128, 0.10) 31px),
+            repeating-linear-gradient(60deg, transparent, transparent 40px, rgba(55, 65, 81, 0.08) 40px, rgba(55, 65, 81, 0.08) 41px),
+            repeating-linear-gradient(150deg, transparent, transparent 35px, rgba(31, 41, 55, 0.06) 35px, rgba(31, 41, 55, 0.06) 36px)
+          `,
+        }}
+      />
+      {/* Zigzag Lightning Background Patterns - Dark Mode */}
+      <div
+        className="absolute inset-0 z-0 pointer-events-none hidden dark:block"
+        style={{
+          backgroundImage: `
+            repeating-linear-gradient(0deg, transparent, transparent 20px, rgba(30, 41, 59, 0.18) 20px, rgba(30, 41, 59, 0.18) 21px),
+            repeating-linear-gradient(90deg, transparent, transparent 30px, rgba(51, 65, 85, 0.15) 30px, rgba(51, 65, 85, 0.15) 31px),
+            repeating-linear-gradient(60deg, transparent, transparent 40px, rgba(71, 85, 105, 0.12) 40px, rgba(71, 85, 105, 0.12) 41px),
+            repeating-linear-gradient(150deg, transparent, transparent 35px, rgba(100, 116, 139, 0.10) 35px, rgba(100, 116, 139, 0.10) 36px)
+          `,
+        }}
+      />
       <Navbar showBackButton={true} />
       
-      <div className="pt-24 px-4 pb-8">
+      <div className="pt-24 px-4 pb-8 relative z-10">
         <div className="max-w-7xl mx-auto">
           <Card className="dark:bg-slate-800/60 dark:border-slate-600 bg-white/80 border-gray-200 p-8 rounded-2xl shadow-xl border-4 dark:border-yellow-500 border-blue-500">
             <div className="flex items-center space-x-3 mb-6">
