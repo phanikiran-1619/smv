@@ -102,7 +102,7 @@ const SuperAdminDashboard = () => {
       stats: 'Security First'
     },
     {
-      title: 'Photo Upload',
+      title: 'Image Processing',
       icon: <Upload className="w-8 h-8" />,
       path: '/photo-upload',
       description: 'Student media and document management',

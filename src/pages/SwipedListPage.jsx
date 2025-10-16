@@ -7,7 +7,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { MapPin, BarChart3, Calendar, ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { MapPin, BarChart3, Calendar, ChevronDown, ChevronLeft, ChevronRight, X, Image, Loader2 } from 'lucide-react';
 
 const SwipedListPage = () => {
   const location = useLocation();
@@ -40,6 +40,11 @@ const SwipedListPage = () => {
   const [searchStudent, setSearchStudent] = useState("");
   const [schoolIdError, setSchoolIdError] = useState(false);
   const [routeIdError, setRouteIdError] = useState(false);
+  
+  // Image functionality states
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imageLoading, setImageLoading] = useState({});
+  const [imageError, setImageError] = useState({});
 
 
   // Pagination state
@@ -389,6 +394,137 @@ const SwipedListPage = () => {
     }
   };
 
+  // Function to fetch and display student image with timestamp and proper error handling
+  const handleImageClick = async (studentId, schoolId, routeId, timestamp) => {
+    const imageKey = `${studentId}-${schoolId}-${routeId}-${timestamp}`;
+    
+    // Set loading state
+    setImageLoading(prev => ({ ...prev, [imageKey]: true }));
+    setImageError(prev => ({ ...prev, [imageKey]: false }));
+    
+    try {
+      const token = getAuthToken();
+      
+      // Make API call with validateStatus to handle 404 without throwing error
+      const response = await axios.get(
+        `${API_BASE_URL}/swipe-students/image/first/base64`,
+        {
+          params: {
+            schoolId: schoolId,
+            routeId: routeId,
+            studentId: studentId,
+            timestamp: timestamp
+          },
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          validateStatus: function (status) {
+            // Accept both 2xx and 404 status codes
+            return (status >= 200 && status < 300) || status === 404;
+          }
+        }
+      );
+
+      // Handle 404 - No image found
+      if (response.status === 404) {
+        console.log('No image found for this student at this timestamp');
+        setImageError(prev => ({ ...prev, [imageKey]: true }));
+        
+        // Show modal with no image placeholder
+        setSelectedImage({
+          url: null,
+          studentId: studentId,
+          schoolId: schoolId,
+          routeId: routeId,
+          timestamp: timestamp,
+          hasImage: false,
+          errorMessage: 'No image found for this student at this timestamp'
+        });
+        return;
+      }
+
+      // Handle successful response
+      if (response.status === 200) {
+        // Check if we have base64 data
+        if (response.data && (response.data.base64 || response.data)) {
+          const base64Data = response.data.base64 || response.data;
+          
+          // Validate base64 data
+          if (!base64Data || base64Data.trim() === '') {
+            throw new Error('Empty image data received');
+          }
+          
+          // Convert base64 to image URL
+          let imageUrl;
+          if (base64Data.startsWith('data:image/')) {
+            imageUrl = base64Data;
+          } else {
+            // Add proper data URL prefix if not present
+            imageUrl = `data:image/jpeg;base64,${base64Data}`;
+          }
+          
+          // Show image in modal
+          setSelectedImage({
+            url: imageUrl,
+            studentId: studentId,
+            schoolId: schoolId,
+            routeId: routeId,
+            timestamp: timestamp,
+            hasImage: true
+          });
+        } else {
+          throw new Error('Invalid image data format received');
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching student image:', error);
+      setImageError(prev => ({ ...prev, [imageKey]: true }));
+      
+      // Determine error message based on error type
+      let errorMessage = 'Failed to load image';
+      
+      if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+        errorMessage = 'Request timeout. Please try again';
+      } else if (error.code === 'ERR_NETWORK' || !error.response) {
+        errorMessage = 'Network error. Please check your connection';
+      } else if (error.response) {
+        switch (error.response.status) {
+          case 400:
+            errorMessage = 'Invalid request parameters';
+            break;
+          case 401:
+            errorMessage = 'Authentication failed. Please login again';
+            break;
+          case 403:
+            errorMessage = 'Access denied to this image';
+            break;
+          case 500:
+            errorMessage = 'Server error occurred. Please try again later';
+            break;
+          case 503:
+            errorMessage = 'Service temporarily unavailable';
+            break;
+          default:
+            errorMessage = error.response.data?.message || 'Failed to load image';
+        }
+      }
+      
+      // Show modal with error placeholder
+      setSelectedImage({
+        url: null,
+        studentId: studentId,
+        schoolId: schoolId,
+        routeId: routeId,
+        timestamp: timestamp,
+        hasImage: false,
+        errorMessage: errorMessage
+      });
+    } finally {
+      setImageLoading(prev => ({ ...prev, [imageKey]: false }));
+    }
+  };
+
   const exportToExcel = async () => {
     try {
       // Dynamic import of xlsx
@@ -599,10 +735,34 @@ const SwipedListPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 from-gray-50 via-gray-100 to-gray-200 dark:text-white text-gray-800">
+    <div className="min-h-screen bg-gradient-to-br dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 from-gray-50 via-gray-100 to-gray-200 dark:text-white text-gray-800 relative">
+      {/* Zigzag Lightning Background Patterns - Light Mode */}
+      <div
+        className="absolute inset-0 z-0 pointer-events-none dark:hidden"
+        style={{
+          backgroundImage: `
+            repeating-linear-gradient(0deg, transparent, transparent 20px, rgba(75, 85, 99, 0.12) 20px, rgba(75, 85, 99, 0.12) 21px),
+            repeating-linear-gradient(90deg, transparent, transparent 30px, rgba(107, 114, 128, 0.10) 30px, rgba(107, 114, 128, 0.10) 31px),
+            repeating-linear-gradient(60deg, transparent, transparent 40px, rgba(55, 65, 81, 0.08) 40px, rgba(55, 65, 81, 0.08) 41px),
+            repeating-linear-gradient(150deg, transparent, transparent 35px, rgba(31, 41, 55, 0.06) 35px, rgba(31, 41, 55, 0.06) 36px)
+          `,
+        }}
+      />
+      {/* Zigzag Lightning Background Patterns - Dark Mode */}
+      <div
+        className="absolute inset-0 z-0 pointer-events-none hidden dark:block"
+        style={{
+          backgroundImage: `
+            repeating-linear-gradient(0deg, transparent, transparent 20px, rgba(30, 41, 59, 0.18) 20px, rgba(30, 41, 59, 0.18) 21px),
+            repeating-linear-gradient(90deg, transparent, transparent 30px, rgba(51, 65, 85, 0.15) 30px, rgba(51, 65, 85, 0.15) 31px),
+            repeating-linear-gradient(60deg, transparent, transparent 40px, rgba(71, 85, 105, 0.12) 40px, rgba(71, 85, 105, 0.12) 41px),
+            repeating-linear-gradient(150deg, transparent, transparent 35px, rgba(100, 116, 139, 0.10) 35px, rgba(100, 116, 139, 0.10) 36px)
+          `,
+        }}
+      />
       <Navbar showBackButton={true} />
       
-      <div className="pt-24 px-4 pb-8">
+      <div className="pt-24 px-4 pb-8 relative z-10">
         <div className="max-w-7xl mx-auto">
           <Card className="dark:bg-slate-800/60 dark:border-slate-600 bg-white/80 border-gray-200 p-8 rounded-2xl shadow-xl border-4 dark:border-yellow-500 border-blue-500">
             <div className="flex items-center space-x-3 mb-6">
@@ -960,6 +1120,7 @@ const SwipedListPage = () => {
                         Result {sortColumn === "reserv" && (sortDirection === "asc" ? "↑" : "↓")}
                       </TableHead>
                       <TableHead>Location</TableHead>
+                      <TableHead>Image</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -992,6 +1153,35 @@ const SwipedListPage = () => {
                           ) : (
                             <span className="text-gray-500 text-sm">No location</span>
                           )}
+                        </TableCell>
+                        <TableCell>
+                          {(() => {
+                            const imageKey = `${record.studentId}-${record.schoolId}-${record.routeId}-${record.timestamp}`;
+                            const isLoading = imageLoading[imageKey];
+                            const hasError = imageError[imageKey];
+                            
+                            if (isLoading) {
+                              return (
+                                <Loader2 
+                                  className="w-6 h-6 animate-spin text-gray-400"
+                                  data-testid={`image-loading-${record.studentId}`}
+                                />
+                              );
+                            }
+                            
+                            return (
+                              <Image 
+                                onClick={() => handleImageClick(record.studentId, record.schoolId, record.routeId, record.timestamp)}
+                                className={`w-6 h-6 cursor-pointer transition-colors ${
+                                  hasError 
+                                    ? 'text-red-400 hover:text-red-300' 
+                                    : 'dark:text-yellow-400 dark:hover:text-yellow-300 text-blue-600 hover:text-blue-500'
+                                }`}
+                                title={hasError ? 'Failed to load image' : 'View student image'}
+                                data-testid={`image-icon-${record.studentId}`}
+                              />
+                            );
+                          })()}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -1086,6 +1276,57 @@ const SwipedListPage = () => {
                   </a>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Student Image Modal */}
+        {selectedImage && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="relative dark:bg-slate-800 bg-white rounded-xl shadow-2xl w-full max-w-lg mx-auto p-4 sm:p-6 border-4 dark:border-yellow-500 border-blue-500">
+              <button
+                onClick={() => setSelectedImage(null)}
+                className="absolute top-2 right-2 sm:top-4 sm:right-4 dark:text-yellow-400 dark:hover:text-yellow-300 text-blue-600 hover:text-blue-500 transition-colors z-10"
+                data-testid="close-image-modal"
+              >
+                <X className="w-5 h-5 sm:w-6 sm:h-6" />
+              </button>
+              <h3 className="text-lg sm:text-2xl font-bold dark:text-yellow-400 text-blue-600 mb-3 sm:mb-4 text-center pr-8">Student Image</h3>
+              <div className="dark:bg-slate-700 bg-gray-100 p-2 rounded-lg mb-3 sm:mb-4 text-center">
+                <p className="dark:text-gray-300 text-gray-600 text-xs sm:text-sm">
+                  Student ID: <span className="text-green-400">{selectedImage.studentId}</span> | 
+                  School ID: <span className="text-blue-400">{selectedImage.schoolId}</span> | 
+                  Route ID: <span className="text-purple-400">{selectedImage.routeId}</span>
+                </p>
+                <p className="dark:text-gray-300 text-gray-600 text-xs sm:text-sm mt-1">
+                  Timestamp: <span className="text-yellow-400">{selectedImage.timestamp}</span>
+                </p>
+              </div>
+              <div className="flex justify-center">
+                {selectedImage.hasImage ? (
+                  <img
+                    src={selectedImage.url}
+                    alt={`Student ${selectedImage.studentId}`}
+                    className="max-w-full max-h-96 rounded-lg shadow-lg object-contain"
+                    data-testid="student-image"
+                    onError={(e) => {
+                      console.error('Failed to load image:', e);
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <div 
+                  className={`dark:bg-slate-700 bg-gray-100 p-8 rounded-lg text-center flex-col justify-center items-center ${selectedImage.hasImage ? 'hidden' : 'flex'}`}
+                  style={{width: '100%', minHeight: '200px'}}
+                >
+                  <svg className="w-24 h-24 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p className="text-red-400 mb-2 font-semibold text-lg">No Image Found</p>
+                  <p className="dark:text-gray-300 text-gray-600 text-sm">{selectedImage.errorMessage || 'The image could not be displayed'}</p>
+                </div>
+              </div>
             </div>
           </div>
         )}
